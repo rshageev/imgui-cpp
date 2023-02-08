@@ -259,6 +259,9 @@ struct ImVec2
     constexpr ImVec2(float _x, float _y)    : x(_x), y(_y) { }
     float  operator[] (size_t idx) const    { IM_ASSERT(idx == 0 || idx == 1); return (&x)[idx]; }  // We very rarely use this [] operator, the assert overhead is fine.
     float& operator[] (size_t idx)          { IM_ASSERT(idx == 0 || idx == 1); return (&x)[idx]; }  // We very rarely use this [] operator, the assert overhead is fine.
+
+    bool operator==(const ImVec2& rhs) const = default;
+    bool operator!=(const ImVec2& rhs) const = default;
 #ifdef IM_VEC2_CLASS_EXTRA
     IM_VEC2_CLASS_EXTRA     // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math types and ImVec2.
 #endif
@@ -270,6 +273,9 @@ struct ImVec4
     float                                                     x, y, z, w;
     constexpr ImVec4()                                        : x(0.0f), y(0.0f), z(0.0f), w(0.0f) { }
     constexpr ImVec4(float _x, float _y, float _z, float _w)  : x(_x), y(_y), z(_z), w(_w) { }
+
+    bool operator==(const ImVec4& rhs) const = default;
+    bool operator!=(const ImVec4& rhs) const = default;
 #ifdef IM_VEC4_CLASS_EXTRA
     IM_VEC4_CLASS_EXTRA     // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math types and ImVec4.
 #endif
@@ -2936,8 +2942,11 @@ struct ImGuiViewport
 struct ImGuiPlatformImeData
 {
     bool WantVisible = false;     // A widget wants the IME to be visible
-    ImVec2  InputPos;             // Position of the input cursor
+    ImVec2 InputPos;             // Position of the input cursor
     float InputLineHeight = 0.0f; // Line height
+
+    bool operator==(const ImGuiPlatformImeData& rhs) const = default;
+    bool operator!=(const ImGuiPlatformImeData& rhs) const = default;
 };
 
 //-----------------------------------------------------------------------------
