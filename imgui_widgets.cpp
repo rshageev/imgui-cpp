@@ -3739,11 +3739,6 @@ void ImGuiInputTextState::OnKeyPressed(int key)
     CursorAnimReset();
 }
 
-ImGuiInputTextCallbackData::ImGuiInputTextCallbackData()
-{
-    memset(this, 0, sizeof(*this));
-}
-
 // Public API to manipulate UTF-8 text
 // We expose UTF-8 to the user (unlike the STB_TEXTEDIT_* functions which are manipulating wchar)
 // FIXME: The existence of this rarely exercised code path is a bit of a nuisance.
@@ -3880,7 +3875,6 @@ static bool InputTextFilterCharacter(unsigned int* p_char, ImGuiInputTextFlags f
     if (flags & ImGuiInputTextFlags_CallbackCharFilter)
     {
         ImGuiInputTextCallbackData callback_data;
-        memset(&callback_data, 0, sizeof(ImGuiInputTextCallbackData));
         callback_data.EventFlag = ImGuiInputTextFlags_CallbackCharFilter;
         callback_data.EventChar = (ImWchar)c;
         callback_data.Flags = flags;
@@ -4520,7 +4514,6 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
                 if (event_flag)
                 {
                     ImGuiInputTextCallbackData callback_data;
-                    memset(&callback_data, 0, sizeof(ImGuiInputTextCallbackData));
                     callback_data.EventFlag = event_flag;
                     callback_data.Flags = flags;
                     callback_data.UserData = callback_user_data;
@@ -7304,11 +7297,9 @@ bool ImGui::MenuItem(const char* label, const char* shortcut, bool* p_selected, 
 
 struct ImGuiTabBarSection
 {
-    int                 TabCount;               // Number of tabs in this section.
-    float               Width;                  // Sum of width of tabs in this section (after shrinking down)
-    float               Spacing;                // Horizontal spacing at the end of the section.
-
-    ImGuiTabBarSection() { memset(this, 0, sizeof(*this)); }
+    int TabCount = 0;     // Number of tabs in this section.
+    float Width = 0.0f;   // Sum of width of tabs in this section (after shrinking down)
+    float Spacing = 0.0f; // Horizontal spacing at the end of the section.
 };
 
 namespace ImGui
@@ -7320,13 +7311,6 @@ namespace ImGui
     static void             TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, ImGuiTabBarSection* sections);
     static ImGuiTabItem*    TabBarScrollingButtons(ImGuiTabBar* tab_bar);
     static ImGuiTabItem*    TabBarTabListPopupButton(ImGuiTabBar* tab_bar);
-}
-
-ImGuiTabBar::ImGuiTabBar()
-{
-    memset(this, 0, sizeof(*this));
-    CurrFrameVisible = PrevFrameVisible = -1;
-    LastTabItemIdx = -1;
 }
 
 static inline int TabItemGetSectionIdx(const ImGuiTabItem* tab)

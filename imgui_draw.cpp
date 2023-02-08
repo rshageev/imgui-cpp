@@ -358,7 +358,6 @@ void ImGui::StyleColorsLight(ImGuiStyle* dst)
 
 ImDrawListSharedData::ImDrawListSharedData()
 {
-    memset(this, 0, sizeof(*this));
     for (int i = 0; i < IM_ARRAYSIZE(ArcFastVtx); i++)
     {
         const float a = ((float)i * 2 * IM_PI) / (float)IM_ARRAYSIZE(ArcFastVtx);
@@ -396,7 +395,7 @@ void ImDrawList::_ResetForNewFrame()
     IdxBuffer.resize(0);
     VtxBuffer.resize(0);
     Flags = _Data->InitialFlags;
-    memset(&_CmdHeader, 0, sizeof(_CmdHeader));
+    _CmdHeader = {};
     _VtxCurrentIdx = 0;
     _VtxWritePtr = NULL;
     _IdxWritePtr = NULL;
@@ -1898,21 +1897,6 @@ void ImGui::ShadeVertsLinearUV(ImDrawList* draw_list, int vert_start_idx, int ve
 }
 
 //-----------------------------------------------------------------------------
-// [SECTION] ImFontConfig
-//-----------------------------------------------------------------------------
-
-ImFontConfig::ImFontConfig()
-{
-    memset(this, 0, sizeof(*this));
-    FontDataOwnedByAtlas = true;
-    OversampleH = 3; // FIXME: 2 may be a better default?
-    OversampleV = 1;
-    GlyphMaxAdvanceX = FLT_MAX;
-    RasterizerMultiply = 1.0f;
-    EllipsisChar = (ImWchar)-1;
-}
-
-//-----------------------------------------------------------------------------
 // [SECTION] ImFontAtlas
 //-----------------------------------------------------------------------------
 
@@ -1965,13 +1949,6 @@ static const ImVec2 FONT_ATLAS_DEFAULT_TEX_CURSOR_DATA[ImGuiMouseCursor_COUNT][3
     { ImVec2(91,0), ImVec2(17,22), ImVec2( 5, 0) }, // ImGuiMouseCursor_Hand
     { ImVec2(109,0),ImVec2(13,15), ImVec2( 6, 7) }, // ImGuiMouseCursor_NotAllowed
 };
-
-ImFontAtlas::ImFontAtlas()
-{
-    memset(this, 0, sizeof(*this));
-    TexGlyphPadding = 1;
-    PackIdMouseCursors = PackIdLines = -1;
-}
 
 ImFontAtlas::~ImFontAtlas()
 {
