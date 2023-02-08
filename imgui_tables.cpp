@@ -2440,7 +2440,7 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
                 merge_group->ClipRect = ImRect(+FLT_MAX, +FLT_MAX, -FLT_MAX, -FLT_MAX);
             ImBitArraySetBit(merge_group->ChannelsMask, channel_no);
             merge_group->ChannelsCount++;
-            merge_group->ClipRect.Add(src_channel->_CmdBuffer[0].ClipRect);
+            merge_group->ClipRect.Add(src_channel->_CmdBuffer[0].Header.ClipRect);
             merge_group_mask |= (1 << merge_group_n);
         }
 
@@ -2519,8 +2519,8 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
                     merge_channels_count--;
 
                     ImDrawChannel* channel = &splitter->_Channels[n];
-                    IM_ASSERT(channel->_CmdBuffer.Size == 1 && merge_clip_rect.Contains(ImRect(channel->_CmdBuffer[0].ClipRect)));
-                    channel->_CmdBuffer[0].ClipRect = merge_clip_rect.ToVec4();
+                    IM_ASSERT(channel->_CmdBuffer.Size == 1 && merge_clip_rect.Contains(ImRect(channel->_CmdBuffer[0].Header.ClipRect)));
+                    channel->_CmdBuffer[0].Header.ClipRect = merge_clip_rect.ToVec4();
                     memcpy(dst_tmp++, channel, sizeof(ImDrawChannel));
                 }
             }

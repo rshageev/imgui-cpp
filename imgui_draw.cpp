@@ -384,10 +384,6 @@ void ImDrawListSharedData::SetCircleTessellationMaxError(float max_error)
 // Initialize before use in a new frame. We always have a command ready in the buffer.
 void ImDrawList::_ResetForNewFrame()
 {
-    // Verify that the ImDrawCmd fields we want to memcmp() are contiguous in memory.
-    IM_STATIC_ASSERT(IM_OFFSETOF(ImDrawCmd, ClipRect) == 0);
-    IM_STATIC_ASSERT(IM_OFFSETOF(ImDrawCmd, TextureId) == sizeof(ImVec4));
-    IM_STATIC_ASSERT(IM_OFFSETOF(ImDrawCmd, VtxOffset) == sizeof(ImVec4) + sizeof(ImTextureID));
     if (_Splitter._Count > 1)
         _Splitter.Merge(this);
 
@@ -435,12 +431,10 @@ ImDrawList* ImDrawList::CloneOutput() const
 void ImDrawList::AddDrawCmd()
 {
     ImDrawCmd draw_cmd;
-    draw_cmd.ClipRect = _CmdHeader.ClipRect;    // Same as calling ImDrawCmd_HeaderCopy()
-    draw_cmd.TextureId = _CmdHeader.TextureId;
-    draw_cmd.VtxOffset = _CmdHeader.VtxOffset;
+    draw_cmd.Header = _CmdHeader;    // Same as calling ImDrawCmd_HeaderCopy()
     draw_cmd.IdxOffset = IdxBuffer.Size;
 
-    IM_ASSERT(draw_cmd.ClipRect.x <= draw_cmd.ClipRect.z && draw_cmd.ClipRect.y <= draw_cmd.ClipRect.w);
+    IM_ASSERT(draw_cmd.Header.ClipRect.x <= draw_cmd.Header.ClipRect.z && draw_cmd.Header.ClipRect.y <= draw_cmd.Header.ClipRect.w);
     CmdBuffer.push_back(draw_cmd);
 }
 
@@ -473,11 +467,9 @@ void ImDrawList::AddCallback(ImDrawCallback callback, void* callback_data)
     AddDrawCmd(); // Force a new command after us (see comment below)
 }
 
-// Compare ClipRect, TextureId and VtxOffset with a single memcmp()
-#define ImDrawCmd_HeaderSize                            (IM_OFFSETOF(ImDrawCmd, VtxOffset) + sizeof(unsigned int))
-#define ImDrawCmd_HeaderCompare(CMD_LHS, CMD_RHS)       (memcmp(CMD_LHS, CMD_RHS, ImDrawCmd_HeaderSize))    // Compare ClipRect, TextureId, VtxOffset
-#define ImDrawCmd_HeaderCopy(CMD_DST, CMD_SRC)          (memcpy(CMD_DST, CMD_SRC, ImDrawCmd_HeaderSize))    // Copy ClipRect, TextureId, VtxOffset
-#define ImDrawCmd_AreSequentialIdxOffset(CMD_0, CMD_1)  (CMD_0->IdxOffset + CMD_0->ElemCount == CMD_1->IdxOffset)
+static bool ImDrawCmd_AreSequentialIdxOffset(const ImDrawCmd* cmd0, const ImDrawCmd* cmd1) {
+    return cmd0->IdxOffset + cmd0->ElemCount == cmd1->IdxOffset;
+}
 
 // Try to merge two last draw commands
 void ImDrawList::_TryMergeDrawCmds()
@@ -485,7 +477,10 @@ void ImDrawList::_TryMergeDrawCmds()
     IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
     ImDrawCmd* prev_cmd = curr_cmd - 1;
-    if (ImDrawCmd_HeaderCompare(curr_cmd, prev_cmd) == 0 && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) && curr_cmd->UserCallback == NULL && prev_cmd->UserCallback == NULL)
+    if (curr_cmd->Header == prev_cmd->Header
+        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
+        && curr_cmd->UserCallback == NULL
+        && prev_cmd->UserCallback == NULL)
     {
         prev_cmd->ElemCount += curr_cmd->ElemCount;
         CmdBuffer.pop_back();
@@ -499,7 +494,7 @@ void ImDrawList::_OnChangedClipRect()
     // If current command is used with different settings we need to add a new command
     IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
-    if (curr_cmd->ElemCount != 0 && memcmp(&curr_cmd->ClipRect, &_CmdHeader.ClipRect, sizeof(ImVec4)) != 0)
+    if (curr_cmd->ElemCount != 0 && curr_cmd->Header.ClipRect != _CmdHeader.ClipRect)
     {
         AddDrawCmd();
         return;
@@ -508,13 +503,17 @@ void ImDrawList::_OnChangedClipRect()
 
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = curr_cmd - 1;
-    if (curr_cmd->ElemCount == 0 && CmdBuffer.Size > 1 && ImDrawCmd_HeaderCompare(&_CmdHeader, prev_cmd) == 0 && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) && prev_cmd->UserCallback == NULL)
+    if (curr_cmd->ElemCount == 0
+        && CmdBuffer.Size > 1
+        && _CmdHeader == prev_cmd->Header
+        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
+        && prev_cmd->UserCallback == NULL)
     {
         CmdBuffer.pop_back();
         return;
     }
 
-    curr_cmd->ClipRect = _CmdHeader.ClipRect;
+    curr_cmd->Header.ClipRect = _CmdHeader.ClipRect;
 }
 
 void ImDrawList::_OnChangedTextureID()
@@ -522,7 +521,7 @@ void ImDrawList::_OnChangedTextureID()
     // If current command is used with different settings we need to add a new command
     IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
     ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
-    if (curr_cmd->ElemCount != 0 && curr_cmd->TextureId != _CmdHeader.TextureId)
+    if (curr_cmd->ElemCount != 0 && curr_cmd->Header.TextureId != _CmdHeader.TextureId)
     {
         AddDrawCmd();
         return;
@@ -531,13 +530,17 @@ void ImDrawList::_OnChangedTextureID()
 
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = curr_cmd - 1;
-    if (curr_cmd->ElemCount == 0 && CmdBuffer.Size > 1 && ImDrawCmd_HeaderCompare(&_CmdHeader, prev_cmd) == 0 && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd) && prev_cmd->UserCallback == NULL)
+    if (curr_cmd->ElemCount == 0
+        && CmdBuffer.Size > 1
+        && _CmdHeader == prev_cmd->Header
+        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
+        && prev_cmd->UserCallback == NULL)
     {
         CmdBuffer.pop_back();
         return;
     }
 
-    curr_cmd->TextureId = _CmdHeader.TextureId;
+    curr_cmd->Header.TextureId = _CmdHeader.TextureId;
 }
 
 void ImDrawList::_OnChangedVtxOffset()
@@ -553,7 +556,7 @@ void ImDrawList::_OnChangedVtxOffset()
         return;
     }
     IM_ASSERT(curr_cmd->UserCallback == NULL);
-    curr_cmd->VtxOffset = _CmdHeader.VtxOffset;
+    curr_cmd->Header.VtxOffset = _CmdHeader.VtxOffset;
 }
 
 int ImDrawList::_CalcCircleAutoSegmentCount(float radius) const
@@ -1734,7 +1737,9 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
             // Do not include ImDrawCmd_AreSequentialIdxOffset() in the compare as we rebuild IdxOffset values ourselves.
             // Manipulating IdxOffset (e.g. by reordering draw commands like done by RenderDimmedBackgroundBehindWindow()) is not supported within a splitter.
             ImDrawCmd* next_cmd = &ch._CmdBuffer[0];
-            if (ImDrawCmd_HeaderCompare(last_cmd, next_cmd) == 0 && last_cmd->UserCallback == NULL && next_cmd->UserCallback == NULL)
+            if (last_cmd->Header == next_cmd->Header
+                && last_cmd->UserCallback == NULL
+                && next_cmd->UserCallback == NULL)
             {
                 // Merge previous channel last draw command with current channel first draw command if matching.
                 last_cmd->ElemCount += next_cmd->ElemCount;
@@ -1772,10 +1777,11 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
 
     // If current command is used with different settings we need to add a new command
     ImDrawCmd* curr_cmd = &draw_list->CmdBuffer.Data[draw_list->CmdBuffer.Size - 1];
-    if (curr_cmd->ElemCount == 0)
-        ImDrawCmd_HeaderCopy(curr_cmd, &draw_list->_CmdHeader); // Copy ClipRect, TextureId, VtxOffset
-    else if (ImDrawCmd_HeaderCompare(curr_cmd, &draw_list->_CmdHeader) != 0)
+    if (curr_cmd->ElemCount == 0) {
+        curr_cmd->Header = draw_list->_CmdHeader;
+    } else if (curr_cmd->Header != draw_list->_CmdHeader) {
         draw_list->AddDrawCmd();
+    }
 
     _Count = 1;
 }
@@ -1796,12 +1802,13 @@ void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
 
     // If current command is used with different settings we need to add a new command
     ImDrawCmd* curr_cmd = (draw_list->CmdBuffer.Size == 0) ? NULL : &draw_list->CmdBuffer.Data[draw_list->CmdBuffer.Size - 1];
-    if (curr_cmd == NULL)
+    if (curr_cmd == NULL) {
         draw_list->AddDrawCmd();
-    else if (curr_cmd->ElemCount == 0)
-        ImDrawCmd_HeaderCopy(curr_cmd, &draw_list->_CmdHeader); // Copy ClipRect, TextureId, VtxOffset
-    else if (ImDrawCmd_HeaderCompare(curr_cmd, &draw_list->_CmdHeader) != 0)
+    } else if (curr_cmd->ElemCount == 0) {
+        curr_cmd->Header = draw_list->_CmdHeader;
+    } else if (curr_cmd->Header != draw_list->_CmdHeader) {
         draw_list->AddDrawCmd();
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -1838,7 +1845,11 @@ void ImDrawData::ScaleClipRects(const ImVec2& fb_scale)
         for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
         {
             ImDrawCmd* cmd = &cmd_list->CmdBuffer[cmd_i];
-            cmd->ClipRect = ImVec4(cmd->ClipRect.x * fb_scale.x, cmd->ClipRect.y * fb_scale.y, cmd->ClipRect.z * fb_scale.x, cmd->ClipRect.w * fb_scale.y);
+            cmd->Header.ClipRect = ImVec4(
+                cmd->Header.ClipRect.x * fb_scale.x,
+                cmd->Header.ClipRect.y * fb_scale.y,
+                cmd->Header.ClipRect.z * fb_scale.x,
+                cmd->Header.ClipRect.w * fb_scale.y);
         }
     }
 }

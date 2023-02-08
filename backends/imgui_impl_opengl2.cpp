@@ -203,8 +203,8 @@ void ImGui_ImplOpenGL2_RenderDrawData(ImDrawData* draw_data)
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
-                ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
+                ImVec2 clip_min((pcmd->Header.ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->Header.ClipRect.y - clip_off.y) * clip_scale.y);
+                ImVec2 clip_max((pcmd->Header.ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->Header.ClipRect.w - clip_off.y) * clip_scale.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 

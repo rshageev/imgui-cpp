@@ -1780,7 +1780,7 @@ void ImGui::EndComboPreview()
     if (window->DC.CursorMaxPos.x < preview_data->PreviewRect.Max.x && window->DC.CursorMaxPos.y < preview_data->PreviewRect.Max.y)
         if (draw_list->CmdBuffer.Size > 1) // Unlikely case that the PushClipRect() didn't create a command
         {
-            draw_list->_CmdHeader.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 1].ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 2].ClipRect;
+            draw_list->_CmdHeader.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 1].Header.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 2].Header.ClipRect;
             draw_list->_TryMergeDrawCmds();
         }
     PopClipRect();
