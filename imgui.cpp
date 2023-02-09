@@ -4183,6 +4183,15 @@ void ImGui::UpdateHoveredWindowAndCaptureFlags()
     io.WantTextInput = (g.WantTextInputNextFrame != -1) ? (g.WantTextInputNextFrame != 0) : false;
 }
 
+float ImGuiFPSCounter::UpdateCurrentFPS(float dt)
+{
+    FramerateSecPerFrameAccum += dt - FramerateSecPerFrame[FramerateSecPerFrameIdx];
+    FramerateSecPerFrame[FramerateSecPerFrameIdx] = dt;
+    FramerateSecPerFrameIdx = (FramerateSecPerFrameIdx + 1) % FramerateSecPerFrame.size();
+    FramerateSecPerFrameCount = std::min(FramerateSecPerFrameCount + 1, FramerateSecPerFrame.size());
+    return (FramerateSecPerFrameAccum > 0.0f) ? (1.0f / (FramerateSecPerFrameAccum / (float)FramerateSecPerFrameCount)) : FLT_MAX;
+}
+
 void ImGui::NewFrame()
 {
     IM_ASSERT(GImGui != NULL && "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?");
@@ -4210,11 +4219,7 @@ void ImGui::NewFrame()
     g.MenusIdSubmittedThisFrame.resize(0);
 
     // Calculate frame-rate for the user, as a purely luxurious feature
-    g.FramerateSecPerFrameAccum += g.IO.DeltaTime - g.FramerateSecPerFrame[g.FramerateSecPerFrameIdx];
-    g.FramerateSecPerFrame[g.FramerateSecPerFrameIdx] = g.IO.DeltaTime;
-    g.FramerateSecPerFrameIdx = (g.FramerateSecPerFrameIdx + 1) % IM_ARRAYSIZE(g.FramerateSecPerFrame);
-    g.FramerateSecPerFrameCount = ImMin(g.FramerateSecPerFrameCount + 1, IM_ARRAYSIZE(g.FramerateSecPerFrame));
-    g.IO.Framerate = (g.FramerateSecPerFrameAccum > 0.0f) ? (1.0f / (g.FramerateSecPerFrameAccum / (float)g.FramerateSecPerFrameCount)) : FLT_MAX;
+    g.IO.Framerate = g.FpsCounter.UpdateCurrentFPS(g.IO.DeltaTime);
 
     // Process input queue (trickle as many events as possible), turn events into writes to IO structure
     g.InputEventsTrail.resize(0);

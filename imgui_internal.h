@@ -1687,6 +1687,20 @@ struct ImGuiContextHook
 // [SECTION] ImGuiContext (main Dear ImGui context)
 //-----------------------------------------------------------------------------
 
+class ImGuiFPSCounter
+{
+public:
+    ImGuiFPSCounter() { FramerateSecPerFrame.fill(0.0f); }
+
+    float UpdateCurrentFPS(float dt);
+
+private:
+    std::array<float, 60> FramerateSecPerFrame;
+    size_t FramerateSecPerFrameIdx = 0;
+    size_t FramerateSecPerFrameCount = 0;
+    float FramerateSecPerFrameAccum = 0.0f;
+};
+
 struct ImGuiContext
 {
     bool                    Initialized;
@@ -1960,10 +1974,13 @@ struct ImGuiContext
     ImGuiStackTool          DebugStackTool;
 
     // Misc
-    float                   FramerateSecPerFrame[60];           // Calculate estimate of framerate for user over the last 60 frames..
-    int                     FramerateSecPerFrameIdx;
-    int                     FramerateSecPerFrameCount;
-    float                   FramerateSecPerFrameAccum;
+    std::array<float, 60> FramerateSecPerFrame;           // Calculate estimate of framerate for user over the last 60 frames..
+    size_t FramerateSecPerFrameIdx = 0;
+    size_t FramerateSecPerFrameCount = 0;
+    float FramerateSecPerFrameAccum = 0.0f;
+
+    ImGuiFPSCounter FpsCounter;
+
     int                     WantCaptureMouseNextFrame;          // Explicit capture override via SetNextFrameWantCaptureMouse()/SetNextFrameWantCaptureKeyboard(). Default to -1.
     int                     WantCaptureKeyboardNextFrame;       // "
     int                     WantTextInputNextFrame;
@@ -2123,9 +2140,6 @@ struct ImGuiContext
         DebugItemPickerMouseButton = ImGuiMouseButton_Left;
         DebugItemPickerBreakId = 0;
 
-        memset(FramerateSecPerFrame, 0, sizeof(FramerateSecPerFrame));
-        FramerateSecPerFrameIdx = FramerateSecPerFrameCount = 0;
-        FramerateSecPerFrameAccum = 0.0f;
         WantCaptureMouseNextFrame = WantCaptureKeyboardNextFrame = WantTextInputNextFrame = -1;
     }
 };
