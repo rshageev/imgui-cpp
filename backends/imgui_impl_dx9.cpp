@@ -203,17 +203,15 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        const ImDrawVert* vtx_src = cmd_list->VtxBuffer.Data;
-        for (int i = 0; i < cmd_list->VtxBuffer.Size; i++)
+        for (const auto& vtx_src : cmd_list->VtxBuffer)
         {
-            vtx_dst->pos[0] = vtx_src->pos.x;
-            vtx_dst->pos[1] = vtx_src->pos.y;
+            vtx_dst->pos[0] = vtx_src.pos.x;
+            vtx_dst->pos[1] = vtx_src.pos.y;
             vtx_dst->pos[2] = 0.0f;
-            vtx_dst->col = IMGUI_COL_TO_DX9_ARGB(vtx_src->col);
-            vtx_dst->uv[0] = vtx_src->uv.x;
-            vtx_dst->uv[1] = vtx_src->uv.y;
+            vtx_dst->col = IMGUI_COL_TO_DX9_ARGB(vtx_src.col);
+            vtx_dst->uv[0] = vtx_src.uv.x;
+            vtx_dst->uv[1] = vtx_src.uv.y;
             vtx_dst++;
-            vtx_src++;
         }
         memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
         idx_dst += cmd_list->IdxBuffer.Size;
@@ -235,32 +233,31 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+        for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-            if (pcmd->UserCallback != nullptr)
+            if (cmd.UserCallback != nullptr)
             {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
                     ImGui_ImplDX9_SetupRenderState(draw_data);
                 else
-                    pcmd->UserCallback(cmd_list, pcmd);
+                    cmd.UserCallback(cmd_list, &cmd);
             }
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(pcmd->Header.ClipRect.x - clip_off.x, pcmd->Header.ClipRect.y - clip_off.y);
-                ImVec2 clip_max(pcmd->Header.ClipRect.z - clip_off.x, pcmd->Header.ClipRect.w - clip_off.y);
+                ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
+                ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 
                 // Apply Scissor/clipping rectangle, Bind texture, Draw
                 const RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
-                const LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)pcmd->GetTexID();
+                const LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)cmd.GetTexID();
                 bd->pd3dDevice->SetTexture(0, texture);
                 bd->pd3dDevice->SetScissorRect(&r);
-                bd->pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, pcmd->Header.VtxOffset + global_vtx_offset, 0, (UINT)cmd_list->VtxBuffer.Size, pcmd->IdxOffset + global_idx_offset, pcmd->ElemCount / 3);
+                bd->pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, cmd.Header.VtxOffset + global_vtx_offset, 0, (UINT)cmd_list->VtxBuffer.Size, cmd.IdxOffset + global_idx_offset, cmd.ElemCount / 3);
             }
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;

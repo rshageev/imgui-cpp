@@ -2396,16 +2396,15 @@ void ImGuiTextFilter::Build()
     input_range.split(',', &Filters);
 
     CountGrep = 0;
-    for (int i = 0; i != Filters.Size; i++)
+    for (ImGuiTextRange& f : Filters)
     {
-        ImGuiTextRange& f = Filters[i];
         while (f.b < f.e && ImCharIsBlankA(f.b[0]))
             f.b++;
         while (f.e > f.b && ImCharIsBlankA(f.e[-1]))
             f.e--;
         if (f.empty())
             continue;
-        if (Filters[i].b[0] != '-')
+        if (f.b[0] != '-')
             CountGrep += 1;
     }
 }
@@ -2418,9 +2417,8 @@ bool ImGuiTextFilter::PassFilter(const char* text, const char* text_end) const
     if (text == NULL)
         text = "";
 
-    for (int i = 0; i != Filters.Size; i++)
+    for (const ImGuiTextRange& f : Filters)
     {
-        const ImGuiTextRange& f = Filters[i];
         if (f.empty())
             continue;
         if (f.b[0] == '-')
@@ -2801,15 +2799,15 @@ static bool ImGuiListClipper_StepInternal(ImGuiListClipper* clipper)
         // - Very important: when a starting position is after our maximum item, we set Min to (ItemsCount - 1). This allows us to handle most forms of wrapping.
         // - Due to how Selectable extra padding they tend to be "unaligned" with exact unit in the item list,
         //   which with the flooring/ceiling tend to lead to 2 items instead of one being submitted.
-        for (int i = 0; i < data->Ranges.Size; i++)
-            if (data->Ranges[i].PosToIndexConvert)
-            {
-                int m1 = (int)(((double)data->Ranges[i].Min - window->DC.CursorPos.y - data->LossynessOffset) / clipper->ItemsHeight);
-                int m2 = (int)((((double)data->Ranges[i].Max - window->DC.CursorPos.y - data->LossynessOffset) / clipper->ItemsHeight) + 0.999999f);
-                data->Ranges[i].Min = ImClamp(already_submitted + m1 + data->Ranges[i].PosToIndexOffsetMin, already_submitted, clipper->ItemsCount - 1);
-                data->Ranges[i].Max = ImClamp(already_submitted + m2 + data->Ranges[i].PosToIndexOffsetMax, data->Ranges[i].Min + 1, clipper->ItemsCount);
-                data->Ranges[i].PosToIndexConvert = false;
+        for (ImGuiListClipperRange& range : data->Ranges) {
+            if (range.PosToIndexConvert) {
+                int m1 = (int)(((double)range.Min - window->DC.CursorPos.y - data->LossynessOffset) / clipper->ItemsHeight);
+                int m2 = (int)((((double)range.Max - window->DC.CursorPos.y - data->LossynessOffset) / clipper->ItemsHeight) + 0.999999f);
+                range.Min = ImClamp(already_submitted + m1 + range.PosToIndexOffsetMin, already_submitted, clipper->ItemsCount - 1);
+                range.Max = ImClamp(already_submitted + m2 + range.PosToIndexOffsetMax, range.Min + 1, clipper->ItemsCount);
+                range.PosToIndexConvert = false;
             }
+        }
         ImGuiListClipper_SortAndFuseRanges(data->Ranges, data->StepNo);
     }
 
@@ -4462,9 +4460,8 @@ void ImGui::NewFrame()
     // Mark all windows as not visible and compact unused memory.
     IM_ASSERT(g.WindowsFocusOrder.Size <= g.Windows.Size);
     const float memory_compact_start_time = (g.GcCompactAll || g.IO.ConfigMemoryCompactTimer < 0.0f) ? FLT_MAX : (float)g.Time - g.IO.ConfigMemoryCompactTimer;
-    for (int i = 0; i != g.Windows.Size; i++)
+    for (ImGuiWindow* window : g.Windows)
     {
-        ImGuiWindow* window = g.Windows[i];
         window->WasActive = window->Active;
         window->Active = false;
         window->WriteAccessed = false;
@@ -4480,9 +4477,11 @@ void ImGui::NewFrame()
     for (int i = 0; i < g.TablesLastTimeActive.Size; i++)
         if (g.TablesLastTimeActive[i] >= 0.0f && g.TablesLastTimeActive[i] < memory_compact_start_time)
             TableGcCompactTransientBuffers(g.Tables.GetByIndex(i));
+
     for (int i = 0; i < g.TablesTempData.Size; i++)
         if (g.TablesTempData[i].LastTimeActive >= 0.0f && g.TablesTempData[i].LastTimeActive < memory_compact_start_time)
             TableGcCompactTransientBuffers(&g.TablesTempData[i]);
+
     if (g.GcCompactAll)
         GcCompactTransientMiscBuffers();
     g.GcCompactAll = false;
@@ -4585,9 +4584,8 @@ static void AddWindowToDrawData(ImGuiWindow* window, int layer)
     ImGuiViewportP* viewport = g.Viewports[0];
     g.IO.MetricsRenderWindows++;
     AddDrawListToDrawData(&viewport->DrawDataBuilder.Layers[layer], window->DrawList);
-    for (int i = 0; i < window->DC.ChildWindows.Size; i++)
+    for (ImGuiWindow* child : window->DC.ChildWindows)
     {
-        ImGuiWindow* child = window->DC.ChildWindows[i];
         if (IsWindowActiveAndVisible(child)) // Clipped children may have been marked not active
             AddWindowToDrawData(child, layer);
     }
@@ -4804,9 +4802,8 @@ void ImGui::EndFrame()
     // We cannot do that on FocusWindow() because children may not exist yet
     g.WindowsTempSortBuffer.resize(0);
     g.WindowsTempSortBuffer.reserve(g.Windows.Size);
-    for (int i = 0; i != g.Windows.Size; i++)
+    for (ImGuiWindow* window : g.Windows)
     {
-        ImGuiWindow* window = g.Windows[i];
         if (window->Active && (window->Flags & ImGuiWindowFlags_ChildWindow))       // if a child is active its parent will add it
             continue;
         AddWindowToSortBuffer(&g.WindowsTempSortBuffer, window);
@@ -12630,8 +12627,8 @@ const char* ImGui::SaveIniSettingsToMemory(size_t* out_size)
 static void WindowSettingsHandler_ClearAll(ImGuiContext* ctx, ImGuiSettingsHandler*)
 {
     ImGuiContext& g = *ctx;
-    for (int i = 0; i != g.Windows.Size; i++)
-        g.Windows[i]->SettingsOffset = -1;
+    for (ImGuiWindow* window : g.Windows)
+        window->SettingsOffset = -1;
     g.SettingsWindows.clear();
 }
 
@@ -12673,9 +12670,8 @@ static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandl
     // Gather data from windows that were active during this session
     // (if a window wasn't opened in this session we preserve its settings)
     ImGuiContext& g = *ctx;
-    for (int i = 0; i != g.Windows.Size; i++)
+    for (ImGuiWindow* window : g.Windows)
     {
-        ImGuiWindow* window = g.Windows[i];
         if (window->Flags & ImGuiWindowFlags_NoSavedSettings)
             continue;
 
@@ -12976,9 +12972,8 @@ void ImGui::DebugRenderViewportThumbnail(ImDrawList* draw_list, ImGuiViewportP* 
     ImVec2 off = bb.Min - viewport->Pos * scale;
     float alpha_mul = 1.0f;
     window->DrawList->AddRectFilled(bb.Min, bb.Max, GetColorU32(ImGuiCol_Border, alpha_mul * 0.40f));
-    for (int i = 0; i != g.Windows.Size; i++)
+    for (ImGuiWindow* thumb_window : g.Windows)
     {
-        ImGuiWindow* thumb_window = g.Windows[i];
         if (!thumb_window->WasActive || (thumb_window->Flags & ImGuiWindowFlags_ChildWindow))
             continue;
 
@@ -13120,9 +13115,8 @@ static void MetricsHelpMarker(const char* desc)
 // [DEBUG] List fonts in a font atlas and display its texture
 void ImGui::ShowFontAtlas(ImFontAtlas* atlas)
 {
-    for (int i = 0; i < atlas->Fonts.Size; i++)
+    for (ImFont* font : atlas->Fonts)
     {
-        ImFont* font = atlas->Fonts[i];
         PushID(font);
         DebugNodeFont(font);
         PopID();
@@ -13319,9 +13313,10 @@ void ImGui::ShowMetricsWindow(bool* p_open)
             // Here we display windows in their submitted order/hierarchy, however note that the Begin stack doesn't constitute a Parent<>Child relationship!
             ImVector<ImGuiWindow*>& temp_buffer = g.WindowsTempSortBuffer;
             temp_buffer.resize(0);
-            for (int i = 0; i < g.Windows.Size; i++)
-                if (g.Windows[i]->LastFrameActive + 1 >= g.FrameCount)
-                    temp_buffer.push_back(g.Windows[i]);
+            for (ImGuiWindow* window : g.Windows)
+                if (window->LastFrameActive + 1 >= g.FrameCount)
+                    temp_buffer.push_back(window);
+
             struct Func { static int IMGUI_CDECL WindowComparerByBeginOrder(const void* lhs, const void* rhs) { return ((int)(*(const ImGuiWindow* const *)lhs)->BeginOrderWithinContext - (*(const ImGuiWindow* const*)rhs)->BeginOrderWithinContext); } };
             ImQsort(temp_buffer.Data, (size_t)temp_buffer.Size, sizeof(ImGuiWindow*), Func::WindowComparerByBeginOrder);
             DebugNodeWindowsListByBeginStackParent(temp_buffer.Data, temp_buffer.Size, NULL);
@@ -13355,22 +13350,26 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         Indent(GetTreeNodeToLabelSpacing());
         RenderViewportsThumbnails();
         Unindent(GetTreeNodeToLabelSpacing());
-        for (int i = 0; i < g.Viewports.Size; i++)
-            DebugNodeViewport(g.Viewports[i]);
+        for (auto* viewport : g.Viewports)
+            DebugNodeViewport(viewport);
         TreePop();
     }
 
     // Details for Popups
     if (TreeNode("Popups", "Popups (%d)", g.OpenPopupStack.Size))
     {
-        for (int i = 0; i < g.OpenPopupStack.Size; i++)
+        for (const ImGuiPopupData& popup_data : g.OpenPopupStack)
         {
             // As it's difficult to interact with tree nodes while popups are open, we display everything inline.
-            const ImGuiPopupData* popup_data = &g.OpenPopupStack[i];
-            ImGuiWindow* window = popup_data->Window;
+            ImGuiWindow* window = popup_data.Window;
             BulletText("PopupID: %08x, Window: '%s' (%s%s), BackupNavWindow '%s', ParentWindow '%s'",
-                popup_data->PopupId, window ? window->Name : "NULL", window && (window->Flags & ImGuiWindowFlags_ChildWindow) ? "Child;" : "", window && (window->Flags & ImGuiWindowFlags_ChildMenu) ? "Menu;" : "",
-                popup_data->BackupNavWindow ? popup_data->BackupNavWindow->Name : "NULL", window && window->ParentWindow ? window->ParentWindow->Name : "NULL");
+                popup_data.PopupId,
+                window ? window->Name : "NULL",
+                window && (window->Flags & ImGuiWindowFlags_ChildWindow) ? "Child;" : "",
+                window && (window->Flags & ImGuiWindowFlags_ChildMenu) ? "Menu;" : "",
+                popup_data.BackupNavWindow ? popup_data.BackupNavWindow->Name : "NULL",
+                window && window->ParentWindow ? window->ParentWindow->Name : "NULL"
+            );
         }
         TreePop();
     }
@@ -13485,7 +13484,12 @@ void ImGui::ShowMetricsWindow(bool* p_open)
             Text("Keys pressed:");      for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) { if (funcs::IsLegacyNativeDupe(key) || !IsKeyPressed(key)) continue;  SameLine(); Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key); }
             Text("Keys released:");     for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) { if (funcs::IsLegacyNativeDupe(key) || !IsKeyReleased(key)) continue; SameLine(); Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key); }
             Text("Keys mods: %s%s%s%s", io.KeyCtrl ? "CTRL " : "", io.KeyShift ? "SHIFT " : "", io.KeyAlt ? "ALT " : "", io.KeySuper ? "SUPER " : "");
-            Text("Chars queue:");       for (int i = 0; i < io.InputQueueCharacters.Size; i++) { ImWchar c = io.InputQueueCharacters[i]; SameLine(); Text("\'%c\' (0x%04X)", (c > ' ' && c <= 255) ? (char)c : '?', c); } // FIXME: We should convert 'c' to UTF-8 here but the functions are not public.
+            Text("Chars queue:");
+            for (ImWchar c : io.InputQueueCharacters) {
+                // FIXME: We should convert 'c' to UTF-8 here but the functions are not public.
+                SameLine();
+                Text("\'%c\' (0x%04X)", (c > ' ' && c <= 255) ? (char)c : '?', c);
+            } 
             DebugRenderKeyboardPreview(GetWindowDrawList());
             Unindent();
         }

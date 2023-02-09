@@ -146,23 +146,22 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
         const ImDrawVert* vtx_buffer = cmd_list->VtxBuffer.Data;
         const ImDrawIdx* idx_buffer = cmd_list->IdxBuffer.Data;
 
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+        for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-            if (pcmd->UserCallback)
+            if (cmd.UserCallback)
             {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
                     ImGui_ImplSDLRenderer_SetupRenderState();
                 else
-                    pcmd->UserCallback(cmd_list, pcmd);
+                    cmd.UserCallback(cmd_list, &cmd);
             }
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min((pcmd->ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->ClipRect.y - clip_off.y) * clip_scale.y);
-                ImVec2 clip_max((pcmd->ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->ClipRect.w - clip_off.y) * clip_scale.y);
+                ImVec2 clip_min((cmd.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.ClipRect.y - clip_off.y) * clip_scale.y);
+                ImVec2 clip_max((cmd.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.ClipRect.w - clip_off.y) * clip_scale.y);
                 if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
                 if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
                 if (clip_max.x > (float)fb_width) { clip_max.x = (float)fb_width; }
@@ -173,22 +172,22 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
                 SDL_Rect r = { (int)(clip_min.x), (int)(clip_min.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y) };
                 SDL_RenderSetClipRect(bd->SDLRenderer, &r);
 
-                const float* xy = (const float*)(const void*)((const char*)(vtx_buffer + pcmd->VtxOffset) + IM_OFFSETOF(ImDrawVert, pos));
-                const float* uv = (const float*)(const void*)((const char*)(vtx_buffer + pcmd->VtxOffset) + IM_OFFSETOF(ImDrawVert, uv));
+                const float* xy = (const float*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, pos));
+                const float* uv = (const float*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, uv));
 #if SDL_VERSION_ATLEAST(2,0,19)
-                const SDL_Color* color = (const SDL_Color*)(const void*)((const char*)(vtx_buffer + pcmd->VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.19+
+                const SDL_Color* color = (const SDL_Color*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.19+
 #else
-                const int* color = (const int*)(const void*)((const char*)(vtx_buffer + pcmd->VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
+                const int* color = (const int*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
 #endif
 
                 // Bind texture, Draw
-				SDL_Texture* tex = (SDL_Texture*)pcmd->GetTexID();
+				SDL_Texture* tex = (SDL_Texture*)cmd.GetTexID();
                 SDL_RenderGeometryRaw(bd->SDLRenderer, tex,
                     xy, (int)sizeof(ImDrawVert),
                     color, (int)sizeof(ImDrawVert),
                     uv, (int)sizeof(ImDrawVert),
-                    cmd_list->VtxBuffer.Size - pcmd->VtxOffset,
-                    idx_buffer + pcmd->IdxOffset, pcmd->ElemCount, sizeof(ImDrawIdx));
+                    cmd_list->VtxBuffer.Size - cmd.VtxOffset,
+                    idx_buffer + cmd.IdxOffset, cmd.ElemCount, sizeof(ImDrawIdx));
             }
         }
     }

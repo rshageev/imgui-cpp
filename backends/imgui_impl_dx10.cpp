@@ -240,23 +240,22 @@ void ImGui_ImplDX10_RenderDrawData(ImDrawData* draw_data)
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+        for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-            if (pcmd->UserCallback)
+            if (cmd.UserCallback)
             {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
                     ImGui_ImplDX10_SetupRenderState(draw_data, ctx);
                 else
-                    pcmd->UserCallback(cmd_list, pcmd);
+                    cmd.UserCallback(cmd_list, &cmd);
             }
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(pcmd->Header.ClipRect.x - clip_off.x, pcmd->Header.ClipRect.y - clip_off.y);
-                ImVec2 clip_max(pcmd->Header.ClipRect.z - clip_off.x, pcmd->Header.ClipRect.w - clip_off.y);
+                ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
+                ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 
@@ -265,9 +264,9 @@ void ImGui_ImplDX10_RenderDrawData(ImDrawData* draw_data)
                 ctx->RSSetScissorRects(1, &r);
 
                 // Bind texture, Draw
-                ID3D10ShaderResourceView* texture_srv = (ID3D10ShaderResourceView*)pcmd->GetTexID();
+                ID3D10ShaderResourceView* texture_srv = (ID3D10ShaderResourceView*)cmd.GetTexID();
                 ctx->PSSetShaderResources(0, 1, &texture_srv);
-                ctx->DrawIndexed(pcmd->ElemCount, pcmd->IdxOffset + global_idx_offset, pcmd->Header.VtxOffset + global_vtx_offset);
+                ctx->DrawIndexed(cmd.ElemCount, cmd.IdxOffset + global_idx_offset, cmd.Header.VtxOffset + global_vtx_offset);
             }
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;

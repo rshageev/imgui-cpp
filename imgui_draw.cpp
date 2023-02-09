@@ -1751,10 +1751,9 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
             last_cmd = &ch._CmdBuffer.back();
         new_cmd_buffer_count += ch._CmdBuffer.Size;
         new_idx_buffer_count += ch._IdxBuffer.Size;
-        for (int cmd_n = 0; cmd_n < ch._CmdBuffer.Size; cmd_n++)
-        {
-            ch._CmdBuffer.Data[cmd_n].IdxOffset = idx_offset;
-            idx_offset += ch._CmdBuffer.Data[cmd_n].ElemCount;
+        for (auto& cmd : ch._CmdBuffer) {
+            cmd.IdxOffset = idx_offset;
+            idx_offset += cmd.ElemCount;
         }
     }
     draw_list->CmdBuffer.resize(draw_list->CmdBuffer.Size + new_cmd_buffer_count);
@@ -1842,14 +1841,11 @@ void ImDrawData::ScaleClipRects(const ImVec2& fb_scale)
     for (int i = 0; i < CmdListsCount; i++)
     {
         ImDrawList* cmd_list = CmdLists[i];
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
-        {
-            ImDrawCmd* cmd = &cmd_list->CmdBuffer[cmd_i];
-            cmd->Header.ClipRect = ImVec4(
-                cmd->Header.ClipRect.x * fb_scale.x,
-                cmd->Header.ClipRect.y * fb_scale.y,
-                cmd->Header.ClipRect.z * fb_scale.x,
-                cmd->Header.ClipRect.w * fb_scale.y);
+        for (auto& cmd : cmd_list->CmdBuffer) {
+            cmd.Header.ClipRect.x *= fb_scale.x;
+            cmd.Header.ClipRect.y *= fb_scale.y;
+            cmd.Header.ClipRect.z *= fb_scale.x;
+            cmd.Header.ClipRect.w *= fb_scale.y;
         }
     }
 }
@@ -1970,20 +1966,20 @@ ImFontAtlas::~ImFontAtlas()
 void    ImFontAtlas::ClearInputData()
 {
     IM_ASSERT(!Locked && "Cannot modify a locked ImFontAtlas between NewFrame() and EndFrame/Render()!");
-    for (int i = 0; i < ConfigData.Size; i++)
-        if (ConfigData[i].FontData && ConfigData[i].FontDataOwnedByAtlas)
-        {
-            IM_FREE(ConfigData[i].FontData);
-            ConfigData[i].FontData = NULL;
+    for (ImFontConfig& font_config : ConfigData) {
+        if (font_config.FontData && font_config.FontDataOwnedByAtlas) {
+            IM_FREE(font_config.FontData);
+            font_config.FontData = nullptr;
         }
+    }
 
     // When clearing this we lose access to the font name and other information used to build the font.
-    for (int i = 0; i < Fonts.Size; i++)
-        if (Fonts[i]->ConfigData >= ConfigData.Data && Fonts[i]->ConfigData < ConfigData.Data + ConfigData.Size)
-        {
-            Fonts[i]->ConfigData = NULL;
-            Fonts[i]->ConfigDataCount = 0;
+    for (ImFont* font : Fonts) {
+        if (font->ConfigData >= ConfigData.Data && font->ConfigData < ConfigData.Data + ConfigData.Size) {
+            font->ConfigData = NULL;
+            font->ConfigDataCount = 0;
         }
+    }
     ConfigData.clear();
     CustomRects.clear();
     PackIdMouseCursors = PackIdLines = -1;
@@ -2782,9 +2778,11 @@ void ImFontAtlasBuildFinish(ImFontAtlas* atlas)
     }
 
     // Build all fonts lookup tables
-    for (int i = 0; i < atlas->Fonts.Size; i++)
-        if (atlas->Fonts[i]->DirtyLookupTables)
-            atlas->Fonts[i]->BuildLookupTable();
+    for (ImFont* font : atlas->Fonts) {
+        if (font->DirtyLookupTables) {
+            font->BuildLookupTable();
+        }
+    }
 
     atlas->TexReady = true;
 }
@@ -3145,8 +3143,9 @@ static ImWchar FindFirstExistingGlyph(ImFont* font, const ImWchar* candidate_cha
 void ImFont::BuildLookupTable()
 {
     int max_codepoint = 0;
-    for (int i = 0; i != Glyphs.Size; i++)
-        max_codepoint = ImMax(max_codepoint, (int)Glyphs[i].Codepoint);
+    for (const auto& glyph : Glyphs) {
+        max_codepoint = ImMax(max_codepoint, (int)glyph.Codepoint);
+    }
 
     // Build lookup table
     IM_ASSERT(Glyphs.Size < 0xFFFF); // -1 is reserved

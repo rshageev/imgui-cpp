@@ -188,23 +188,22 @@ void ImGui_ImplOpenGL2_RenderDrawData(ImDrawData* draw_data)
         glTexCoordPointer(2, GL_FLOAT, sizeof(ImDrawVert), (const GLvoid*)((const char*)vtx_buffer + IM_OFFSETOF(ImDrawVert, uv)));
         glColorPointer(4, GL_UNSIGNED_BYTE, sizeof(ImDrawVert), (const GLvoid*)((const char*)vtx_buffer + IM_OFFSETOF(ImDrawVert, col)));
 
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+        for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-            if (pcmd->UserCallback)
+            if (cmd.UserCallback)
             {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
                     ImGui_ImplOpenGL2_SetupRenderState(draw_data, fb_width, fb_height);
                 else
-                    pcmd->UserCallback(cmd_list, pcmd);
+                    cmd.UserCallback(cmd_list, &cmd);
             }
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min((pcmd->Header.ClipRect.x - clip_off.x) * clip_scale.x, (pcmd->Header.ClipRect.y - clip_off.y) * clip_scale.y);
-                ImVec2 clip_max((pcmd->Header.ClipRect.z - clip_off.x) * clip_scale.x, (pcmd->Header.ClipRect.w - clip_off.y) * clip_scale.y);
+                ImVec2 clip_min((cmd.Header.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.y - clip_off.y) * clip_scale.y);
+                ImVec2 clip_max((cmd.Header.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.w - clip_off.y) * clip_scale.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 
@@ -212,8 +211,8 @@ void ImGui_ImplOpenGL2_RenderDrawData(ImDrawData* draw_data)
                 glScissor((int)clip_min.x, (int)((float)fb_height - clip_max.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y));
 
                 // Bind texture, Draw
-                glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->GetTexID());
-                glDrawElements(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, idx_buffer + pcmd->IdxOffset);
+                glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)cmd.GetTexID());
+                glDrawElements(GL_TRIANGLES, (GLsizei)cmd.ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, idx_buffer + cmd.IdxOffset);
             }
         }
     }

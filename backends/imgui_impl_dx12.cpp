@@ -249,33 +249,32 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+        for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
-            if (pcmd->UserCallback != nullptr)
+            if (cmd.UserCallback != nullptr)
             {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
                     ImGui_ImplDX12_SetupRenderState(draw_data, ctx, fr);
                 else
-                    pcmd->UserCallback(cmd_list, pcmd);
+                    cmd.UserCallback(cmd_list, &cmd);
             }
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(pcmd->Header.ClipRect.x - clip_off.x, pcmd->Header.ClipRect.y - clip_off.y);
-                ImVec2 clip_max(pcmd->Header.ClipRect.z - clip_off.x, pcmd->Header.ClipRect.w - clip_off.y);
+                ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
+                ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
                 if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
                     continue;
 
                 // Apply Scissor/clipping rectangle, Bind texture, Draw
                 const D3D12_RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
                 D3D12_GPU_DESCRIPTOR_HANDLE texture_handle = {};
-                texture_handle.ptr = (UINT64)pcmd->GetTexID();
+                texture_handle.ptr = (UINT64)cmd.GetTexID();
                 ctx->SetGraphicsRootDescriptorTable(1, texture_handle);
                 ctx->RSSetScissorRects(1, &r);
-                ctx->DrawIndexedInstanced(pcmd->ElemCount, 1, pcmd->IdxOffset + global_idx_offset, pcmd->Header.VtxOffset + global_vtx_offset, 0);
+                ctx->DrawIndexedInstanced(cmd.ElemCount, 1, cmd.IdxOffset + global_idx_offset, cmd.Header.VtxOffset + global_vtx_offset, 0);
             }
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;
