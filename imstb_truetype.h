@@ -515,12 +515,12 @@ extern "C" {
 #endif
 
 // private structure
-typedef struct
+struct stbtt__buf
 {
-   unsigned char *data;
-   int cursor;
-   int size;
-} stbtt__buf;
+   unsigned char *data = nullptr;
+   int cursor = 0;
+   int size = 0;
+};
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -577,12 +577,20 @@ STBTT_DEF void stbtt_GetScaledFontVMetrics(const unsigned char *fontdata, int in
 // This provides options for packing multiple fonts into one atlas, not
 // perfectly but better than nothing.
 
-typedef struct
+struct stbtt_packedchar
 {
-   unsigned short x0,y0,x1,y1; // coordinates of bbox in bitmap
-   float xoff,yoff,xadvance;
-   float xoff2,yoff2;
-} stbtt_packedchar;
+   // coordinates of bbox in bitmap
+   unsigned short x0 = 0;
+   unsigned short y0 = 0;
+   unsigned short x1 = 0;
+   unsigned short y1 = 0;
+
+   float xoff = 0.0f;
+   float yoff = 0.0f;
+   float xadvance = 0.0f;
+   float xoff2 = 0.0f;
+   float yoff2 = 0.0f;
+};
 
 typedef struct stbtt_pack_context stbtt_pack_context;
 typedef struct stbtt_fontinfo stbtt_fontinfo;
@@ -621,15 +629,25 @@ STBTT_DEF int  stbtt_PackFontRange(stbtt_pack_context *spc, const unsigned char 
 //       ...,                  20 , ... // font max minus min y is 20 pixels tall
 //       ..., STBTT_POINT_SIZE(20), ... // 'M' is 20 pixels tall
 
-typedef struct
+struct stbtt_pack_range
 {
-   float font_size;
-   int first_unicode_codepoint_in_range;  // if non-zero, then the chars are continuous, and this is the first codepoint
-   int *array_of_unicode_codepoints;       // if non-zero, then this is an array of unicode codepoints
-   int num_chars;
-   stbtt_packedchar *chardata_for_range; // output
-   unsigned char h_oversample, v_oversample; // don't set these, they're used internally
-} stbtt_pack_range;
+   float font_size = 0.0f;
+
+   // if non-zero, then the chars are continuous, and this is the first codepoint
+   int first_unicode_codepoint_in_range = 0;
+
+   // if non-zero, then this is an array of unicode codepoints
+   int *array_of_unicode_codepoints = nullptr;
+
+   int num_chars = 0;
+
+   // output
+   stbtt_packedchar *chardata_for_range = nullptr; 
+
+   // don't set these, they're used internally
+   unsigned char h_oversample = 0;
+   unsigned char v_oversample = 0; 
+};
 
 STBTT_DEF int  stbtt_PackFontRanges(stbtt_pack_context *spc, const unsigned char *fontdata, int font_index, stbtt_pack_range *ranges, int num_ranges);
 // Creates character bitmaps from multiple ranges of characters stored in
@@ -717,15 +735,24 @@ STBTT_DEF int stbtt_GetFontOffsetForIndex(const unsigned char *data, int index);
 // the stack or as a global or etc, but you should treat it as opaque.
 struct stbtt_fontinfo
 {
-   void           * userdata;
-   unsigned char  * data;              // pointer to .ttf file
-   int              fontstart;         // offset of start of font
+   void* userdata = nullptr;
+   unsigned char* data = nullptr;              // pointer to .ttf file
+   int fontstart = 0;         // offset of start of font
 
-   int numGlyphs;                     // number of glyphs, needed for range checking
+   int numGlyphs = 0;                     // number of glyphs, needed for range checking
 
-   int loca,head,glyf,hhea,hmtx,kern,gpos,svg; // table locations as offset from start of .ttf
-   int index_map;                     // a cmap mapping for our chosen character encoding
-   int indexToLocFormat;              // format needed to map from glyph index to glyph
+   // table locations as offset from start of .ttf
+   int loca = 0;
+   int head = 0;
+   int glyf = 0;
+   int hhea = 0;
+   int hmtx = 0;
+   int kern = 0;
+   int gpos = 0;
+   int svg = 0; 
+
+   int index_map = 0;                     // a cmap mapping for our chosen character encoding
+   int indexToLocFormat = 0;              // format needed to map from glyph index to glyph
 
    stbtt__buf cff;                    // cff font data
    stbtt__buf charstrings;            // the charstring index

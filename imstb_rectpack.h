@@ -119,15 +119,17 @@ STBRP_DEF int stbrp_pack_rects (stbrp_context *context, stbrp_rect *rects, int n
 struct stbrp_rect
 {
    // reserved for your use:
-   int            id;
+   int id = 0;
 
    // input:
-   stbrp_coord    w, h;
+   stbrp_coord w = 0;
+   stbrp_coord h = 0;
 
    // output:
-   stbrp_coord    x, y;
-   int            was_packed;  // non-zero if valid packing
+   stbrp_coord x = 0;
+   stbrp_coord y = 0;
 
+   int was_packed = 0;  // non-zero if valid packing
 }; // 16 bytes, nominally
 
 
