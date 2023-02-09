@@ -395,8 +395,8 @@ void ImDrawList::_ResetForNewFrame()
     _VtxCurrentIdx = 0;
     _VtxWritePtr = NULL;
     _IdxWritePtr = NULL;
-    _ClipRectStack.resize(0);
-    _TextureIdStack.resize(0);
+    _ClipRectStack.clear();
+    _TextureIdStack.clear();
     _Path.resize(0);
     _Splitter.Clear();
     CmdBuffer.push_back(ImDrawCmd());
@@ -597,7 +597,7 @@ void ImDrawList::PushClipRectFullScreen()
 void ImDrawList::PopClipRect()
 {
     _ClipRectStack.pop_back();
-    _CmdHeader.ClipRect = (_ClipRectStack.Size == 0) ? _Data->ClipRectFullscreen : _ClipRectStack.Data[_ClipRectStack.Size - 1];
+    _CmdHeader.ClipRect = _ClipRectStack.empty() ? _Data->ClipRectFullscreen : _ClipRectStack.back();
     _OnChangedClipRect();
 }
 
@@ -611,7 +611,7 @@ void ImDrawList::PushTextureID(ImTextureID texture_id)
 void ImDrawList::PopTextureID()
 {
     _TextureIdStack.pop_back();
-    _CmdHeader.TextureId = (_TextureIdStack.Size == 0) ? (ImTextureID)NULL : _TextureIdStack.Data[_TextureIdStack.Size - 1];
+    _CmdHeader.TextureId = _TextureIdStack.empty() ? (ImTextureID)NULL : _TextureIdStack.back();
     _OnChangedTextureID();
 }
 

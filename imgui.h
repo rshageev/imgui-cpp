@@ -68,6 +68,7 @@ Index of this file:
 #include <string.h>                 // memset, memmove, memcpy, strlen, strchr, strcpy, strcmp
 
 #include <array>
+#include <vector>
 
 // Define attributes of all API symbols declarations (e.g. for DLL under Windows)
 // IMGUI_API is used for core imgui functions, IMGUI_IMPL_API is used for the default backends files (imgui_impl_xxx.h)
@@ -2467,8 +2468,8 @@ struct ImDrawList
     const char* _OwnerName = nullptr;       // Pointer to owner window's name for debugging
     ImDrawVert* _VtxWritePtr = nullptr;     // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     ImDrawIdx* _IdxWritePtr = nullptr;      // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImVector<ImVec4> _ClipRectStack;        // [Internal]
-    ImVector<ImTextureID> _TextureIdStack;  // [Internal]
+    std::vector<ImVec4> _ClipRectStack;        // [Internal]
+    std::vector<ImTextureID> _TextureIdStack;  // [Internal]
     ImVector<ImVec2> _Path;                 // [Internal] current path building
     ImDrawCmdHeader _CmdHeader;             // [Internal] template of active commands. Fields should match those of CmdBuffer.back().
     ImDrawListSplitter _Splitter;           // [Internal] for channels api (note: prefer using your own persistent instance of ImDrawListSplitter!)
@@ -2483,8 +2484,15 @@ struct ImDrawList
     IMGUI_API void  PopClipRect();
     IMGUI_API void  PushTextureID(ImTextureID texture_id);
     IMGUI_API void  PopTextureID();
-    inline ImVec2   GetClipRectMin() const { const ImVec4& cr = _ClipRectStack.back(); return ImVec2(cr.x, cr.y); }
-    inline ImVec2   GetClipRectMax() const { const ImVec4& cr = _ClipRectStack.back(); return ImVec2(cr.z, cr.w); }
+
+    ImVec2 GetClipRectMin() const {
+        const ImVec4& cr = _ClipRectStack.back();
+        return ImVec2(cr.x, cr.y);
+    }
+    ImVec2 GetClipRectMax() const {
+        const ImVec4& cr = _ClipRectStack.back();
+        return ImVec2(cr.z, cr.w);
+    }
 
     // Primitives
     // - Filled shapes must always use clockwise winding order. The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.

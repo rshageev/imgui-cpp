@@ -3707,7 +3707,7 @@ void ImGui::SetWindowClipRectBeforeSetChannel(ImGuiWindow* window, const ImRect&
     ImVec4 clip_rect_vec4 = clip_rect.ToVec4();
     window->ClipRect = clip_rect;
     window->DrawList->_CmdHeader.ClipRect = clip_rect_vec4;
-    window->DrawList->_ClipRectStack.Data[window->DrawList->_ClipRectStack.Size - 1] = clip_rect_vec4;
+    window->DrawList->_ClipRectStack.back() = clip_rect_vec4;
 }
 
 int ImGui::GetColumnIndex()
