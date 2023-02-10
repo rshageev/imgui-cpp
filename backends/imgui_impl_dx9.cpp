@@ -37,6 +37,9 @@
 // DirectX
 #include <d3d9.h>
 
+#include <algorithm>
+#include <ranges>
+
 // DirectX data
 struct ImGui_ImplDX9_Data
 {
@@ -203,18 +206,18 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        for (const auto& vtx_src : cmd_list->VtxBuffer)
-        {
-            vtx_dst->pos[0] = vtx_src.pos.x;
-            vtx_dst->pos[1] = vtx_src.pos.y;
-            vtx_dst->pos[2] = 0.0f;
-            vtx_dst->col = IMGUI_COL_TO_DX9_ARGB(vtx_src.col);
-            vtx_dst->uv[0] = vtx_src.uv.x;
-            vtx_dst->uv[1] = vtx_src.uv.y;
-            vtx_dst++;
-        }
-        memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-        idx_dst += cmd_list->IdxBuffer.Size;
+
+        auto convert_vertex = [](const ImDrawVert& v) -> CUSTOMVERTEX {
+            return {
+                .pos = { v.pos.x, v.pos.y, 0.0f },
+                .col = IMGUI_COL_TO_DX9_ARGB(v.col),
+                .uv = { v.uv.x, v.uv.y },
+            };
+        };
+
+        auto vertices = cmd_list->Vertices() | std::views::transform(convert_vertex);
+        vtx_dst = std::ranges::copy(vertices, vtx_dst).out;
+        idx_dst = std::ranges::copy(cmd_list->Indices(), idx_dst).out;
     }
     bd->pVB->Unlock();
     bd->pIB->Unlock();

@@ -512,8 +512,10 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
         // - We are now back to using exclusively glBufferData(). So bd->UseBufferSubData IS ALWAYS FALSE in this code.
         //   We are keeping the old code path for a while in case people finding new issues may want to test the bd->UseBufferSubData path.
         // - See https://github.com/ocornut/imgui/issues/4468 and please report any corruption issues.
-        const GLsizeiptr vtx_buffer_size = (GLsizeiptr)cmd_list->VtxBuffer.Size * (int)sizeof(ImDrawVert);
-        const GLsizeiptr idx_buffer_size = (GLsizeiptr)cmd_list->IdxBuffer.Size * (int)sizeof(ImDrawIdx);
+        auto vertices = cmd_list->Vertices();
+        auto indices = cmd_list->Indices();
+        const GLsizeiptr vtx_buffer_size = vertices.size_bytes();
+        const GLsizeiptr idx_buffer_size = indices.size_bytes();
         if (bd->UseBufferSubData)
         {
             if (bd->VertexBufferSize < vtx_buffer_size)
@@ -526,13 +528,13 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
                 bd->IndexBufferSize = idx_buffer_size;
                 GL_CALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, bd->IndexBufferSize, nullptr, GL_STREAM_DRAW));
             }
-            GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, vtx_buffer_size, (const GLvoid*)cmd_list->VtxBuffer.Data));
-            GL_CALL(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, idx_buffer_size, (const GLvoid*)cmd_list->IdxBuffer.Data));
+            GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, vtx_buffer_size, (const GLvoid*)vertices.data()));
+            GL_CALL(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, idx_buffer_size, (const GLvoid*)indices.data()));
         }
         else
         {
-            GL_CALL(glBufferData(GL_ARRAY_BUFFER, vtx_buffer_size, (const GLvoid*)cmd_list->VtxBuffer.Data, GL_STREAM_DRAW));
-            GL_CALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size, (const GLvoid*)cmd_list->IdxBuffer.Data, GL_STREAM_DRAW));
+            GL_CALL(glBufferData(GL_ARRAY_BUFFER, vtx_buffer_size, (const GLvoid*)vertices.data(), GL_STREAM_DRAW));
+            GL_CALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size, (const GLvoid*)indices.data(), GL_STREAM_DRAW));
         }
 
         for (const auto& cmd : cmd_list->CmdBuffer)

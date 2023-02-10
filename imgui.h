@@ -2655,6 +2655,14 @@ struct ImDrawList
     // If you want to create ImDrawList instances, pass them ImGui::GetDrawListSharedData() or create and use your own ImDrawListSharedData (so you can use ImDrawList without ImGui)
     ImDrawList(ImDrawListSharedData* shared_data) : _Data(shared_data) {}
 
+    // New C++ API
+    const std::span<ImDrawVert> Vertices() const {
+        return { VtxBuffer.Data, static_cast<size_t>(VtxBuffer.Size) };
+    }
+    const std::span<ImDrawIdx> Indices() const {
+        return { IdxBuffer.Data, static_cast<size_t>(IdxBuffer.Size) };
+    }
+
     ~ImDrawList() { _ClearFreeMemory(); }
     IMGUI_API void  PushClipRect(const ImVec2& clip_rect_min, const ImVec2& clip_rect_max, bool intersect_with_current_clip_rect = false);  // Render-level scissoring. This is passed down to your render function but not used for CPU-side coarse clipping. Prefer using higher-level ImGui::PushClipRect() to affect logic (hit-testing and widget culling)
     IMGUI_API void  PushClipRectFullScreen();

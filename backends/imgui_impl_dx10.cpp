@@ -41,6 +41,9 @@
 #pragma comment(lib, "d3dcompiler") // Automatically link with d3dcompiler.lib as we are using D3DCompile() below.
 #endif
 
+#include <algorithm>
+#include <ranges>
+
 // DirectX data
 struct ImGui_ImplDX10_Data
 {
@@ -158,10 +161,8 @@ void ImGui_ImplDX10_RenderDrawData(ImDrawData* draw_data)
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-        memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-        vtx_dst += cmd_list->VtxBuffer.Size;
-        idx_dst += cmd_list->IdxBuffer.Size;
+        vtx_dst = std::ranges::copy(cmd_list->Vertices(), vtx_dst).out;
+        idx_dst = std::ranges::copy(cmd_list->Indices(), idx_dst).out;
     }
     bd->pVB->Unmap();
     bd->pIB->Unmap();

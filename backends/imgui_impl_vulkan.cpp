@@ -68,6 +68,9 @@
 #include "imgui_impl_vulkan.h"
 #include <stdio.h>
 
+#include <algorithm>
+#include <ranges>
+
 // Visual Studio warnings
 #ifdef _MSC_VER
 #pragma warning (disable: 4127) // condition expression is constant
@@ -480,10 +483,8 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
         for (int n = 0; n < draw_data->CmdListsCount; n++)
         {
             const ImDrawList* cmd_list = draw_data->CmdLists[n];
-            memcpy(vtx_dst, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-            memcpy(idx_dst, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-            vtx_dst += cmd_list->VtxBuffer.Size;
-            idx_dst += cmd_list->IdxBuffer.Size;
+            vtx_dst = std::ranges::copy(cmd_list->Vertices(), vtx_dst).out;
+            idx_dst = std::ranges::copy(cmd_list->Indices(), idx_dst).out;
         }
         VkMappedMemoryRange range[2] = {};
         range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;

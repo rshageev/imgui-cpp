@@ -13112,7 +13112,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     }
 
     // DrawLists
-    int drawlist_count = 0;
+    size_t drawlist_count = 0;
     for (auto& viewport : g.Viewports) {
         drawlist_count += viewport->DrawDataBuilder.GetDrawListCount();
     }

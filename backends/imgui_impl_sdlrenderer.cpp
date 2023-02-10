@@ -143,8 +143,8 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
     for (int n = 0; n < draw_data->CmdListsCount; n++)
     {
         const ImDrawList* cmd_list = draw_data->CmdLists[n];
-        const ImDrawVert* vtx_buffer = cmd_list->VtxBuffer.Data;
-        const ImDrawIdx* idx_buffer = cmd_list->IdxBuffer.Data;
+        auto vertices = cmd_list->Vertices();
+        auto indices = cmd_list->Indices();
 
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
@@ -160,8 +160,8 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
             else
             {
                 // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min((cmd.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.ClipRect.y - clip_off.y) * clip_scale.y);
-                ImVec2 clip_max((cmd.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.ClipRect.w - clip_off.y) * clip_scale.y);
+                ImVec2 clip_min((cmd.Header.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.y - clip_off.y) * clip_scale.y);
+                ImVec2 clip_max((cmd.Header.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.w - clip_off.y) * clip_scale.y);
                 if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
                 if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
                 if (clip_max.x > (float)fb_width) { clip_max.x = (float)fb_width; }
@@ -172,12 +172,12 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
                 SDL_Rect r = { (int)(clip_min.x), (int)(clip_min.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y) };
                 SDL_RenderSetClipRect(bd->SDLRenderer, &r);
 
-                const float* xy = (const float*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, pos));
-                const float* uv = (const float*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, uv));
+                const float* xy = (const float*)(const void*)((const char*)(vertices.data() + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, pos));
+                const float* uv = (const float*)(const void*)((const char*)(vertices.data() + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, uv));
 #if SDL_VERSION_ATLEAST(2,0,19)
-                const SDL_Color* color = (const SDL_Color*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.19+
+                const SDL_Color* color = (const SDL_Color*)(const void*)((const char*)(vertices.data() + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.19+
 #else
-                const int* color = (const int*)(const void*)((const char*)(vtx_buffer + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
+                const int* color = (const int*)(const void*)((const char*)(vertices.data() + cmd.VtxOffset) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
 #endif
 
                 // Bind texture, Draw
@@ -186,8 +186,8 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
                     xy, (int)sizeof(ImDrawVert),
                     color, (int)sizeof(ImDrawVert),
                     uv, (int)sizeof(ImDrawVert),
-                    cmd_list->VtxBuffer.Size - cmd.VtxOffset,
-                    idx_buffer + cmd.IdxOffset, cmd.ElemCount, sizeof(ImDrawIdx));
+                    vertices.size() - cmd.VtxOffset,
+                    indices.data() + cmd.IdxOffset, cmd.ElemCount, sizeof(ImDrawIdx));
             }
         }
     }
