@@ -730,12 +730,22 @@ struct IMGUI_API ImDrawListSharedData
 
 struct ImDrawDataBuilder
 {
-    ImVector<ImDrawList*>   Layers[2];           // Global layers for: regular, tooltip
+    std::vector<ImDrawList*> Layers[2]; // Global layers for: regular, tooltip
 
-    void Clear()                    { for (int n = 0; n < IM_ARRAYSIZE(Layers); n++) Layers[n].resize(0); }
-    void ClearFreeMemory()          { for (int n = 0; n < IM_ARRAYSIZE(Layers); n++) Layers[n].clear(); }
-    int  GetDrawListCount() const   { int count = 0; for (int n = 0; n < IM_ARRAYSIZE(Layers); n++) count += Layers[n].Size; return count; }
-    IMGUI_API void FlattenIntoSingleLayer();
+    void Clear() {
+        for (auto& layer : Layers) {
+            layer.clear();
+        }
+    }
+
+    size_t GetDrawListCount() const {
+        size_t count = 0;
+        for (const auto& layer : Layers)
+            count += layer.size();
+        return count;
+    }
+
+    void FlattenIntoSingleLayer();
 };
 
 //-----------------------------------------------------------------------------

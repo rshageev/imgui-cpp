@@ -877,6 +877,11 @@ CODE
 #endif
 
 #include <bitset>
+#include <algorithm>
+#include <ranges>
+
+namespace stdr = std::ranges;
+namespace stdv = std::views;
 
 // [Windows] On non-Visual Studio compilers, we default to IMGUI_DISABLE_WIN32_DEFAULT_IME_FUNCTIONS unless explicitly enabled
 #if defined(_WIN32) && !defined(_MSC_VER) && !defined(IMGUI_ENABLE_WIN32_DEFAULT_IME_FUNCTIONS) && !defined(IMGUI_DISABLE_WIN32_DEFAULT_IME_FUNCTIONS)
@@ -4452,7 +4457,7 @@ static void AddWindowToSortBuffer(ImVector<ImGuiWindow*>* out_sorted_windows, Im
     }
 }
 
-static void AddDrawListToDrawData(ImVector<ImDrawList*>* out_list, ImDrawList* draw_list)
+static void AddDrawListToDrawData(std::vector<ImDrawList*>& out_list, ImDrawList* draw_list)
 {
     if (draw_list->CmdBuffer.Size == 0)
         return;
@@ -4484,7 +4489,7 @@ static void AddDrawListToDrawData(ImVector<ImDrawList*>* out_list, ImDrawList* d
     if (sizeof(ImDrawIdx) == 2)
         IM_ASSERT(draw_list->_VtxCurrentIdx < (1 << 16) && "Too many vertices in ImDrawList using 16-bit indices. Read comment above");
 
-    out_list->push_back(draw_list);
+    out_list.push_back(draw_list);
 }
 
 static void AddWindowToDrawData(ImGuiWindow* window, int layer)
@@ -4492,7 +4497,7 @@ static void AddWindowToDrawData(ImGuiWindow* window, int layer)
     ImGuiContext& g = *GImGui;
     auto& viewport = g.Viewports[0];
     g.IO.MetricsRenderWindows++;
-    AddDrawListToDrawData(&viewport->DrawDataBuilder.Layers[layer], window->DrawList);
+    AddDrawListToDrawData(viewport->DrawDataBuilder.Layers[layer], window->DrawList);
     for (ImGuiWindow* child : window->DC.ChildWindows)
     {
         if (IsWindowActiveAndVisible(child)) // Clipped children may have been marked not active
@@ -4513,39 +4518,31 @@ static inline void AddRootWindowToDrawData(ImGuiWindow* window)
 
 void ImDrawDataBuilder::FlattenIntoSingleLayer()
 {
-    int n = Layers[0].Size;
-    int size = n;
-    for (int i = 1; i < IM_ARRAYSIZE(Layers); i++)
-        size += Layers[i].Size;
-    Layers[0].resize(size);
-    for (int layer_n = 1; layer_n < IM_ARRAYSIZE(Layers); layer_n++)
-    {
-        ImVector<ImDrawList*>& layer = Layers[layer_n];
-        if (layer.empty())
-            continue;
-        memcpy(&Layers[0][n], &layer[0], layer.Size * sizeof(ImDrawList*));
-        n += layer.Size;
-        layer.resize(0);
+    auto& first_layer = Layers[0];
+    for (auto& layer : Layers | stdv::drop(1)) {
+        first_layer.insert(first_layer.end(),
+            std::make_move_iterator(layer.begin()),
+            std::make_move_iterator(layer.end()));
+        layer.clear();
     }
 }
 
-static void SetupViewportDrawData(ImGuiViewportP* viewport, ImVector<ImDrawList*>* draw_lists)
+static void SetupViewportDrawData(ImGuiViewportP* viewport, std::vector<ImDrawList*>& draw_lists)
 {
     ImGuiIO& io = ImGui::GetIO();
-    ImDrawData* draw_data = &viewport->DrawDataP;
-    draw_data->Valid = true;
-    draw_data->CmdLists = (draw_lists->Size > 0) ? draw_lists->Data : NULL;
-    draw_data->CmdListsCount = draw_lists->Size;
-    draw_data->TotalVtxCount = draw_data->TotalIdxCount = 0;
-    draw_data->DisplayPos = viewport->Pos;
-    draw_data->DisplaySize = viewport->Size;
-    draw_data->FramebufferScale = io.DisplayFramebufferScale;
-    for (int n = 0; n < draw_lists->Size; n++)
-    {
-        ImDrawList* draw_list = draw_lists->Data[n];
+    ImDrawData& draw_data = viewport->DrawDataP;
+    draw_data.Valid = true;
+    draw_data.CmdLists = draw_lists.empty() ? nullptr : draw_lists.data();
+    draw_data.CmdListsCount = draw_lists.size();
+    draw_data.TotalVtxCount = draw_data.TotalIdxCount = 0;
+    draw_data.DisplayPos = viewport->Pos;
+    draw_data.DisplaySize = viewport->Size;
+    draw_data.FramebufferScale = io.DisplayFramebufferScale;
+
+    for (ImDrawList* draw_list : draw_lists) {
         draw_list->_PopUnusedDrawCmd();
-        draw_data->TotalVtxCount += draw_list->VtxBuffer.Size;
-        draw_data->TotalIdxCount += draw_list->IdxBuffer.Size;
+        draw_data.TotalVtxCount += draw_list->VtxBuffer.Size;
+        draw_data.TotalIdxCount += draw_list->IdxBuffer.Size;
     }
 }
 
@@ -4755,7 +4752,7 @@ void ImGui::Render()
     {
         viewport->DrawDataBuilder.Clear();
         if (viewport->DrawLists[0] != NULL) {
-            AddDrawListToDrawData(&viewport->DrawDataBuilder.Layers[0], GetBackgroundDrawList(viewport.get()));
+            AddDrawListToDrawData(viewport->DrawDataBuilder.Layers[0], GetBackgroundDrawList(viewport.get()));
         }
     }
 
@@ -4790,10 +4787,10 @@ void ImGui::Render()
 
         // Add foreground ImDrawList (for each active viewport)
         if (viewport->DrawLists[1] != NULL) {
-            AddDrawListToDrawData(&viewport->DrawDataBuilder.Layers[0], GetForegroundDrawList(viewport.get()));
+            AddDrawListToDrawData(viewport->DrawDataBuilder.Layers[0], GetForegroundDrawList(viewport.get()));
         }
 
-        SetupViewportDrawData(viewport.get(), &viewport->DrawDataBuilder.Layers[0]);
+        SetupViewportDrawData(viewport.get(), viewport->DrawDataBuilder.Layers[0]);
         ImDrawData& draw_data = viewport->DrawDataP;
         g.IO.MetricsRenderVertices += draw_data.TotalVtxCount;
         g.IO.MetricsRenderIndices += draw_data.TotalIdxCount;
@@ -13760,9 +13757,11 @@ void ImGui::DebugNodeViewport(ImGuiViewportP* viewport)
             (flags & ImGuiViewportFlags_IsPlatformWindow)  ? " IsPlatformWindow"  : "",
             (flags & ImGuiViewportFlags_IsPlatformMonitor) ? " IsPlatformMonitor" : "",
             (flags & ImGuiViewportFlags_OwnedByApp)        ? " OwnedByApp"        : "");
-        for (int layer_i = 0; layer_i < IM_ARRAYSIZE(viewport->DrawDataBuilder.Layers); layer_i++)
-            for (int draw_list_i = 0; draw_list_i < viewport->DrawDataBuilder.Layers[layer_i].Size; draw_list_i++)
-                DebugNodeDrawList(NULL, viewport->DrawDataBuilder.Layers[layer_i][draw_list_i], "DrawList");
+        for (auto& layer : viewport->DrawDataBuilder.Layers) {
+            for (auto* draw_list : layer) {
+                DebugNodeDrawList(nullptr, draw_list, "DrawList");
+            }
+        }
         TreePop();
     }
 }
