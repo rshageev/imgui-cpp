@@ -574,17 +574,6 @@ inline void     ImBitArraySetBitRange(ImU32* arr, int n, int n2) // Works on ran
 
 typedef ImU32* ImBitArrayPtr; // Name for use in structs
 
-// Helper: ImBitVector
-// Store 1-bit per value.
-struct IMGUI_API ImBitVector
-{
-    ImVector<ImU32> Storage;
-    void            Create(int sz)              { Storage.resize((sz + 31) >> 5); memset(Storage.Data, 0, (size_t)Storage.Size * sizeof(Storage.Data[0])); }
-    void            Clear()                     { Storage.clear(); }
-    bool            TestBit(int n) const        { IM_ASSERT(n < (Storage.Size << 5)); return IM_BITARRAY_TESTBIT(Storage.Data, n); }
-    void            SetBit(int n)               { IM_ASSERT(n < (Storage.Size << 5)); ImBitArraySetBit(Storage.Data, n); }
-    void            ClearBit(int n)             { IM_ASSERT(n < (Storage.Size << 5)); ImBitArrayClearBit(Storage.Data, n); }
-};
 IM_MSVC_RUNTIME_CHECKS_RESTORE
 
 // Helper: ImSpan<>
