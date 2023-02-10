@@ -69,6 +69,7 @@ Index of this file:
 
 #include <array>
 #include <vector>
+#include <memory>
 
 // Define attributes of all API symbols declarations (e.g. for DLL under Windows)
 // IMGUI_API is used for core imgui functions, IMGUI_IMPL_API is used for the default backends files (imgui_impl_xxx.h)
