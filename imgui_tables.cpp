@@ -500,11 +500,11 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     // Setup memory buffer (clear data if columns count changed)
     ImGuiTableColumn* old_columns_to_preserve = NULL;
     void* old_columns_raw_data = NULL;
-    const int old_columns_count = table->Columns.size();
+    const int old_columns_count = static_cast<int>(table->Columns.size());
     if (old_columns_count != 0 && old_columns_count != columns_count)
     {
         // Attempt to preserve width on column count change (#4046)
-        old_columns_to_preserve = table->Columns.Data;
+        old_columns_to_preserve = table->Columns.data();
         old_columns_raw_data = table->RawData;
         table->RawData = NULL;
     }
@@ -604,9 +604,9 @@ void ImGui::TableBeginInitMemory(ImGuiTable* table, int columns_count)
     table->RawData = IM_ALLOC(span_allocator.GetArenaSizeInBytes());
     memset(table->RawData, 0, span_allocator.GetArenaSizeInBytes());
     span_allocator.SetArenaBasePtr(table->RawData);
-    span_allocator.GetSpan(0, &table->Columns);
-    span_allocator.GetSpan(1, &table->DisplayOrderToIndex);
-    span_allocator.GetSpan(2, &table->RowCellData);
+    table->Columns = span_allocator.GetSpan<ImGuiTableColumn>(0);
+    table->DisplayOrderToIndex = span_allocator.GetSpan<ImGuiTableColumnIdx>(1);
+    table->RowCellData = span_allocator.GetSpan<ImGuiTableCellData>(2);
     table->EnabledMaskByDisplayOrder = (ImU32*)span_allocator.GetSpanPtrBegin(3);
     table->EnabledMaskByIndex = (ImU32*)span_allocator.GetSpanPtrBegin(4);
     table->VisibleMaskByIndex = (ImU32*)span_allocator.GetSpanPtrBegin(5);
@@ -709,7 +709,7 @@ static void TableSetupColumnFlags(ImGuiTable* table, ImGuiTableColumn* column, I
 
     // Indentation
     if ((flags & ImGuiTableColumnFlags_IndentMask_) == 0)
-        flags |= (table->Columns.index_from_ptr(column) == 0) ? ImGuiTableColumnFlags_IndentEnable : ImGuiTableColumnFlags_IndentDisable;
+        flags |= (table->Columns.data() == column) ? ImGuiTableColumnFlags_IndentEnable : ImGuiTableColumnFlags_IndentDisable;
 
     // Alignment
     //if ((flags & ImGuiTableColumnFlags_AlignMask_) == 0)
@@ -3284,7 +3284,7 @@ void ImGui::TableSaveSettings(ImGuiTable* table)
     // Serialize ImGuiTable/ImGuiTableColumn into ImGuiTableSettings/ImGuiTableColumnSettings
     IM_ASSERT(settings->ID == table->ID);
     IM_ASSERT(settings->ColumnsCount == table->ColumnsCount && settings->ColumnsCountMax >= settings->ColumnsCount);
-    ImGuiTableColumn* column = table->Columns.Data;
+    ImGuiTableColumn* column = table->Columns.data();
     ImGuiTableColumnSettings* column_settings = settings->GetColumnSettings();
 
     bool save_ref_scale = false;
