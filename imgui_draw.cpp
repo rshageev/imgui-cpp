@@ -1314,7 +1314,8 @@ void ImDrawList::PathBezierQuadraticCurveTo(const ImVec2& p2, const ImVec2& p3, 
     }
 }
 
-IM_STATIC_ASSERT(ImDrawFlags_RoundCornersTopLeft == (1 << 4));
+static_assert(ImDrawFlags_RoundCornersTopLeft == (1 << 4));
+
 static inline ImDrawFlags FixRectCornerFlags(ImDrawFlags flags)
 {
     // If this triggers, please update your code replacing hardcoded values with new ImDrawFlags_RoundCorners* values.
