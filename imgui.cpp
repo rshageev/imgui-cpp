@@ -2591,7 +2591,8 @@ void ImGui::Shutdown()
     CallContextHooks(&g, ImGuiContextHookType_Shutdown);
 
     // Clear everything else
-    g.Windows.clear_delete();
+    for (auto* window : g.Windows) { IM_DELETE(window); }
+    g.Windows.clear();
     g.WindowsFocusOrder.clear();
     g.WindowsTempSortBuffer.clear();
     g.CurrentWindow = NULL;
@@ -3565,7 +3566,7 @@ void ImGui::NewFrame()
     UpdateMouseWheel();
 
     // Mark all windows as not visible and compact unused memory.
-    IM_ASSERT(g.WindowsFocusOrder.Size <= g.Windows.Size);
+    IM_ASSERT(g.WindowsFocusOrder.size() <= g.Windows.size());
     const float memory_compact_start_time = (g.GcCompactAll || g.IO.ConfigMemoryCompactTimer < 0.0f) ? FLT_MAX : (float)g.Time - g.IO.ConfigMemoryCompactTimer;
     for (ImGuiWindow* window : g.Windows)
     {
@@ -3623,29 +3624,32 @@ void ImGui::NewFrame()
 }
 
 // FIXME: Add a more explicit sort order in the window structure.
-static int IMGUI_CDECL ChildWindowComparer(const void* lhs, const void* rhs)
+bool ChildWindowCompare(const ImGuiWindow* lhs, const ImGuiWindow* rhs)
 {
-    const ImGuiWindow* const a = *(const ImGuiWindow* const *)lhs;
-    const ImGuiWindow* const b = *(const ImGuiWindow* const *)rhs;
-    if (int d = (a->Flags & ImGuiWindowFlags_Popup) - (b->Flags & ImGuiWindowFlags_Popup))
-        return d;
-    if (int d = (a->Flags & ImGuiWindowFlags_Tooltip) - (b->Flags & ImGuiWindowFlags_Tooltip))
-        return d;
-    return (a->BeginOrderWithinParent - b->BeginOrderWithinParent);
+    const auto lhs_f1 = lhs->Flags & ImGuiWindowFlags_Popup;
+    const auto rhs_f1 = lhs->Flags & ImGuiWindowFlags_Popup;
+    if (lhs_f1 != rhs_f1)
+        return lhs_f1 < rhs_f1;
+
+    const auto lhs_f2 = lhs->Flags & ImGuiWindowFlags_Tooltip;
+    const auto rhs_f2 = lhs->Flags & ImGuiWindowFlags_Tooltip;
+    if (lhs_f2 != rhs_f2)
+        return lhs_f2 < rhs_f2;
+
+     return lhs->BeginOrderWithinParent < rhs->BeginOrderWithinParent;
 }
 
-static void AddWindowToSortBuffer(ImVector<ImGuiWindow*>* out_sorted_windows, ImGuiWindow* window)
+static void AddWindowToSortBuffer(std::vector<ImGuiWindow*>& out_sorted_windows, ImGuiWindow* window)
 {
-    out_sorted_windows->push_back(window);
+    out_sorted_windows.push_back(window);
     if (window->Active)
     {
-        int count = window->DC.ChildWindows.Size;
-        ImQsort(window->DC.ChildWindows.Data, (size_t)count, sizeof(ImGuiWindow*), ChildWindowComparer);
-        for (int i = 0; i < count; i++)
+        stdr::sort(window->DC.ChildWindows, ChildWindowCompare);
+
+        for (ImGuiWindow* child : window->DC.ChildWindows
+            | stdv::filter(&ImGuiWindow::Active))
         {
-            ImGuiWindow* child = window->DC.ChildWindows[i];
-            if (child->Active)
-                AddWindowToSortBuffer(out_sorted_windows, child);
+            AddWindowToSortBuffer(out_sorted_windows, child);
         }
     }
 }
@@ -3790,9 +3794,14 @@ ImGuiWindow* ImGui::FindBottomMostVisibleWindowWithinBeginStack(ImGuiWindow* par
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* bottom_most_visible_window = parent_window;
-    for (int i = FindWindowDisplayIndex(parent_window); i >= 0; i--)
+
+    // search in reverse, starting from parent_window position
+    auto windows = g.Windows
+        | stdv::reverse
+        | stdv::drop_while([=](auto wnd){ return wnd != parent_window; });
+
+    for (ImGuiWindow* window : windows)
     {
-        ImGuiWindow* window = g.Windows[i];
         if (window->Flags & ImGuiWindowFlags_ChildWindow)
             continue;
         if (!IsWindowWithinBeginStackOf(window, parent_window))
@@ -3899,17 +3908,18 @@ void ImGui::EndFrame()
 
     // Sort the window list so that all child windows are after their parent
     // We cannot do that on FocusWindow() because children may not exist yet
-    g.WindowsTempSortBuffer.resize(0);
-    g.WindowsTempSortBuffer.reserve(g.Windows.Size);
+    g.WindowsTempSortBuffer.clear();
+    g.WindowsTempSortBuffer.reserve(g.Windows.size());
     for (ImGuiWindow* window : g.Windows)
     {
-        if (window->Active && (window->Flags & ImGuiWindowFlags_ChildWindow))       // if a child is active its parent will add it
+        // if a child is active its parent will add it
+        if (window->Active && (window->Flags & ImGuiWindowFlags_ChildWindow))      
             continue;
-        AddWindowToSortBuffer(&g.WindowsTempSortBuffer, window);
+        AddWindowToSortBuffer(g.WindowsTempSortBuffer, window);
     }
 
     // This usually assert if there is a mismatch between the ImGuiWindowFlags_ChildWindow / ParentWindow values and DC.ChildWindows[] in parents, aka we've done something wrong.
-    IM_ASSERT(g.Windows.Size == g.WindowsTempSortBuffer.Size);
+    IM_ASSERT(g.Windows.size() == g.WindowsTempSortBuffer.size());
     g.Windows.swap(g.WindowsTempSortBuffer);
     g.IO.MetricsActiveWindows = g.WindowsActiveCount;
 
@@ -3957,16 +3967,22 @@ void ImGui::Render()
     ImGuiWindow* windows_to_render_top_most[2];
     windows_to_render_top_most[0] = (g.NavWindowingTarget && !(g.NavWindowingTarget->Flags & ImGuiWindowFlags_NoBringToFrontOnFocus)) ? g.NavWindowingTarget->RootWindow : NULL;
     windows_to_render_top_most[1] = (g.NavWindowingTarget ? g.NavWindowingListWindow : NULL);
-    for (int n = 0; n != g.Windows.Size; n++)
+    for (ImGuiWindow* window : g.Windows)
     {
-        ImGuiWindow* window = g.Windows[n];
         IM_MSVC_WARNING_SUPPRESS(6011); // Static Analysis false positive "warning C6011: Dereferencing NULL pointer 'window'"
-        if (IsWindowActiveAndVisible(window) && (window->Flags & ImGuiWindowFlags_ChildWindow) == 0 && window != windows_to_render_top_most[0] && window != windows_to_render_top_most[1])
+        if (IsWindowActiveAndVisible(window)
+            && (window->Flags & ImGuiWindowFlags_ChildWindow) == 0
+            && window != windows_to_render_top_most[0]
+            && window != windows_to_render_top_most[1])
+        {
+            AddRootWindowToDrawData(window);
+        }
+    }
+    for (ImGuiWindow* window : windows_to_render_top_most) {
+        // NavWindowingTarget is always temporarily displayed as the top-most window
+        if (window && IsWindowActiveAndVisible(window))
             AddRootWindowToDrawData(window);
     }
-    for (int n = 0; n < IM_ARRAYSIZE(windows_to_render_top_most); n++)
-        if (windows_to_render_top_most[n] && IsWindowActiveAndVisible(windows_to_render_top_most[n])) // NavWindowingTarget is always temporarily displayed as the top-most window
-            AddRootWindowToDrawData(windows_to_render_top_most[n]);
 
     // Draw software mouse cursor if requested by io.MouseDrawCursor flag
     if (g.IO.MouseDrawCursor && first_render_of_frame && g.MouseCursor != ImGuiMouseCursor_None)
@@ -4035,9 +4051,8 @@ static void FindHoveredWindow()
 
     ImVec2 padding_regular = g.Style.TouchExtraPadding;
     ImVec2 padding_for_resize = g.IO.ConfigWindowsResizeFromEdges ? g.WindowsHoverPadding : padding_regular;
-    for (int i = g.Windows.Size - 1; i >= 0; i--)
+    for (ImGuiWindow* window : stdv::reverse(g.Windows))
     {
-        ImGuiWindow* window = g.Windows[i];
         IM_MSVC_WARNING_SUPPRESS(28182); // [Static Analyzer] Dereferencing NULL pointer.
         if (!window->Active || window->Hidden)
             continue;
@@ -4374,17 +4389,18 @@ static void UpdateWindowInFocusOrderList(ImGuiWindow* window, bool just_created,
     const bool new_is_explicit_child = (new_flags & ImGuiWindowFlags_ChildWindow) != 0 && ((new_flags & ImGuiWindowFlags_Popup) == 0 || (new_flags & ImGuiWindowFlags_ChildMenu) != 0);
     const bool child_flag_changed = new_is_explicit_child != window->IsExplicitChild;
     if ((just_created || child_flag_changed) && !new_is_explicit_child)
-    {
-        IM_ASSERT(!g.WindowsFocusOrder.contains(window));
+    { 
+        IM_ASSERT(stdr::find(g.WindowsFocusOrder, window) == stdr::end(g.WindowsFocusOrder));
         g.WindowsFocusOrder.push_back(window);
-        window->FocusOrder = (short)(g.WindowsFocusOrder.Size - 1);
+        window->FocusOrder = (short)(g.WindowsFocusOrder.size() - 1);
     }
     else if (!just_created && child_flag_changed && new_is_explicit_child)
     {
         IM_ASSERT(g.WindowsFocusOrder[window->FocusOrder] == window);
-        for (int n = window->FocusOrder + 1; n < g.WindowsFocusOrder.Size; n++)
+        for (int n = window->FocusOrder + 1; n < g.WindowsFocusOrder.size(); n++) {
             g.WindowsFocusOrder[n]->FocusOrder--;
-        g.WindowsFocusOrder.erase(g.WindowsFocusOrder.Data + window->FocusOrder);
+        }
+        g.WindowsFocusOrder.erase(g.WindowsFocusOrder.begin() + window->FocusOrder);
         window->FocusOrder = -1;
     }
     window->IsExplicitChild = new_is_explicit_child;
@@ -4437,7 +4453,7 @@ static ImGuiWindow* CreateNewWindow(const char* name, ImGuiWindowFlags flags)
     InitOrLoadWindowSettings(window, settings);
 
     if (flags & ImGuiWindowFlags_NoBringToFrontOnFocus)
-        g.Windows.push_front(window); // Quite slow but rare and only once
+        g.Windows.insert(g.Windows.begin(), window); // Quite slow but rare and only once
     else
         g.Windows.push_back(window);
 
@@ -5355,7 +5371,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         if (flags & ImGuiWindowFlags_ChildWindow)
         {
             IM_ASSERT(parent_window && parent_window->Active);
-            window->BeginOrderWithinParent = (short)parent_window->DC.ChildWindows.Size;
+            window->BeginOrderWithinParent = (short)parent_window->DC.ChildWindows.size();
             parent_window->DC.ChildWindows.push_back(window);
             if (!(flags & ImGuiWindowFlags_Popup) && !window_pos_set_by_api && !window_is_child_tooltip)
                 window->Pos = parent_window->DC.CursorPos;
@@ -5541,7 +5557,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
             {
                 // - We test overlap with the previous child window only (testing all would end up being O(log N) not a good investment here)
                 // - We disable this when the parent window has zero vertices, which is a common pattern leading to laying out multiple overlapping childs
-                ImGuiWindow* previous_child = parent_window->DC.ChildWindows.Size >= 2 ? parent_window->DC.ChildWindows[parent_window->DC.ChildWindows.Size - 2] : NULL;
+                ImGuiWindow* previous_child = parent_window->DC.ChildWindows.size() >= 2 ? parent_window->DC.ChildWindows[parent_window->DC.ChildWindows.size() - 2] : NULL;
                 bool previous_child_overlapping = previous_child ? previous_child->Rect().Overlaps(window->Rect()) : false;
                 bool parent_is_empty = parent_window->DrawList->VtxBuffer.Size > 0;
                 if (window->DrawList->CmdBuffer.back().ElemCount == 0 && parent_is_empty && !previous_child_overlapping)
@@ -5785,7 +5801,7 @@ void ImGui::BringWindowToFocusFront(ImGuiWindow* window)
     if (g.WindowsFocusOrder.back() == window)
         return;
 
-    const int new_order = g.WindowsFocusOrder.Size - 1;
+    const int new_order = g.WindowsFocusOrder.size() - 1;
     for (int n = cur_order; n < new_order; n++)
     {
         g.WindowsFocusOrder[n] = g.WindowsFocusOrder[n + 1];
@@ -5802,27 +5818,26 @@ void ImGui::BringWindowToDisplayFront(ImGuiWindow* window)
     ImGuiWindow* current_front_window = g.Windows.back();
     if (current_front_window == window || current_front_window->RootWindow == window) // Cheap early out (could be better)
         return;
-    for (int i = g.Windows.Size - 2; i >= 0; i--) // We can ignore the top-most window
-        if (g.Windows[i] == window)
-        {
-            memmove(&g.Windows[i], &g.Windows[i + 1], (size_t)(g.Windows.Size - i - 1) * sizeof(ImGuiWindow*));
-            g.Windows[g.Windows.Size - 1] = window;
-            break;
-        }
+
+    auto itr = std::find(g.Windows.begin(), g.Windows.end(), window);
+    if (itr != g.Windows.end()) {
+        // rotate portion of array after the window to move window to the back
+        // (array back = rendered last = in front visually)
+        std::rotate(itr, itr + 1, g.Windows.end());
+    }
 }
 
 void ImGui::BringWindowToDisplayBack(ImGuiWindow* window)
 {
     ImGuiContext& g = *GImGui;
-    if (g.Windows[0] == window)
-        return;
-    for (int i = 0; i < g.Windows.Size; i++)
-        if (g.Windows[i] == window)
-        {
-            memmove(&g.Windows[1], &g.Windows[0], (size_t)i * sizeof(ImGuiWindow*));
-            g.Windows[0] = window;
-            break;
-        }
+
+    auto itr = std::find(g.Windows.begin(), g.Windows.end(), window);
+    if (itr != g.Windows.end() && itr != g.Windows.begin())
+    {
+        // rotate beginning of array up to the window to bring window to the front
+        // (front of array = rendered first = in the back visually)
+        std::rotate(g.Windows.begin(), itr, itr + 1);
+    }
 }
 
 void ImGui::BringWindowToDisplayBehind(ImGuiWindow* window, ImGuiWindow* behind_window)
@@ -5831,26 +5846,21 @@ void ImGui::BringWindowToDisplayBehind(ImGuiWindow* window, ImGuiWindow* behind_
     ImGuiContext& g = *GImGui;
     window = window->RootWindow;
     behind_window = behind_window->RootWindow;
-    int pos_wnd = FindWindowDisplayIndex(window);
-    int pos_beh = FindWindowDisplayIndex(behind_window);
-    if (pos_wnd < pos_beh)
-    {
-        size_t copy_bytes = (pos_beh - pos_wnd - 1) * sizeof(ImGuiWindow*);
-        memmove(&g.Windows.Data[pos_wnd], &g.Windows.Data[pos_wnd + 1], copy_bytes);
-        g.Windows[pos_beh - 1] = window;
-    }
-    else
-    {
-        size_t copy_bytes = (pos_wnd - pos_beh) * sizeof(ImGuiWindow*);
-        memmove(&g.Windows.Data[pos_beh + 1], &g.Windows.Data[pos_beh], copy_bytes);
-        g.Windows[pos_beh] = window;
+
+    auto itr_wnd = std::find(g.Windows.begin(), g.Windows.end(), window);
+    auto itr_beh = std::find(g.Windows.begin(), g.Windows.end(), behind_window);
+
+    if (itr_wnd < itr_beh) {
+        std::rotate(itr_wnd, itr_wnd + 1, itr_beh + 1);
+    } else {
+        std::rotate(itr_beh, itr_wnd, itr_wnd + 1);
     }
 }
 
 int ImGui::FindWindowDisplayIndex(ImGuiWindow* window)
 {
     ImGuiContext& g = *GImGui;
-    return g.Windows.index_from_ptr(g.Windows.find(window));
+    return std::distance(stdr::begin(g.Windows), stdr::find(g.Windows, window));
 }
 
 // Moving window to front of display and set focus (which happens to be back of our sorted list)
@@ -5897,7 +5907,7 @@ void ImGui::FocusWindow(ImGuiWindow* window)
 void ImGui::FocusTopMostWindowUnderOne(ImGuiWindow* under_this_window, ImGuiWindow* ignore_window)
 {
     ImGuiContext& g = *GImGui;
-    int start_idx = g.WindowsFocusOrder.Size - 1;
+    int start_idx = g.WindowsFocusOrder.size() - 1;
     if (under_this_window != NULL)
     {
         // Aim at root window behind us, if we are in a child window that's our own root (see #4640)
@@ -5914,13 +5924,14 @@ void ImGui::FocusTopMostWindowUnderOne(ImGuiWindow* under_this_window, ImGuiWind
         // We may later decide to test for different NoXXXInputs based on the active navigation input (mouse vs nav) but that may feel more confusing to the user.
         ImGuiWindow* window = g.WindowsFocusOrder[i];
         IM_ASSERT(window == window->RootWindow);
-        if (window != ignore_window && window->WasActive)
+        if (window != ignore_window && window->WasActive) {
             if ((window->Flags & (ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoNavInputs)) != (ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoNavInputs))
             {
                 ImGuiWindow* focus_window = NavRestoreLastChildNavWindow(window);
                 FocusWindow(focus_window);
                 return;
             }
+        }
     }
     FocusWindow(NULL);
 }
@@ -6097,13 +6108,14 @@ bool ImGui::IsWindowAbove(ImGuiWindow* potential_above, ImGuiWindow* potential_b
     ImGuiContext& g = *GImGui;
 
     // It would be saner to ensure that display layer is always reflected in the g.Windows[] order, which would likely requires altering all manipulations of that array
-    const int display_layer_delta = GetWindowDisplayLayer(potential_above) - GetWindowDisplayLayer(potential_below);
-    if (display_layer_delta != 0)
-        return display_layer_delta > 0;
+    const auto layer1 = GetWindowDisplayLayer(potential_above);
+    const auto layer2 = GetWindowDisplayLayer(potential_below);
+    if (layer1 != layer2) {
+        return layer1 > layer2;
+    }
 
-    for (int i = g.Windows.Size - 1; i >= 0; i--)
+    for (ImGuiWindow* candidate_window : stdv::reverse(g.Windows))
     {
-        ImGuiWindow* candidate_window = g.Windows[i];
         if (candidate_window == potential_above)
             return true;
         if (candidate_window == potential_below)
@@ -10545,9 +10557,11 @@ static int ImGui::FindWindowFocusIndex(ImGuiWindow* window)
 static ImGuiWindow* FindWindowNavFocusable(int i_start, int i_stop, int dir) // FIXME-OPT O(N)
 {
     ImGuiContext& g = *GImGui;
-    for (int i = i_start; i >= 0 && i < g.WindowsFocusOrder.Size && i != i_stop; i += dir)
-        if (ImGui::IsWindowNavFocusable(g.WindowsFocusOrder[i]))
+    for (int i = i_start; i >= 0 && i < g.WindowsFocusOrder.size() && i != i_stop; i += dir) {
+        if (ImGui::IsWindowNavFocusable(g.WindowsFocusOrder[i])) {
             return g.WindowsFocusOrder[i];
+        }
+    }
     return NULL;
 }
 
@@ -10560,8 +10574,9 @@ static void NavUpdateWindowingHighlightWindow(int focus_change_dir)
 
     const int i_current = ImGui::FindWindowFocusIndex(g.NavWindowingTarget);
     ImGuiWindow* window_target = FindWindowNavFocusable(i_current + focus_change_dir, -INT_MAX, focus_change_dir);
-    if (!window_target)
-        window_target = FindWindowNavFocusable((focus_change_dir < 0) ? (g.WindowsFocusOrder.Size - 1) : 0, i_current, focus_change_dir);
+    if (!window_target) {
+        window_target = FindWindowNavFocusable((focus_change_dir < 0) ? (g.WindowsFocusOrder.size() - 1) : 0, i_current, focus_change_dir);
+    }
     if (window_target) // Don't reset windowing target if there's a single window in the list
     {
         g.NavWindowingTarget = g.NavWindowingTargetAnim = window_target;
@@ -10602,7 +10617,9 @@ static void ImGui::NavUpdateWindowing()
     const bool start_windowing_with_gamepad = allow_windowing && nav_gamepad_active && !g.NavWindowingTarget && IsKeyPressed(ImGuiKey_NavGamepadMenu, 0, ImGuiInputFlags_None);
     const bool start_windowing_with_keyboard = allow_windowing && !g.NavWindowingTarget && (keyboard_next_window || keyboard_prev_window); // Note: enabled even without NavEnableKeyboard!
     if (start_windowing_with_gamepad || start_windowing_with_keyboard)
-        if (ImGuiWindow* window = g.NavWindow ? g.NavWindow : FindWindowNavFocusable(g.WindowsFocusOrder.Size - 1, -INT_MAX, -1))
+    {
+        ImGuiWindow* window = g.NavWindow ? g.NavWindow : FindWindowNavFocusable(g.WindowsFocusOrder.size() - 1, -INT_MAX, -1);
+        if (window)
         {
             g.NavWindowingTarget = g.NavWindowingTargetAnim = window->RootWindow;
             g.NavWindowingTimer = g.NavWindowingHighlightAlpha = 0.0f;
@@ -10610,6 +10627,7 @@ static void ImGui::NavUpdateWindowing()
             g.NavWindowingToggleLayer = start_windowing_with_gamepad ? true : false; // Gamepad starts toggling layer
             g.NavInputSource = start_windowing_with_keyboard ? ImGuiInputSource_Keyboard : ImGuiInputSource_Gamepad;
         }
+    }
 
     // Gamepad update
     g.NavWindowingTimer += io.DeltaTime;
@@ -10783,7 +10801,7 @@ void ImGui::NavUpdateWindowingOverlay()
     SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     PushStyleVar(ImGuiStyleVar_WindowPadding, g.Style.WindowPadding * 2.0f);
     Begin("###NavWindowingList", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
-    for (int n = g.WindowsFocusOrder.Size - 1; n >= 0; n--)
+    for (int n = g.WindowsFocusOrder.size() - 1; n >= 0; n--)
     {
         ImGuiWindow* window = g.WindowsFocusOrder[n];
         IM_ASSERT(window != NULL); // Fix static analyzers
@@ -12300,23 +12318,25 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     }
 
     // Windows
-    if (TreeNode("Windows", "Windows (%d)", g.Windows.Size))
+    if (TreeNode("Windows", "Windows (%d)", g.Windows.size()))
     {
         //SetNextItemOpen(true, ImGuiCond_Once);
-        DebugNodeWindowsList(&g.Windows, "By display order");
-        DebugNodeWindowsList(&g.WindowsFocusOrder, "By focus order (root windows)");
+        DebugNodeWindowsList(g.Windows, "By display order");
+        DebugNodeWindowsList(g.WindowsFocusOrder, "By focus order (root windows)");
         if (TreeNode("By submission order (begin stack)"))
         {
             // Here we display windows in their submitted order/hierarchy, however note that the Begin stack doesn't constitute a Parent<>Child relationship!
-            ImVector<ImGuiWindow*>& temp_buffer = g.WindowsTempSortBuffer;
-            temp_buffer.resize(0);
-            for (ImGuiWindow* window : g.Windows)
-                if (window->LastFrameActive + 1 >= g.FrameCount)
+            auto& temp_buffer = g.WindowsTempSortBuffer;
+            temp_buffer.clear();
+            for (ImGuiWindow* window : g.Windows) {
+                if (window->LastFrameActive + 1 >= g.FrameCount) {
                     temp_buffer.push_back(window);
+                }
+            }
 
-            struct Func { static int IMGUI_CDECL WindowComparerByBeginOrder(const void* lhs, const void* rhs) { return ((int)(*(const ImGuiWindow* const *)lhs)->BeginOrderWithinContext - (*(const ImGuiWindow* const*)rhs)->BeginOrderWithinContext); } };
-            ImQsort(temp_buffer.Data, (size_t)temp_buffer.Size, sizeof(ImGuiWindow*), Func::WindowComparerByBeginOrder);
-            DebugNodeWindowsListByBeginStackParent(temp_buffer.Data, temp_buffer.Size, NULL);
+            auto ByBeginOrder = [](const ImGuiWindow* wnd){ return wnd->BeginOrderWithinContext; };
+            stdr::sort(temp_buffer, std::less<>{}, ByBeginOrder);
+            DebugNodeWindowsListByBeginStackParent(temp_buffer, NULL);
             TreePop();
         }
 
@@ -12604,7 +12624,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     // Overlay: Display windows Rectangles and Begin Order
     if (cfg->ShowWindowsRects || cfg->ShowWindowsBeginOrder)
     {
-        for (int n = 0; n < g.Windows.Size; n++)
+        for (int n = 0; n < g.Windows.size(); n++)
         {
             ImGuiWindow* window = g.Windows[n];
             if (!window->WasActive)
@@ -13022,7 +13042,7 @@ void ImGui::DebugNodeWindow(ImGuiWindow* window, const char* label)
     BulletText("NavLayersActiveMask: %X, NavLastChildNavWindow: %s", window->DC.NavLayersActiveMask, window->NavLastChildNavWindow ? window->NavLastChildNavWindow->Name : "NULL");
     if (window->RootWindow != window)       { DebugNodeWindow(window->RootWindow, "RootWindow"); }
     if (window->ParentWindow != NULL)       { DebugNodeWindow(window->ParentWindow, "ParentWindow"); }
-    if (window->DC.ChildWindows.Size > 0)   { DebugNodeWindowsList(&window->DC.ChildWindows, "ChildWindows"); }
+    if (window->DC.ChildWindows.size() > 0) { DebugNodeWindowsList(window->DC.ChildWindows, "ChildWindows"); }
     if (window->ColumnsStorage.Size > 0 && TreeNode("Columns", "Columns sets (%d)", window->ColumnsStorage.Size))
     {
         for (int n = 0; n < window->ColumnsStorage.Size; n++)
@@ -13043,23 +13063,23 @@ void ImGui::DebugNodeWindowSettings(ImGuiWindowSettings* settings)
         EndDisabled();
 }
 
-void ImGui::DebugNodeWindowsList(ImVector<ImGuiWindow*>* windows, const char* label)
+void ImGui::DebugNodeWindowsList(std::vector<ImGuiWindow*>& windows, const char* label)
 {
-    if (!TreeNode(label, "%s (%d)", label, windows->Size))
+    if (!TreeNode(label, "%s (%d)", label, windows.size()))
         return;
-    for (int i = windows->Size - 1; i >= 0; i--) // Iterate front to back
+    for (auto* window : stdv::reverse(windows)) // Iterate front to back
     {
-        PushID((*windows)[i]);
-        DebugNodeWindow((*windows)[i], "Window");
+        PushID(window);
+        DebugNodeWindow(window, "Window");
         PopID();
     }
     TreePop();
 }
 
 // FIXME-OPT: This is technically suboptimal, but it is simpler this way.
-void ImGui::DebugNodeWindowsListByBeginStackParent(ImGuiWindow** windows, int windows_size, ImGuiWindow* parent_in_begin_stack)
+void ImGui::DebugNodeWindowsListByBeginStackParent(std::span<ImGuiWindow*> windows, ImGuiWindow* parent_in_begin_stack)
 {
-    for (int i = 0; i < windows_size; i++)
+    for (size_t i = 0; i < windows.size(); i++)
     {
         ImGuiWindow* window = windows[i];
         if (window->ParentWindowInBeginStack != parent_in_begin_stack)
@@ -13069,7 +13089,7 @@ void ImGui::DebugNodeWindowsListByBeginStackParent(ImGuiWindow** windows, int wi
         //BulletText("[%04d] Window '%s'", window->BeginOrderWithinContext, window->Name);
         DebugNodeWindow(window, buf);
         Indent();
-        DebugNodeWindowsListByBeginStackParent(windows + i + 1, windows_size - i - 1, window);
+        DebugNodeWindowsListByBeginStackParent(windows.subspan(i + 1), window);
         Unindent();
     }
 }
@@ -13421,7 +13441,7 @@ void ImGui::DebugNodeStorage(ImGuiStorage*, const char*) {}
 void ImGui::DebugNodeTabBar(ImGuiTabBar*, const char*) {}
 void ImGui::DebugNodeWindow(ImGuiWindow*, const char*) {}
 void ImGui::DebugNodeWindowSettings(ImGuiWindowSettings*) {}
-void ImGui::DebugNodeWindowsList(ImVector<ImGuiWindow*>*, const char*) {}
+void ImGui::DebugNodeWindowsList(std::vector<ImGuiWindow*>&, const char*) {}
 void ImGui::DebugNodeViewport(ImGuiViewportP*) {}
 
 void ImGui::DebugLog(const char*, ...) {}
