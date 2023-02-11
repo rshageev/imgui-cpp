@@ -3074,21 +3074,7 @@ void ImFontGlyphRangesBuilder::BuildRanges(ImVector<ImWchar>* out_ranges)
 
 ImFont::ImFont()
 {
-    FontSize = 0.0f;
-    FallbackAdvanceX = 0.0f;
-    FallbackChar = (ImWchar)-1;
-    EllipsisChar = (ImWchar)-1;
-    EllipsisWidth = EllipsisCharStep = 0.0f;
-    EllipsisCharCount = 0;
-    FallbackGlyph = NULL;
-    ContainerAtlas = NULL;
-    ConfigData = NULL;
-    ConfigDataCount = 0;
-    DirtyLookupTables = false;
-    Scale = 1.0f;
-    Ascent = Descent = 0.0f;
-    MetricsTotalSurface = 0;
-    memset(Used4kPagesMap, 0, sizeof(Used4kPagesMap));
+    Used4kPagesMap.fill(0);
 }
 
 ImFont::~ImFont()
@@ -3130,7 +3116,7 @@ void ImFont::BuildLookupTable()
     IndexAdvanceX.clear();
     IndexLookup.clear();
     DirtyLookupTables = false;
-    memset(Used4kPagesMap, 0, sizeof(Used4kPagesMap));
+    Used4kPagesMap.fill(0);
     GrowIndex(max_codepoint + 1);
     for (int i = 0; i < Glyphs.Size; i++)
     {
