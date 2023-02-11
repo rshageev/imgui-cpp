@@ -2817,14 +2817,22 @@ struct ImFontGlyphRangesBuilder
 // See ImFontAtlas::AddCustomRectXXX functions.
 struct ImFontAtlasCustomRect
 {
-    unsigned short  Width, Height;  // Input    // Desired rectangle dimension
-    unsigned short  X, Y;           // Output   // Packed position in Atlas
-    unsigned int    GlyphID;        // Input    // For custom font glyphs only (ID < 0x110000)
-    float           GlyphAdvanceX;  // Input    // For custom font glyphs only: glyph xadvance
-    ImVec2          GlyphOffset;    // Input    // For custom font glyphs only: glyph display offset
-    ImFont*         Font;           // Input    // For custom font glyphs only: target font
-    ImFontAtlasCustomRect()         { Width = Height = 0; X = Y = 0xFFFF; GlyphID = 0; GlyphAdvanceX = 0.0f; GlyphOffset = ImVec2(0, 0); Font = NULL; }
-    bool IsPacked() const           { return X != 0xFFFF; }
+    // Input: Desired rectangle dimension
+    unsigned short Width = 0;
+    unsigned short Height = 0;
+
+    // Output: Packed position in Atlas
+    unsigned short X = 0xFFFF;
+    unsigned short Y = 0xFFFF;
+
+    // Input: For custom font glyphs only
+    unsigned int GlyphID = 0;    // (ID < 0x110000)
+    float GlyphAdvanceX = 0.0f;  // glyph xadvance
+    ImVec2 GlyphOffset;          // glyph display offset
+    ImFont* Font = nullptr;      // target font
+
+
+    bool IsPacked() const { return X != 0xFFFF; }
 };
 
 // Flags for ImFontAtlas build
@@ -2912,8 +2920,8 @@ struct ImFontAtlas
     ImFontAtlasCustomRect*      GetCustomRectByIndex(int index) { IM_ASSERT(index >= 0); return &CustomRects[index]; }
 
     // [Internal]
-    IMGUI_API void              CalcCustomRectUV(const ImFontAtlasCustomRect* rect, ImVec2* out_uv_min, ImVec2* out_uv_max) const;
-    IMGUI_API bool              GetMouseCursorTexData(ImGuiMouseCursor cursor, ImVec2* out_offset, ImVec2* out_size, ImVec2 out_uv_border[2], ImVec2 out_uv_fill[2]);
+    void CalcCustomRectUV(const ImFontAtlasCustomRect& rect, ImVec2* out_uv_min, ImVec2* out_uv_max) const;
+    bool GetMouseCursorTexData(ImGuiMouseCursor cursor, ImVec2* out_offset, ImVec2* out_size, ImVec2 out_uv_border[2], ImVec2 out_uv_fill[2]);
 
     //-------------------------------------------
     // Members
@@ -2937,7 +2945,7 @@ struct ImFontAtlas
     ImVec2 TexUvScale;                          // = (1.0f/TexWidth, 1.0f/TexHeight)
     ImVec2 TexUvWhitePixel;                     // Texture coordinates to a white pixel
     ImVector<ImFont*> Fonts;                    // Hold all the fonts returned by AddFont*. Fonts[0] is the default font upon calling ImGui::NewFrame(), use ImGui::PushFont()/PopFont() to change the current font.
-    ImVector<ImFontAtlasCustomRect> CustomRects; // Rectangles for packing custom texture data into the atlas.
+    std::vector<ImFontAtlasCustomRect> CustomRects; // Rectangles for packing custom texture data into the atlas.
     ImVector<ImFontConfig>  ConfigData;         // Configuration data
     ImVec4 TexUvLines[IM_DRAWLIST_TEX_LINES_WIDTH_MAX + 1]; // UVs for baked anti-aliased lines
 

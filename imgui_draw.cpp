@@ -40,6 +40,12 @@ Index of this file:
 
 #include <stdio.h>      // vsnprintf, sscanf, printf
 
+#include <algorithm>
+#include <ranges>
+
+namespace stdr = std::ranges;
+namespace stdv = std::views;
+
 // Visual Studio warnings
 #ifdef _MSC_VER
 #pragma warning (disable: 4127)     // condition expression is constant
@@ -2162,11 +2168,12 @@ int ImFontAtlas::AddCustomRectRegular(int width, int height)
 {
     IM_ASSERT(width > 0 && width <= 0xFFFF);
     IM_ASSERT(height > 0 && height <= 0xFFFF);
-    ImFontAtlasCustomRect r;
-    r.Width = (unsigned short)width;
-    r.Height = (unsigned short)height;
-    CustomRects.push_back(r);
-    return CustomRects.Size - 1; // Return index
+
+    CustomRects.push_back({
+        .Width = (unsigned short)width,
+        .Height = (unsigned short)height,
+    });
+    return CustomRects.size() - 1; // Return index
 }
 
 int ImFontAtlas::AddCustomRectFontGlyph(ImFont* font, ImWchar id, int width, int height, float advance_x, const ImVec2& offset)
@@ -2177,23 +2184,24 @@ int ImFontAtlas::AddCustomRectFontGlyph(ImFont* font, ImWchar id, int width, int
     IM_ASSERT(font != NULL);
     IM_ASSERT(width > 0 && width <= 0xFFFF);
     IM_ASSERT(height > 0 && height <= 0xFFFF);
-    ImFontAtlasCustomRect r;
-    r.Width = (unsigned short)width;
-    r.Height = (unsigned short)height;
-    r.GlyphID = id;
-    r.GlyphAdvanceX = advance_x;
-    r.GlyphOffset = offset;
-    r.Font = font;
-    CustomRects.push_back(r);
-    return CustomRects.Size - 1; // Return index
+
+    CustomRects.push_back({
+        .Width = (unsigned short)width,
+        .Height = (unsigned short)height,
+        .GlyphID = id,
+        .GlyphAdvanceX = advance_x,
+        .GlyphOffset = offset,
+        .Font = font,
+    });
+    return CustomRects.size() - 1; // Return index
 }
 
-void ImFontAtlas::CalcCustomRectUV(const ImFontAtlasCustomRect* rect, ImVec2* out_uv_min, ImVec2* out_uv_max) const
+void ImFontAtlas::CalcCustomRectUV(const ImFontAtlasCustomRect& rect, ImVec2* out_uv_min, ImVec2* out_uv_max) const
 {
     IM_ASSERT(TexWidth > 0 && TexHeight > 0);   // Font atlas needs to be built before we can calculate UV coordinates
-    IM_ASSERT(rect->IsPacked());                // Make sure the rectangle has been packed
-    *out_uv_min = ImVec2((float)rect->X * TexUvScale.x, (float)rect->Y * TexUvScale.y);
-    *out_uv_max = ImVec2((float)(rect->X + rect->Width) * TexUvScale.x, (float)(rect->Y + rect->Height) * TexUvScale.y);
+    IM_ASSERT(rect.IsPacked());                // Make sure the rectangle has been packed
+    *out_uv_min = ImVec2((float)rect.X * TexUvScale.x, (float)rect.Y * TexUvScale.y);
+    *out_uv_max = ImVec2((float)(rect.X + rect.Width) * TexUvScale.x, (float)(rect.Y + rect.Height) * TexUvScale.y);
 }
 
 bool ImFontAtlas::GetMouseCursorTexData(ImGuiMouseCursor cursor_type, ImVec2* out_offset, ImVec2* out_size, ImVec2 out_uv_border[2], ImVec2 out_uv_fill[2])
@@ -2575,26 +2583,23 @@ void ImFontAtlasBuildPackCustomRects(ImFontAtlas* atlas, void* stbrp_context_opa
     stbrp_context* pack_context = (stbrp_context*)stbrp_context_opaque;
     IM_ASSERT(pack_context != NULL);
 
-    ImVector<ImFontAtlasCustomRect>& user_rects = atlas->CustomRects;
-    IM_ASSERT(user_rects.Size >= 1); // We expect at least the default custom rects to be registered, else something went wrong.
+    auto& user_rects = atlas->CustomRects;
+    IM_ASSERT(user_rects.size() >= 1); // We expect at least the default custom rects to be registered, else something went wrong.
 
-    ImVector<stbrp_rect> pack_rects;
-    pack_rects.resize(user_rects.Size);
-    memset(pack_rects.Data, 0, (size_t)pack_rects.size_in_bytes());
-    for (int i = 0; i < user_rects.Size; i++)
+    auto to_stbrp_rect = [](const auto& rect) -> stbrp_rect {
+        return { .w = rect.Width, .h = rect.Height };
+    };
+    auto pack_rects = user_rects | stdv::transform(to_stbrp_rect) | stdr::to<std::vector>();
+
+    stbrp_pack_rects(pack_context, pack_rects.data(), pack_rects.size());
+
+    for (auto [user_rect, pack_rect] : stdv::zip(user_rects, pack_rects))
     {
-        pack_rects[i].w = user_rects[i].Width;
-        pack_rects[i].h = user_rects[i].Height;
+        user_rect.X = (unsigned short)pack_rect.x;
+        user_rect.Y = (unsigned short)pack_rect.y;
+        IM_ASSERT(pack_rect.w == user_rect.Width && pack_rect.h == user_rect.Height);
+        atlas->TexHeight = std::max(atlas->TexHeight, pack_rect.y + pack_rect.h);
     }
-    stbrp_pack_rects(pack_context, &pack_rects[0], pack_rects.Size);
-    for (int i = 0; i < pack_rects.Size; i++)
-        if (pack_rects[i].was_packed)
-        {
-            user_rects[i].X = (unsigned short)pack_rects[i].x;
-            user_rects[i].Y = (unsigned short)pack_rects[i].y;
-            IM_ASSERT(pack_rects[i].w == user_rects[i].Width && pack_rects[i].h == user_rects[i].Height);
-            atlas->TexHeight = ImMax(atlas->TexHeight, pack_rects[i].y + pack_rects[i].h);
-        }
 }
 
 void ImFontAtlasBuildRender8bppRectFromString(ImFontAtlas* atlas, int x, int y, int w, int h, const char* in_str, char in_marker_char, unsigned char in_marker_pixel_value)
@@ -2738,17 +2743,16 @@ void ImFontAtlasBuildFinish(ImFontAtlas* atlas)
     ImFontAtlasBuildRenderLinesTexData(atlas);
 
     // Register custom rectangle glyphs
-    for (int i = 0; i < atlas->CustomRects.Size; i++)
+    for (const ImFontAtlasCustomRect& r : atlas->CustomRects)
     {
-        const ImFontAtlasCustomRect* r = &atlas->CustomRects[i];
-        if (r->Font == NULL || r->GlyphID == 0)
+        if (r.Font == nullptr || r.GlyphID == 0)
             continue;
 
         // Will ignore ImFontConfig settings: GlyphMinAdvanceX, GlyphMinAdvanceY, GlyphExtraSpacing, PixelSnapH
-        IM_ASSERT(r->Font->ContainerAtlas == atlas);
+        IM_ASSERT(r.Font->ContainerAtlas == atlas);
         ImVec2 uv0, uv1;
         atlas->CalcCustomRectUV(r, &uv0, &uv1);
-        r->Font->AddGlyph(NULL, (ImWchar)r->GlyphID, r->GlyphOffset.x, r->GlyphOffset.y, r->GlyphOffset.x + r->Width, r->GlyphOffset.y + r->Height, uv0.x, uv0.y, uv1.x, uv1.y, r->GlyphAdvanceX);
+        r.Font->AddGlyph(NULL, (ImWchar)r.GlyphID, r.GlyphOffset.x, r.GlyphOffset.y, r.GlyphOffset.x + r.Width, r.GlyphOffset.y + r.Height, uv0.x, uv0.y, uv1.x, uv1.y, r.GlyphAdvanceX);
     }
 
     // Build all fonts lookup tables
