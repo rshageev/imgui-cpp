@@ -13,11 +13,11 @@
 // Read online: https://github.com/ocornut/imgui/tree/master/docs
 
 #pragma once
-#include "imgui.h"      // IMGUI_IMPL_API
+#include "imgui.h"
 
-IMGUI_IMPL_API bool     ImGui_ImplWin32_Init(void* hwnd);
-IMGUI_IMPL_API void     ImGui_ImplWin32_Shutdown();
-IMGUI_IMPL_API void     ImGui_ImplWin32_NewFrame();
+bool ImGui_ImplWin32_Init(void* hwnd);
+void ImGui_ImplWin32_Shutdown();
+void ImGui_ImplWin32_NewFrame();
 
 // Win32 message handler your application need to call.
 // - Intentionally commented out in a '#if 0' block to avoid dragging dependencies on <windows.h> from this helper.
@@ -25,7 +25,7 @@ IMGUI_IMPL_API void     ImGui_ImplWin32_NewFrame();
 // - Call from your application's message handler. Keep calling your message handler unless this function returns TRUE.
 
 #if 0
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #endif
 
 // DPI-related helpers (optional)
@@ -34,11 +34,11 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // - In theory we could call simple functions from Windows SDK such as SetProcessDPIAware(), SetProcessDpiAwareness(), etc.
 //   but most of the functions provided by Microsoft require Windows 8.1/10+ SDK at compile time and Windows 8/10+ at runtime,
 //   neither we want to require the user to have. So we dynamically select and load those functions to avoid dependencies.
-IMGUI_IMPL_API void     ImGui_ImplWin32_EnableDpiAwareness();
-IMGUI_IMPL_API float    ImGui_ImplWin32_GetDpiScaleForHwnd(void* hwnd);       // HWND hwnd
-IMGUI_IMPL_API float    ImGui_ImplWin32_GetDpiScaleForMonitor(void* monitor); // HMONITOR monitor
+void ImGui_ImplWin32_EnableDpiAwareness();
+float ImGui_ImplWin32_GetDpiScaleForHwnd(void* hwnd);       // HWND hwnd
+float ImGui_ImplWin32_GetDpiScaleForMonitor(void* monitor); // HMONITOR monitor
 
 // Transparency related helpers (optional) [experimental]
 // - Use to enable alpha compositing transparency with the desktop.
 // - Use together with e.g. clearing your framebuffer with zero-alpha.
-IMGUI_IMPL_API void     ImGui_ImplWin32_EnableAlphaCompositing(void* hwnd);   // HWND hwnd
+void ImGui_ImplWin32_EnableAlphaCompositing(void* hwnd);   // HWND hwnd

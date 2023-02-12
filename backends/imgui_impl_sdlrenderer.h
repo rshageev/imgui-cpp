@@ -13,17 +13,17 @@
 //  [X] Renderer: Large meshes support (64k+ vertices) with 16-bit indices.
 
 #pragma once
-#include "imgui.h"      // IMGUI_IMPL_API
+#include "imgui.h"
 
 struct SDL_Renderer;
 
-IMGUI_IMPL_API bool     ImGui_ImplSDLRenderer_Init(SDL_Renderer* renderer);
-IMGUI_IMPL_API void     ImGui_ImplSDLRenderer_Shutdown();
-IMGUI_IMPL_API void     ImGui_ImplSDLRenderer_NewFrame();
-IMGUI_IMPL_API void     ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data);
+bool ImGui_ImplSDLRenderer_Init(SDL_Renderer* renderer);
+void ImGui_ImplSDLRenderer_Shutdown();
+void ImGui_ImplSDLRenderer_NewFrame();
+void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data);
 
 // Called by Init/NewFrame/Shutdown
-IMGUI_IMPL_API bool     ImGui_ImplSDLRenderer_CreateFontsTexture();
-IMGUI_IMPL_API void     ImGui_ImplSDLRenderer_DestroyFontsTexture();
-IMGUI_IMPL_API bool     ImGui_ImplSDLRenderer_CreateDeviceObjects();
-IMGUI_IMPL_API void     ImGui_ImplSDLRenderer_DestroyDeviceObjects();
+bool ImGui_ImplSDLRenderer_CreateFontsTexture();
+void ImGui_ImplSDLRenderer_DestroyFontsTexture();
+bool ImGui_ImplSDLRenderer_CreateDeviceObjects();
+void ImGui_ImplSDLRenderer_DestroyDeviceObjects();

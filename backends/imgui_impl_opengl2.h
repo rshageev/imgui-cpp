@@ -18,15 +18,15 @@
 // The GL2 code is unable to reset attributes or even call e.g. "glUseProgram(0)" because they don't exist in that API.
 
 #pragma once
-#include "imgui.h"      // IMGUI_IMPL_API
+#include "imgui.h"
 
-IMGUI_IMPL_API bool     ImGui_ImplOpenGL2_Init();
-IMGUI_IMPL_API void     ImGui_ImplOpenGL2_Shutdown();
-IMGUI_IMPL_API void     ImGui_ImplOpenGL2_NewFrame();
-IMGUI_IMPL_API void     ImGui_ImplOpenGL2_RenderDrawData(ImDrawData* draw_data);
+bool ImGui_ImplOpenGL2_Init();
+void ImGui_ImplOpenGL2_Shutdown();
+void ImGui_ImplOpenGL2_NewFrame();
+void ImGui_ImplOpenGL2_RenderDrawData(ImDrawData* draw_data);
 
 // Called by Init/NewFrame/Shutdown
-IMGUI_IMPL_API bool     ImGui_ImplOpenGL2_CreateFontsTexture();
-IMGUI_IMPL_API void     ImGui_ImplOpenGL2_DestroyFontsTexture();
-IMGUI_IMPL_API bool     ImGui_ImplOpenGL2_CreateDeviceObjects();
-IMGUI_IMPL_API void     ImGui_ImplOpenGL2_DestroyDeviceObjects();
+bool ImGui_ImplOpenGL2_CreateFontsTexture();
+void ImGui_ImplOpenGL2_DestroyFontsTexture();
+bool ImGui_ImplOpenGL2_CreateDeviceObjects();
+void ImGui_ImplOpenGL2_DestroyDeviceObjects();
