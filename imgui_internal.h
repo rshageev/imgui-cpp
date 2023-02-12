@@ -1136,15 +1136,15 @@ struct ImGuiLastItemData
 
 struct ImGuiStackSizes
 {
-    short SizeOfIDStack = 0;
-    short SizeOfColorStack = 0;
-    short SizeOfStyleVarStack = 0;
-    short SizeOfFontStack = 0;
-    short SizeOfFocusScopeStack = 0;
-    short SizeOfGroupStack = 0;
-    short SizeOfItemFlagsStack = 0;
-    short SizeOfBeginPopupStack = 0;
-    short SizeOfDisabledStack = 0;
+    size_t SizeOfIDStack = 0;
+    size_t SizeOfColorStack = 0;
+    size_t SizeOfStyleVarStack = 0;
+    size_t SizeOfFontStack = 0;
+    size_t SizeOfFocusScopeStack = 0;
+    size_t SizeOfGroupStack = 0;
+    size_t SizeOfItemFlagsStack = 0;
+    size_t SizeOfBeginPopupStack = 0;
+    size_t SizeOfDisabledStack = 0;
 
     void SetToCurrentState();
     void CompareWithCurrentState();
@@ -1759,12 +1759,12 @@ struct ImGuiContext
     ImGuiNextWindowData     NextWindowData;         // Storage for SetNextWindow** functions
 
     // Shared stacks
-    ImVector<ImGuiColorMod> ColorStack;             // Stack for PushStyleColor()/PopStyleColor() - inherited by Begin()
-    ImVector<ImGuiStyleMod> StyleVarStack;          // Stack for PushStyleVar()/PopStyleVar() - inherited by Begin()
-    ImVector<ImFont*>       FontStack;              // Stack for PushFont()/PopFont() - inherited by Begin()
-    ImVector<ImGuiID>       FocusScopeStack;        // Stack for PushFocusScope()/PopFocusScope() - inherited by BeginChild(), pushed into by Begin()
-    ImVector<ImGuiItemFlags> ItemFlagsStack;        // Stack for PushItemFlag()/PopItemFlag() - inherited by Begin()
-    ImVector<ImGuiGroupData> GroupStack;            // Stack for BeginGroup()/EndGroup() - not inherited by Begin()
+    std::vector<ImGuiColorMod> ColorStack;          // Stack for PushStyleColor()/PopStyleColor() - inherited by Begin()
+    std::vector<ImGuiStyleMod> StyleVarStack;       // Stack for PushStyleVar()/PopStyleVar() - inherited by Begin()
+    std::vector<ImFont*> FontStack;                 // Stack for PushFont()/PopFont() - inherited by Begin()
+    std::vector<ImGuiID> FocusScopeStack;           // Stack for PushFocusScope()/PopFocusScope() - inherited by BeginChild(), pushed into by Begin()
+    std::vector<ImGuiItemFlags> ItemFlagsStack;     // Stack for PushItemFlag()/PopItemFlag() - inherited by Begin()
+    std::vector<ImGuiGroupData> GroupStack;            // Stack for BeginGroup()/EndGroup() - not inherited by Begin()
     ImVector<ImGuiPopupData> OpenPopupStack;        // Which popups are open (persistent)
     ImVector<ImGuiPopupData> BeginPopupStack;       // Which level of BeginPopup() we are in (reset every frame)
     int BeginMenuCount = 0;

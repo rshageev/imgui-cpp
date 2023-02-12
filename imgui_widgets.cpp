@@ -1381,8 +1381,9 @@ void ImGui::SeparatorEx(ImGuiSeparatorFlags flags)
         float x2 = window->Pos.x + window->Size.x;
 
         // FIXME-WORKRECT: old hack (#205) until we decide of consistent behavior with WorkRect/Indent and Separator
-        if (g.GroupStack.Size > 0 && g.GroupStack.back().WindowID == window->ID)
+        if (!g.GroupStack.empty() && g.GroupStack.back().WindowID == window->ID) {
             x1 += window->DC.Indent.x;
+        }
 
         // FIXME-WORKRECT: In theory we should simply be using WorkRect.Min.x/Max.x everywhere but it isn't aesthetically what we want,
         // need to introduce a variant of WorkRect for that purpose. (#4787)

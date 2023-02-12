@@ -315,10 +315,10 @@ namespace ImGui
     void          PopFont();
     void          PushStyleColor(ImGuiCol idx, ImU32 col);                        // modify a style color. always use this if you modify the style after NewFrame().
     void          PushStyleColor(ImGuiCol idx, const ImVec4& col);
-    void          PopStyleColor(int count = 1);
+    void          PopStyleColor(size_t count = 1);
     void          PushStyleVar(ImGuiStyleVar idx, float val);                     // modify a style float variable. always use this if you modify the style after NewFrame().
     void          PushStyleVar(ImGuiStyleVar idx, const ImVec2& val);             // modify a style ImVec2 variable. always use this if you modify the style after NewFrame().
-    void          PopStyleVar(int count = 1);
+    void          PopStyleVar(size_t count = 1);
     void          PushAllowKeyboardFocus(bool allow_keyboard_focus);              // == tab stop enable. Allow focusing using TAB/Shift-TAB, enabled by default but you can disable it for certain widgets
     void          PopAllowKeyboardFocus();
     void          PushButtonRepeat(bool repeat);                                  // in 'repeat' mode, Button*() functions return repeated true in a typematic manner (using io.KeyRepeatDelay/io.KeyRepeatRate setting). Note that you can call IsItemActive() after any Button() to tell if the button is held in the current frame.

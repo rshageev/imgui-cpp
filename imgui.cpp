@@ -2003,13 +2003,13 @@ void ImGui::PushStyleColor(ImGuiCol idx, const ImVec4& col)
     g.Style.Colors[idx] = col;
 }
 
-void ImGui::PopStyleColor(int count)
+void ImGui::PopStyleColor(size_t count)
 {
     ImGuiContext& g = *GImGui;
-    if (g.ColorStack.Size < count)
+    if (g.ColorStack.size() < count)
     {
-        IM_ASSERT_USER_ERROR(g.ColorStack.Size > count, "Calling PopStyleColor() too many times: stack underflow.");
-        count = g.ColorStack.Size;
+        IM_ASSERT_USER_ERROR(g.ColorStack.size() > count, "Calling PopStyleColor() too many times: stack underflow.");
+        count = g.ColorStack.size();
     }
     while (count > 0)
     {
@@ -2095,13 +2095,13 @@ void ImGui::PushStyleVar(ImGuiStyleVar idx, const ImVec2& val)
     IM_ASSERT(0 && "Called PushStyleVar() ImVec2 variant but variable is not a ImVec2!");
 }
 
-void ImGui::PopStyleVar(int count)
+void ImGui::PopStyleVar(size_t count)
 {
     ImGuiContext& g = *GImGui;
-    if (g.StyleVarStack.Size < count)
+    if (g.StyleVarStack.size() < count)
     {
-        IM_ASSERT_USER_ERROR(g.StyleVarStack.Size > count, "Calling PopStyleVar() too many times: stack underflow.");
-        count = g.StyleVarStack.Size;
+        IM_ASSERT_USER_ERROR(g.StyleVarStack.size() > count, "Calling PopStyleVar() too many times: stack underflow.");
+        count = g.StyleVarStack.size();
     }
     while (count > 0)
     {
@@ -2109,8 +2109,13 @@ void ImGui::PopStyleVar(int count)
         ImGuiStyleMod& backup = g.StyleVarStack.back();
         const ImGuiStyleVarInfo* info = GetStyleVarInfo(backup.VarIdx);
         void* data = info->GetVarPtr(&g.Style);
-        if (info->Type == ImGuiDataType_Float && info->Count == 1)      { ((float*)data)[0] = backup.BackupFloat[0]; }
-        else if (info->Type == ImGuiDataType_Float && info->Count == 2) { ((float*)data)[0] = backup.BackupFloat[0]; ((float*)data)[1] = backup.BackupFloat[1]; }
+        if (info->Type == ImGuiDataType_Float && info->Count == 1) {
+            ((float*)data)[0] = backup.BackupFloat[0];
+        }
+        else if (info->Type == ImGuiDataType_Float && info->Count == 2) {
+            ((float*)data)[0] = backup.BackupFloat[0];
+            ((float*)data)[1] = backup.BackupFloat[1];
+        }
         g.StyleVarStack.pop_back();
         count--;
     }
@@ -5916,7 +5921,7 @@ void ImGui::PushFont(ImFont* font)
     g.CurrentWindow->DrawList->PushTextureID(font->ContainerAtlas->TexID);
 }
 
-void  ImGui::PopFont()
+void ImGui::PopFont()
 {
     ImGuiContext& g = *GImGui;
     g.CurrentWindow->DrawList->PopTextureID();
@@ -5940,7 +5945,7 @@ void ImGui::PushItemFlag(ImGuiItemFlags option, bool enabled)
 void ImGui::PopItemFlag()
 {
     ImGuiContext& g = *GImGui;
-    IM_ASSERT(g.ItemFlagsStack.Size > 1); // Too many calls to PopItemFlag() - we always leave a 0 at the bottom of the stack.
+    IM_ASSERT(g.ItemFlagsStack.size() > 1); // Too many calls to PopItemFlag() - we always leave a 0 at the bottom of the stack.
     g.ItemFlagsStack.pop_back();
     g.CurrentItemFlags = g.ItemFlagsStack.back();
 }
@@ -6408,9 +6413,9 @@ void ImGui::PushFocusScope(ImGuiID id)
 void ImGui::PopFocusScope()
 {
     ImGuiContext& g = *GImGui;
-    IM_ASSERT(g.FocusScopeStack.Size > 0); // Too many PopFocusScope() ?
+    IM_ASSERT(g.FocusScopeStack.size() > 0); // Too many PopFocusScope() ?
     g.FocusScopeStack.pop_back();
-    g.CurrentFocusScopeId = g.FocusScopeStack.Size ? g.FocusScopeStack.back() : 0;
+    g.CurrentFocusScopeId = g.FocusScopeStack.empty() ? 0 : g.FocusScopeStack.back();
 }
 
 // Note: this will likely be called ActivateItem() once we rework our Focus/Activation system!
@@ -7847,7 +7852,7 @@ static void ImGui::ErrorCheckEndFrameSanityChecks()
         }
     }
 
-    IM_ASSERT_USER_ERROR(g.GroupStack.Size == 0, "Missing EndGroup call!");
+    IM_ASSERT_USER_ERROR(g.GroupStack.empty(), "Missing EndGroup call!");
 }
 
 // Experimental recovery from incorrect usage of BeginXXX/EndXXX/PushXXX/PopXXX calls.
@@ -7903,12 +7908,12 @@ void    ImGui::ErrorCheckEndWindowRecover(ImGuiErrorLogCallback log_callback, vo
         if (log_callback) log_callback(user_data, "Recovered from missing TreePop() in '%s'", window->Name);
         TreePop();
     }
-    while (g.GroupStack.Size > stack_sizes->SizeOfGroupStack) //-V1044
+    while (g.GroupStack.size() > stack_sizes->SizeOfGroupStack) //-V1044
     {
         if (log_callback) log_callback(user_data, "Recovered from missing EndGroup() in '%s'", window->Name);
         EndGroup();
     }
-    while (window->IDStack.Size > 1)
+    while (window->IDStack.size() > 1)
     {
         if (log_callback) log_callback(user_data, "Recovered from missing PopID() in '%s'", window->Name);
         PopID();
@@ -7918,22 +7923,22 @@ void    ImGui::ErrorCheckEndWindowRecover(ImGuiErrorLogCallback log_callback, vo
         if (log_callback) log_callback(user_data, "Recovered from missing EndDisabled() in '%s'", window->Name);
         EndDisabled();
     }
-    while (g.ColorStack.Size > stack_sizes->SizeOfColorStack)
+    while (g.ColorStack.size() > stack_sizes->SizeOfColorStack)
     {
         if (log_callback) log_callback(user_data, "Recovered from missing PopStyleColor() in '%s' for ImGuiCol_%s", window->Name, GetStyleColorName(g.ColorStack.back().Col));
         PopStyleColor();
     }
-    while (g.ItemFlagsStack.Size > stack_sizes->SizeOfItemFlagsStack) //-V1044
+    while (g.ItemFlagsStack.size() > stack_sizes->SizeOfItemFlagsStack) //-V1044
     {
         if (log_callback) log_callback(user_data, "Recovered from missing PopItemFlag() in '%s'", window->Name);
         PopItemFlag();
     }
-    while (g.StyleVarStack.Size > stack_sizes->SizeOfStyleVarStack) //-V1044
+    while (g.StyleVarStack.size() > stack_sizes->SizeOfStyleVarStack) //-V1044
     {
         if (log_callback) log_callback(user_data, "Recovered from missing PopStyleVar() in '%s'", window->Name);
         PopStyleVar();
     }
-    while (g.FocusScopeStack.Size > stack_sizes->SizeOfFocusScopeStack + 1) //-V1044
+    while (g.FocusScopeStack.size() > stack_sizes->SizeOfFocusScopeStack + 1) //-V1044
     {
         if (log_callback) log_callback(user_data, "Recovered from missing PopFocusScope() in '%s'", window->Name);
         PopFocusScope();
@@ -7945,15 +7950,15 @@ void ImGuiStackSizes::SetToCurrentState()
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
-    SizeOfIDStack = (short)window->IDStack.Size;
-    SizeOfColorStack = (short)g.ColorStack.Size;
-    SizeOfStyleVarStack = (short)g.StyleVarStack.Size;
-    SizeOfFontStack = (short)g.FontStack.Size;
-    SizeOfFocusScopeStack = (short)g.FocusScopeStack.Size;
-    SizeOfGroupStack = (short)g.GroupStack.Size;
-    SizeOfItemFlagsStack = (short)g.ItemFlagsStack.Size;
-    SizeOfBeginPopupStack = (short)g.BeginPopupStack.Size;
-    SizeOfDisabledStack = (short)g.DisabledStackSize;
+    SizeOfIDStack = window->IDStack.size();
+    SizeOfColorStack = g.ColorStack.size();
+    SizeOfStyleVarStack = g.StyleVarStack.size();
+    SizeOfFontStack = g.FontStack.size();
+    SizeOfFocusScopeStack = g.FocusScopeStack.size();
+    SizeOfGroupStack = g.GroupStack.size();
+    SizeOfItemFlagsStack = g.ItemFlagsStack.size();
+    SizeOfBeginPopupStack = g.BeginPopupStack.size();
+    SizeOfDisabledStack = g.DisabledStackSize;
 }
 
 // Compare to detect usage errors
@@ -7965,18 +7970,18 @@ void ImGuiStackSizes::CompareWithCurrentState()
 
     // Window stacks
     // NOT checking: DC.ItemWidth, DC.TextWrapPos (per window) to allow user to conveniently push once and not pop (they are cleared on Begin)
-    IM_ASSERT(SizeOfIDStack         == window->IDStack.Size     && "PushID/PopID or TreeNode/TreePop Mismatch!");
+    IM_ASSERT(SizeOfIDStack         == window->IDStack.size()     && "PushID/PopID or TreeNode/TreePop Mismatch!");
 
     // Global stacks
     // For color, style and font stacks there is an incentive to use Push/Begin/Pop/.../End patterns, so we relax our checks a little to allow them.
-    IM_ASSERT(SizeOfGroupStack      == g.GroupStack.Size        && "BeginGroup/EndGroup Mismatch!");
-    IM_ASSERT(SizeOfBeginPopupStack == g.BeginPopupStack.Size   && "BeginPopup/EndPopup or BeginMenu/EndMenu Mismatch!");
+    IM_ASSERT(SizeOfGroupStack      == g.GroupStack.size()        && "BeginGroup/EndGroup Mismatch!");
+    IM_ASSERT(SizeOfBeginPopupStack == g.BeginPopupStack.size()   && "BeginPopup/EndPopup or BeginMenu/EndMenu Mismatch!");
     IM_ASSERT(SizeOfDisabledStack   == g.DisabledStackSize      && "BeginDisabled/EndDisabled Mismatch!");
-    IM_ASSERT(SizeOfItemFlagsStack  >= g.ItemFlagsStack.Size    && "PushItemFlag/PopItemFlag Mismatch!");
-    IM_ASSERT(SizeOfColorStack      >= g.ColorStack.Size        && "PushStyleColor/PopStyleColor Mismatch!");
-    IM_ASSERT(SizeOfStyleVarStack   >= g.StyleVarStack.Size     && "PushStyleVar/PopStyleVar Mismatch!");
-    IM_ASSERT(SizeOfFontStack       >= g.FontStack.Size         && "PushFont/PopFont Mismatch!");
-    IM_ASSERT(SizeOfFocusScopeStack == g.FocusScopeStack.Size   && "PushFocusScope/PopFocusScope Mismatch!");
+    IM_ASSERT(SizeOfItemFlagsStack  >= g.ItemFlagsStack.size()    && "PushItemFlag/PopItemFlag Mismatch!");
+    IM_ASSERT(SizeOfColorStack      >= g.ColorStack.size()        && "PushStyleColor/PopStyleColor Mismatch!");
+    IM_ASSERT(SizeOfStyleVarStack   >= g.StyleVarStack.size()     && "PushStyleVar/PopStyleVar Mismatch!");
+    IM_ASSERT(SizeOfFontStack       >= g.FontStack.size()         && "PushFont/PopFont Mismatch!");
+    IM_ASSERT(SizeOfFocusScopeStack == g.FocusScopeStack.size()   && "PushFocusScope/PopFocusScope Mismatch!");
 }
 
 
@@ -8403,33 +8408,34 @@ void ImGui::BeginGroup()
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
 
-    g.GroupStack.resize(g.GroupStack.Size + 1);
-    ImGuiGroupData& group_data = g.GroupStack.back();
-    group_data.WindowID = window->ID;
-    group_data.BackupCursorPos = window->DC.CursorPos;
-    group_data.BackupCursorMaxPos = window->DC.CursorMaxPos;
-    group_data.BackupIndent = window->DC.Indent;
-    group_data.BackupGroupOffset = window->DC.GroupOffset;
-    group_data.BackupCurrLineSize = window->DC.CurrLineSize;
-    group_data.BackupCurrLineTextBaseOffset = window->DC.CurrLineTextBaseOffset;
-    group_data.BackupActiveIdIsAlive = g.ActiveIdIsAlive;
-    group_data.BackupHoveredIdIsAlive = g.HoveredId != 0;
-    group_data.BackupActiveIdPreviousFrameIsAlive = g.ActiveIdPreviousFrameIsAlive;
-    group_data.EmitItem = true;
+    g.GroupStack.push_back(ImGuiGroupData{
+        .WindowID = window->ID,
+        .BackupCursorPos = window->DC.CursorPos,
+        .BackupCursorMaxPos = window->DC.CursorMaxPos,
+        .BackupIndent = window->DC.Indent,
+        .BackupGroupOffset = window->DC.GroupOffset,
+        .BackupCurrLineSize = window->DC.CurrLineSize,
+        .BackupCurrLineTextBaseOffset = window->DC.CurrLineTextBaseOffset,
+        .BackupActiveIdIsAlive = g.ActiveIdIsAlive,
+        .BackupActiveIdPreviousFrameIsAlive = g.ActiveIdPreviousFrameIsAlive,
+        .BackupHoveredIdIsAlive = (g.HoveredId != 0),
+        .EmitItem = true,
+    });
 
     window->DC.GroupOffset.x = window->DC.CursorPos.x - window->Pos.x - window->DC.ColumnsOffset.x;
     window->DC.Indent = window->DC.GroupOffset;
     window->DC.CursorMaxPos = window->DC.CursorPos;
     window->DC.CurrLineSize = ImVec2(0.0f, 0.0f);
-    if (g.LogEnabled)
+    if (g.LogEnabled) {
         g.LogLinePosY = -FLT_MAX; // To enforce a carriage return
+    }
 }
 
 void ImGui::EndGroup()
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
-    IM_ASSERT(g.GroupStack.Size > 0); // Mismatched BeginGroup()/EndGroup() calls
+    IM_ASSERT(!g.GroupStack.empty()); // Mismatched BeginGroup()/EndGroup() calls
 
     ImGuiGroupData& group_data = g.GroupStack.back();
     IM_ASSERT(group_data.WindowID == window->ID); // EndGroup() in wrong window?
