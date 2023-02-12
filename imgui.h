@@ -199,7 +199,7 @@ namespace ImGui
     // - Each context create its own ImFontAtlas by default. You may instance one yourself and pass it to CreateContext() to share a font atlas between contexts.
     // - DLL users: heaps and globals are not shared across DLL boundaries! You will need to call SetCurrentContext() + SetAllocatorFunctions()
     //   for each static/DLL boundary you are calling from. Read "Context and Memory Allocators" section of imgui.cpp for details.
-    ImGuiContext* CreateContext(ImFontAtlas* shared_font_atlas = NULL);
+    ImGuiContext* CreateContext(std::shared_ptr<ImFontAtlas> shared_font_atlas = nullptr);
     void          DestroyContext(ImGuiContext* ctx = NULL);   // NULL = destroy current context
     ImGuiContext* GetCurrentContext();
     void          SetCurrentContext(ImGuiContext* ctx);
@@ -1975,7 +1975,7 @@ struct ImGuiIO
     float HoverDelayShort = 0.1f;               // Delay on hovering before IsItemHovered(ImGuiHoveredFlags_DelayShort) returns true.
     void* UserData = nullptr;                   // Store your own data.
 
-    ImFontAtlas* Fonts = nullptr;               // Font atlas: load, rasterize and pack one or more fonts into a single texture.
+    std::shared_ptr<ImFontAtlas> Fonts;               // Font atlas: load, rasterize and pack one or more fonts into a single texture.
     float FontGlobalScale = 1.0f;               // Global scale all fonts
     bool FontAllowUserScaling = false;          // Allow user scaling text of individual window with CTRL+Wheel.
     ImFont* FontDefault = nullptr;              // Font to use on NewFrame(). Use NULL to uses Fonts->Fonts[0].

@@ -6270,7 +6270,7 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
         if (ImGui::BeginTabItem("Fonts"))
         {
             ImGuiIO& io = ImGui::GetIO();
-            ImFontAtlas* atlas = io.Fonts;
+            ImFontAtlas* atlas = io.Fonts.get();
             HelpMarker("Read FAQ and docs/FONTS.md for details on font loading.");
             ImGui::ShowFontAtlas(atlas);
 

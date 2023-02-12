@@ -1689,7 +1689,6 @@ private:
 struct ImGuiContext
 {
     bool Initialized = false;
-    bool FontAtlasOwnedByContext;                    // IO.Fonts-> is owned by the ImGuiContext and will be destructed along with it.
     ImGuiIO IO;
     ImVector<ImGuiInputEvent> InputEventsQueue;      // Input events which will be tricked/written into IO structure.
     ImVector<ImGuiInputEvent> InputEventsTrail;      // Past input events processed in NewFrame(). This is to allow domain-specific application to access e.g mouse/pen trail.
@@ -1965,11 +1964,10 @@ struct ImGuiContext
     int WantTextInputNextFrame = -1;
     ImVector<char> TempBuffer;              // Temporary text buffer
 
-    ImGuiContext(ImFontAtlas* shared_font_atlas)
+    ImGuiContext(std::shared_ptr<ImFontAtlas> shared_font_atlas)
         : InputTextState(this)
     {
-        FontAtlasOwnedByContext = shared_font_atlas ? false : true;
-        IO.Fonts = shared_font_atlas ? shared_font_atlas : IM_NEW(ImFontAtlas)();
+        IO.Fonts = shared_font_atlas ? shared_font_atlas : std::make_shared<ImFontAtlas>();
 
         std::fill(std::begin(DragDropPayloadBufLocal), std::end(DragDropPayloadBufLocal), 0u);
 

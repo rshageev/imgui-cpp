@@ -2468,7 +2468,7 @@ void ImGui::GetAllocatorFunctions(ImGuiMemAllocFunc* p_alloc_func, ImGuiMemFreeF
     *p_user_data = GImAllocatorUserData;
 }
 
-ImGuiContext* ImGui::CreateContext(ImFontAtlas* shared_font_atlas)
+ImGuiContext* ImGui::CreateContext(std::shared_ptr<ImFontAtlas> shared_font_atlas)
 {
     ImGuiContext* prev_ctx = GetCurrentContext();
     ImGuiContext* ctx = IM_NEW(ImGuiContext)(shared_font_atlas);
@@ -2537,12 +2537,10 @@ void ImGui::Shutdown()
 {
     // The fonts atlas can be used prior to calling NewFrame(), so we clear it even if g.Initialized is FALSE (which would happen if we never called NewFrame)
     ImGuiContext& g = *GImGui;
-    if (g.IO.Fonts && g.FontAtlasOwnedByContext)
-    {
+    if (g.IO.Fonts) {
         g.IO.Fonts->Locked = false;
-        IM_DELETE(g.IO.Fonts);
     }
-    g.IO.Fonts = NULL;
+    g.IO.Fonts = nullptr;
     g.DrawListSharedData.TempBuffer.clear();
 
     // Cleanup of other data are conditional on actually having initialized Dear ImGui.
@@ -3695,7 +3693,7 @@ static void SetupViewportDrawData(ImGuiViewportP* viewport, std::vector<ImDrawLi
     ImDrawData& draw_data = viewport->DrawDataP;
     draw_data.Valid = true;
     draw_data.CmdLists = draw_lists.empty() ? nullptr : draw_lists.data();
-    draw_data.CmdListsCount = draw_lists.size();
+    draw_data.CmdListsCount = (int)draw_lists.size();
     draw_data.TotalVtxCount = draw_data.TotalIdxCount = 0;
     draw_data.DisplayPos = viewport->Pos;
     draw_data.DisplaySize = viewport->Size;
@@ -5766,8 +5764,8 @@ void ImGui::BringWindowToFocusFront(ImGuiWindow* window)
     if (g.WindowsFocusOrder.back() == window)
         return;
 
-    const int new_order = g.WindowsFocusOrder.size() - 1;
-    for (int n = cur_order; n < new_order; n++)
+    const size_t new_order = g.WindowsFocusOrder.size() - 1;
+    for (size_t n = cur_order; n < new_order; n++)
     {
         g.WindowsFocusOrder[n] = g.WindowsFocusOrder[n + 1];
         g.WindowsFocusOrder[n]->FocusOrder--;
@@ -12383,7 +12381,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     }
 
     // Details for Fonts
-    ImFontAtlas* atlas = g.IO.Fonts;
+    ImFontAtlas* atlas = g.IO.Fonts.get();
     if (TreeNode("Fonts", "Fonts (%d)", atlas->Fonts.Size))
     {
         ShowFontAtlas(atlas);
