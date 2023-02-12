@@ -1698,7 +1698,7 @@ struct ImGuiContext
     std::vector<ImGuiWindow*> Windows;                            // Windows, sorted in display order, back to front
     std::vector<ImGuiWindow*> WindowsFocusOrder;                  // Root windows, sorted in focus order, back to front.
     std::vector<ImGuiWindow*> WindowsTempSortBuffer;              // Temporary buffer used in EndFrame() to reorder windows so parents are kept before their child
-    ImVector<ImGuiWindowStackData> CurrentWindowStack;
+    std::vector<ImGuiWindowStackData> CurrentWindowStack;
     ImGuiStorage WindowsById;                        // Map window's ImGuiID to ImGuiWindow*
     int WindowsActiveCount = 0;                 // Number of unique windows submitted by frame
     ImVec2 WindowsHoverPadding;                // Padding around resizable windows for which hovering on counts as hovering the window == ImMax(style.TouchExtraPadding, WINDOWS_HOVER_PADDING)
@@ -1710,8 +1710,8 @@ struct ImGuiContext
     ImVec2 WheelingWindowRefMousePos;
     int WheelingWindowStartFrame = -1;           // This may be set one frame before WheelingWindow is != NULL
     float WheelingWindowReleaseTimer = 0.0f;
-    ImVec2                  WheelingWindowWheelRemainder;
-    ImVec2                  WheelingAxisAvg;
+    ImVec2 WheelingWindowWheelRemainder;
+    ImVec2 WheelingAxisAvg;
 
     // Item/widgets state and tracking information
     ImGuiID DebugHookIdInfo = 0;                    // Will call core hooks: DebugHookIdInfo() from GetID functions, used by Stack Tool [next HoveredId/ActiveId to not pull in an extra cache-line]
