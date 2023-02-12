@@ -1688,444 +1688,295 @@ private:
 
 struct ImGuiContext
 {
-    bool                    Initialized;
-    bool                    FontAtlasOwnedByContext;            // IO.Fonts-> is owned by the ImGuiContext and will be destructed along with it.
-    ImGuiIO                 IO;
-    ImVector<ImGuiInputEvent> InputEventsQueue;                 // Input events which will be tricked/written into IO structure.
-    ImVector<ImGuiInputEvent> InputEventsTrail;                 // Past input events processed in NewFrame(). This is to allow domain-specific application to access e.g mouse/pen trail.
-    ImGuiStyle              Style;
-    ImFont*                 Font;                               // (Shortcut) == FontStack.empty() ? IO.Font : FontStack.back()
-    float                   FontSize;                           // (Shortcut) == FontBaseSize * g.CurrentWindow->FontWindowScale == window->FontSize(). Text height for current window.
-    float                   FontBaseSize;                       // (Shortcut) == IO.FontGlobalScale * Font->Scale * Font->FontSize. Base text height.
-    ImDrawListSharedData    DrawListSharedData;
-    double                  Time;
-    int                     FrameCount;
-    int                     FrameCountEnded;
-    int                     FrameCountRendered;
-    bool                    WithinFrameScope;                   // Set by NewFrame(), cleared by EndFrame()
-    bool                    WithinFrameScopeWithImplicitWindow; // Set by NewFrame(), cleared by EndFrame() when the implicit debug window has been pushed
-    bool                    WithinEndChild;                     // Set within EndChild()
-    bool                    GcCompactAll;                       // Request full GC
-    bool                    TestEngineHookItems;                // Will call test engine hooks: ImGuiTestEngineHook_ItemAdd(), ImGuiTestEngineHook_ItemInfo(), ImGuiTestEngineHook_Log()
-    void*                   TestEngine;                         // Test engine user data
+    bool Initialized = false;
+    bool FontAtlasOwnedByContext;                    // IO.Fonts-> is owned by the ImGuiContext and will be destructed along with it.
+    ImGuiIO IO;
+    ImVector<ImGuiInputEvent> InputEventsQueue;      // Input events which will be tricked/written into IO structure.
+    ImVector<ImGuiInputEvent> InputEventsTrail;      // Past input events processed in NewFrame(). This is to allow domain-specific application to access e.g mouse/pen trail.
+    ImGuiStyle Style;
+    ImFont* Font = nullptr;                          // (Shortcut) == FontStack.empty() ? IO.Font : FontStack.back()
+    float FontSize = 0.0f;                           // (Shortcut) == FontBaseSize * g.CurrentWindow->FontWindowScale == window->FontSize(). Text height for current window.
+    float FontBaseSize = 0.0f;                       // (Shortcut) == IO.FontGlobalScale * Font->Scale * Font->FontSize. Base text height.
+    ImDrawListSharedData DrawListSharedData;
+    double Time = 0.0;
+    int FrameCount = 0;
+    int FrameCountEnded = -1;
+    int FrameCountRendered = -1;
+    bool WithinFrameScope = false;                   // Set by NewFrame(), cleared by EndFrame()
+    bool WithinFrameScopeWithImplicitWindow = false; // Set by NewFrame(), cleared by EndFrame() when the implicit debug window has been pushed
+    bool WithinEndChild = false;                     // Set within EndChild()
+    bool GcCompactAll = false;                       // Request full GC
+    bool TestEngineHookItems = false;                // Will call test engine hooks: ImGuiTestEngineHook_ItemAdd(), ImGuiTestEngineHook_ItemInfo(), ImGuiTestEngineHook_Log()
+    void* TestEngine = nullptr;                      // Test engine user data
 
     // Windows state
     std::vector<ImGuiWindow*> Windows;                            // Windows, sorted in display order, back to front
     std::vector<ImGuiWindow*> WindowsFocusOrder;                  // Root windows, sorted in focus order, back to front.
     std::vector<ImGuiWindow*> WindowsTempSortBuffer;              // Temporary buffer used in EndFrame() to reorder windows so parents are kept before their child
     ImVector<ImGuiWindowStackData> CurrentWindowStack;
-    ImGuiStorage            WindowsById;                        // Map window's ImGuiID to ImGuiWindow*
-    int                     WindowsActiveCount;                 // Number of unique windows submitted by frame
-    ImVec2                  WindowsHoverPadding;                // Padding around resizable windows for which hovering on counts as hovering the window == ImMax(style.TouchExtraPadding, WINDOWS_HOVER_PADDING)
-    ImGuiWindow*            CurrentWindow;                      // Window being drawn into
-    ImGuiWindow*            HoveredWindow;                      // Window the mouse is hovering. Will typically catch mouse inputs.
-    ImGuiWindow*            HoveredWindowUnderMovingWindow;     // Hovered window ignoring MovingWindow. Only set if MovingWindow is set.
-    ImGuiWindow*            MovingWindow;                       // Track the window we clicked on (in order to preserve focus). The actual window that is moved is generally MovingWindow->RootWindow.
-    ImGuiWindow*            WheelingWindow;                     // Track the window we started mouse-wheeling on. Until a timer elapse or mouse has moved, generally keep scrolling the same window even if during the course of scrolling the mouse ends up hovering a child window.
-    ImVec2                  WheelingWindowRefMousePos;
-    int                     WheelingWindowStartFrame;           // This may be set one frame before WheelingWindow is != NULL
-    float                   WheelingWindowReleaseTimer;
+    ImGuiStorage WindowsById;                        // Map window's ImGuiID to ImGuiWindow*
+    int WindowsActiveCount = 0;                 // Number of unique windows submitted by frame
+    ImVec2 WindowsHoverPadding;                // Padding around resizable windows for which hovering on counts as hovering the window == ImMax(style.TouchExtraPadding, WINDOWS_HOVER_PADDING)
+    ImGuiWindow* CurrentWindow = nullptr;                      // Window being drawn into
+    ImGuiWindow* HoveredWindow = nullptr;                      // Window the mouse is hovering. Will typically catch mouse inputs.
+    ImGuiWindow* HoveredWindowUnderMovingWindow = nullptr;     // Hovered window ignoring MovingWindow. Only set if MovingWindow is set.
+    ImGuiWindow* MovingWindow = nullptr;                       // Track the window we clicked on (in order to preserve focus). The actual window that is moved is generally MovingWindow->RootWindow.
+    ImGuiWindow* WheelingWindow = nullptr;                     // Track the window we started mouse-wheeling on. Until a timer elapse or mouse has moved, generally keep scrolling the same window even if during the course of scrolling the mouse ends up hovering a child window.
+    ImVec2 WheelingWindowRefMousePos;
+    int WheelingWindowStartFrame = -1;           // This may be set one frame before WheelingWindow is != NULL
+    float WheelingWindowReleaseTimer = 0.0f;
     ImVec2                  WheelingWindowWheelRemainder;
     ImVec2                  WheelingAxisAvg;
 
     // Item/widgets state and tracking information
-    ImGuiID                 DebugHookIdInfo;                    // Will call core hooks: DebugHookIdInfo() from GetID functions, used by Stack Tool [next HoveredId/ActiveId to not pull in an extra cache-line]
-    ImGuiID                 HoveredId;                          // Hovered widget, filled during the frame
-    ImGuiID                 HoveredIdPreviousFrame;
-    bool                    HoveredIdAllowOverlap;
-    bool                    HoveredIdDisabled;                  // At least one widget passed the rect test, but has been discarded by disabled flag or popup inhibit. May be true even if HoveredId == 0.
-    float                   HoveredIdTimer;                     // Measure contiguous hovering time
-    float                   HoveredIdNotActiveTimer;            // Measure contiguous hovering time where the item has not been active
-    ImGuiID                 ActiveId;                           // Active widget
-    ImGuiID                 ActiveIdIsAlive;                    // Active widget has been seen this frame (we can't use a bool as the ActiveId may change within the frame)
-    float                   ActiveIdTimer;
-    bool                    ActiveIdIsJustActivated;            // Set at the time of activation for one frame
-    bool                    ActiveIdAllowOverlap;               // Active widget allows another widget to steal active id (generally for overlapping widgets, but not always)
-    bool                    ActiveIdNoClearOnFocusLoss;         // Disable losing active id if the active id window gets unfocused.
-    bool                    ActiveIdHasBeenPressedBefore;       // Track whether the active id led to a press (this is to allow changing between PressOnClick and PressOnRelease without pressing twice). Used by range_select branch.
-    bool                    ActiveIdHasBeenEditedBefore;        // Was the value associated to the widget Edited over the course of the Active state.
-    bool                    ActiveIdHasBeenEditedThisFrame;
-    ImVec2                  ActiveIdClickOffset;                // Clicked offset from upper-left corner, if applicable (currently only set by ButtonBehavior)
-    ImGuiWindow*            ActiveIdWindow;
-    ImGuiInputSource        ActiveIdSource;                     // Activating with mouse or nav (gamepad/keyboard)
-    int                     ActiveIdMouseButton;
-    ImGuiID                 ActiveIdPreviousFrame;
-    bool                    ActiveIdPreviousFrameIsAlive;
-    bool                    ActiveIdPreviousFrameHasBeenEditedBefore;
-    ImGuiWindow*            ActiveIdPreviousFrameWindow;
-    ImGuiID                 LastActiveId;                       // Store the last non-zero ActiveId, useful for animation.
-    float                   LastActiveIdTimer;                  // Store the last non-zero ActiveId timer since the beginning of activation, useful for animation.
+    ImGuiID DebugHookIdInfo = 0;                    // Will call core hooks: DebugHookIdInfo() from GetID functions, used by Stack Tool [next HoveredId/ActiveId to not pull in an extra cache-line]
+    ImGuiID HoveredId = 0;                          // Hovered widget, filled during the frame
+    ImGuiID HoveredIdPreviousFrame = 0;
+    bool HoveredIdAllowOverlap = false;
+    bool HoveredIdDisabled = false;                  // At least one widget passed the rect test, but has been discarded by disabled flag or popup inhibit. May be true even if HoveredId == 0.
+    float HoveredIdTimer = 0.0f;                     // Measure contiguous hovering time
+    float HoveredIdNotActiveTimer = 0.0f;            // Measure contiguous hovering time where the item has not been active
+    ImGuiID ActiveId = 0;                            // Active widget
+    ImGuiID ActiveIdIsAlive = 0;                     // Active widget has been seen this frame (we can't use a bool as the ActiveId may change within the frame)
+    float ActiveIdTimer = 0.0f;
+    bool ActiveIdIsJustActivated = false;            // Set at the time of activation for one frame
+    bool ActiveIdAllowOverlap = false;               // Active widget allows another widget to steal active id (generally for overlapping widgets, but not always)
+    bool ActiveIdNoClearOnFocusLoss = false;         // Disable losing active id if the active id window gets unfocused.
+    bool ActiveIdHasBeenPressedBefore = false;       // Track whether the active id led to a press (this is to allow changing between PressOnClick and PressOnRelease without pressing twice). Used by range_select branch.
+    bool ActiveIdHasBeenEditedBefore = false;        // Was the value associated to the widget Edited over the course of the Active state.
+    bool ActiveIdHasBeenEditedThisFrame = false;
+    ImVec2 ActiveIdClickOffset = {-1, -1};           // Clicked offset from upper-left corner, if applicable (currently only set by ButtonBehavior)
+    ImGuiWindow* ActiveIdWindow = nullptr;
+    ImGuiInputSource ActiveIdSource = ImGuiInputSource_None; // Activating with mouse or nav (gamepad/keyboard)
+    int ActiveIdMouseButton = -1;
+    ImGuiID ActiveIdPreviousFrame = 0;
+    bool ActiveIdPreviousFrameIsAlive = false;
+    bool ActiveIdPreviousFrameHasBeenEditedBefore = false;
+    ImGuiWindow* ActiveIdPreviousFrameWindow = nullptr;
+    ImGuiID LastActiveId = 0;        // Store the last non-zero ActiveId, useful for animation.
+    float LastActiveIdTimer = 0.0f;  // Store the last non-zero ActiveId timer since the beginning of activation, useful for animation.
 
     // [EXPERIMENTAL] Key/Input Ownership + Shortcut Routing system
     // - The idea is that instead of "eating" a given key, we can link to an owner.
     // - Input query can then read input by specifying ImGuiKeyOwner_Any (== 0), ImGuiKeyOwner_None (== -1) or a custom ID.
     // - Routing is requested ahead of time for a given chord (Key + Mods) and granted in NewFrame().
-    ImGuiKeyOwnerData       KeysOwnerData[ImGuiKey_NamedKey_COUNT];
-    ImGuiKeyRoutingTable    KeysRoutingTable;
-    ImU32                   ActiveIdUsingNavDirMask;            // Active widget will want to read those nav move requests (e.g. can activate a button and move away from it)
-    bool                    ActiveIdUsingAllKeyboardKeys;       // Active widget will want to read all keyboard keys inputs. (FIXME: This is a shortcut for not taking ownership of 100+ keys but perhaps best to not have the inconsistency)
+    ImGuiKeyOwnerData KeysOwnerData[ImGuiKey_NamedKey_COUNT];
+    ImGuiKeyRoutingTable KeysRoutingTable;
+    ImU32 ActiveIdUsingNavDirMask = 0x00;           // Active widget will want to read those nav move requests (e.g. can activate a button and move away from it)
+    bool ActiveIdUsingAllKeyboardKeys = false;      // Active widget will want to read all keyboard keys inputs. (FIXME: This is a shortcut for not taking ownership of 100+ keys but perhaps best to not have the inconsistency)
 
     // Next window/item data
-    ImGuiID                 CurrentFocusScopeId;                // == g.FocusScopeStack.back()
-    ImGuiItemFlags          CurrentItemFlags;                   // == g.ItemFlagsStack.back()
-    ImGuiID                 DebugLocateId;                      // Storage for DebugLocateItemOnHover() feature: this is read by ItemAdd() so we keep it in a hot/cached location
-    ImGuiNextItemData       NextItemData;                       // Storage for SetNextItem** functions
-    ImGuiLastItemData       LastItemData;                       // Storage for last submitted item (setup by ItemAdd)
-    ImGuiNextWindowData     NextWindowData;                     // Storage for SetNextWindow** functions
+    ImGuiID CurrentFocusScopeId = 0;                // == g.FocusScopeStack.back()
+    ImGuiItemFlags CurrentItemFlags = ImGuiItemFlags_None; // == g.ItemFlagsStack.back()
+    ImGuiID DebugLocateId = 0;                      // Storage for DebugLocateItemOnHover() feature: this is read by ItemAdd() so we keep it in a hot/cached location
+    ImGuiNextItemData       NextItemData;           // Storage for SetNextItem** functions
+    ImGuiLastItemData       LastItemData;           // Storage for last submitted item (setup by ItemAdd)
+    ImGuiNextWindowData     NextWindowData;         // Storage for SetNextWindow** functions
 
     // Shared stacks
-    ImVector<ImGuiColorMod> ColorStack;                         // Stack for PushStyleColor()/PopStyleColor() - inherited by Begin()
-    ImVector<ImGuiStyleMod> StyleVarStack;                      // Stack for PushStyleVar()/PopStyleVar() - inherited by Begin()
-    ImVector<ImFont*>       FontStack;                          // Stack for PushFont()/PopFont() - inherited by Begin()
-    ImVector<ImGuiID>       FocusScopeStack;                    // Stack for PushFocusScope()/PopFocusScope() - inherited by BeginChild(), pushed into by Begin()
-    ImVector<ImGuiItemFlags>ItemFlagsStack;                     // Stack for PushItemFlag()/PopItemFlag() - inherited by Begin()
-    ImVector<ImGuiGroupData>GroupStack;                         // Stack for BeginGroup()/EndGroup() - not inherited by Begin()
-    ImVector<ImGuiPopupData>OpenPopupStack;                     // Which popups are open (persistent)
-    ImVector<ImGuiPopupData>BeginPopupStack;                    // Which level of BeginPopup() we are in (reset every frame)
-    int                     BeginMenuCount;
+    ImVector<ImGuiColorMod> ColorStack;             // Stack for PushStyleColor()/PopStyleColor() - inherited by Begin()
+    ImVector<ImGuiStyleMod> StyleVarStack;          // Stack for PushStyleVar()/PopStyleVar() - inherited by Begin()
+    ImVector<ImFont*>       FontStack;              // Stack for PushFont()/PopFont() - inherited by Begin()
+    ImVector<ImGuiID>       FocusScopeStack;        // Stack for PushFocusScope()/PopFocusScope() - inherited by BeginChild(), pushed into by Begin()
+    ImVector<ImGuiItemFlags> ItemFlagsStack;        // Stack for PushItemFlag()/PopItemFlag() - inherited by Begin()
+    ImVector<ImGuiGroupData> GroupStack;            // Stack for BeginGroup()/EndGroup() - not inherited by Begin()
+    ImVector<ImGuiPopupData> OpenPopupStack;        // Which popups are open (persistent)
+    ImVector<ImGuiPopupData> BeginPopupStack;       // Which level of BeginPopup() we are in (reset every frame)
+    int BeginMenuCount = 0;
 
     // Viewports
-    std::vector<std::unique_ptr<ImGuiViewportP>> Viewports;     // Active viewports (Size==1 in 'master' branch). Each viewports hold their copy of ImDrawData.
+    std::vector<std::unique_ptr<ImGuiViewportP>> Viewports; // Active viewports (Size==1 in 'master' branch). Each viewports hold their copy of ImDrawData.
 
     // Gamepad/keyboard Navigation
-    ImGuiWindow*            NavWindow;                          // Focused window for navigation. Could be called 'FocusedWindow'
-    ImGuiID                 NavId;                              // Focused item for navigation
-    ImGuiID                 NavFocusScopeId;                    // Identify a selection scope (selection code often wants to "clear other items" when landing on an item of the selection set)
-    ImGuiID                 NavActivateId;                      // ~~ (g.ActiveId == 0) && (IsKeyPressed(ImGuiKey_Space) || IsKeyPressed(ImGuiKey_NavGamepadActivate)) ? NavId : 0, also set when calling ActivateItem()
-    ImGuiID                 NavActivateDownId;                  // ~~ IsKeyDown(ImGuiKey_Space) || IsKeyDown(ImGuiKey_NavGamepadActivate) ? NavId : 0
-    ImGuiID                 NavActivatePressedId;               // ~~ IsKeyPressed(ImGuiKey_Space) || IsKeyPressed(ImGuiKey_NavGamepadActivate) ? NavId : 0 (no repeat)
-    ImGuiID                 NavActivateInputId;                 // ~~ IsKeyPressed(ImGuiKey_Enter) || IsKeyPressed(ImGuiKey_NavGamepadInput) ? NavId : 0; ImGuiActivateFlags_PreferInput will be set and NavActivateId will be 0.
-    ImGuiActivateFlags      NavActivateFlags;
-    ImGuiID                 NavJustMovedToId;                   // Just navigated to this id (result of a successfully MoveRequest).
-    ImGuiID                 NavJustMovedToFocusScopeId;         // Just navigated to this focus scope id (result of a successfully MoveRequest).
-    ImGuiKeyChord           NavJustMovedToKeyMods;
-    ImGuiID                 NavNextActivateId;                  // Set by ActivateItem(), queued until next frame.
-    ImGuiActivateFlags      NavNextActivateFlags;
-    ImGuiInputSource        NavInputSource;                     // Keyboard or Gamepad mode? THIS WILL ONLY BE None or NavGamepad or NavKeyboard.
-    ImGuiNavLayer           NavLayer;                           // Layer we are navigating on. For now the system is hard-coded for 0=main contents and 1=menu/title bar, may expose layers later.
-    bool                    NavIdIsAlive;                       // Nav widget has been seen this frame ~~ NavRectRel is valid
-    bool                    NavMousePosDirty;                   // When set we will update mouse position if (io.ConfigFlags & ImGuiConfigFlags_NavEnableSetMousePos) if set (NB: this not enabled by default)
-    bool                    NavDisableHighlight;                // When user starts using mouse, we hide gamepad/keyboard highlight (NB: but they are still available, which is why NavDisableHighlight isn't always != NavDisableMouseHover)
-    bool                    NavDisableMouseHover;               // When user starts using gamepad/keyboard, we hide mouse hovering highlight until mouse is touched again.
+    ImGuiWindow* NavWindow = nullptr;               // Focused window for navigation. Could be called 'FocusedWindow'
+    ImGuiID NavId = 0;                              // Focused item for navigation
+    ImGuiID NavFocusScopeId = 0;                    // Identify a selection scope (selection code often wants to "clear other items" when landing on an item of the selection set)
+    ImGuiID NavActivateId = 0;                      // ~~ (g.ActiveId == 0) && (IsKeyPressed(ImGuiKey_Space) || IsKeyPressed(ImGuiKey_NavGamepadActivate)) ? NavId : 0, also set when calling ActivateItem()
+    ImGuiID NavActivateDownId = 0;                  // ~~ IsKeyDown(ImGuiKey_Space) || IsKeyDown(ImGuiKey_NavGamepadActivate) ? NavId : 0
+    ImGuiID NavActivatePressedId = 0;               // ~~ IsKeyPressed(ImGuiKey_Space) || IsKeyPressed(ImGuiKey_NavGamepadActivate) ? NavId : 0 (no repeat)
+    ImGuiID NavActivateInputId = 0;                 // ~~ IsKeyPressed(ImGuiKey_Enter) || IsKeyPressed(ImGuiKey_NavGamepadInput) ? NavId : 0; ImGuiActivateFlags_PreferInput will be set and NavActivateId will be 0.
+    ImGuiActivateFlags NavActivateFlags = ImGuiActivateFlags_None;
+    ImGuiID NavJustMovedToId = 0;                   // Just navigated to this id (result of a successfully MoveRequest).
+    ImGuiID NavJustMovedToFocusScopeId = 0;         // Just navigated to this focus scope id (result of a successfully MoveRequest).
+    ImGuiKeyChord NavJustMovedToKeyMods = ImGuiMod_None;
+    ImGuiID NavNextActivateId = 0;                  // Set by ActivateItem(), queued until next frame.
+    ImGuiActivateFlags NavNextActivateFlags = ImGuiActivateFlags_None;
+    ImGuiInputSource NavInputSource = ImGuiInputSource_None; // Keyboard or Gamepad mode? THIS WILL ONLY BE None or NavGamepad or NavKeyboard.
+    ImGuiNavLayer NavLayer = ImGuiNavLayer_Main;    // Layer we are navigating on. For now the system is hard-coded for 0=main contents and 1=menu/title bar, may expose layers later.
+    bool NavIdIsAlive = false;                      // Nav widget has been seen this frame ~~ NavRectRel is valid
+    bool NavMousePosDirty = false;                  // When set we will update mouse position if (io.ConfigFlags & ImGuiConfigFlags_NavEnableSetMousePos) if set (NB: this not enabled by default)
+    bool NavDisableHighlight = true;                // When user starts using mouse, we hide gamepad/keyboard highlight (NB: but they are still available, which is why NavDisableHighlight isn't always != NavDisableMouseHover)
+    bool NavDisableMouseHover = false;              // When user starts using gamepad/keyboard, we hide mouse hovering highlight until mouse is touched again.
 
     // Navigation: Init & Move Requests
-    bool                    NavAnyRequest;                      // ~~ NavMoveRequest || NavInitRequest this is to perform early out in ItemAdd()
-    bool                    NavInitRequest;                     // Init request for appearing window to select first item
-    bool                    NavInitRequestFromMove;
-    ImGuiID                 NavInitResultId;                    // Init request result (first item of the window, or one for which SetItemDefaultFocus() was called)
-    ImRect                  NavInitResultRectRel;               // Init request result rectangle (relative to parent window)
-    bool                    NavMoveSubmitted;                   // Move request submitted, will process result on next NewFrame()
-    bool                    NavMoveScoringItems;                // Move request submitted, still scoring incoming items
-    bool                    NavMoveForwardToNextFrame;
-    ImGuiNavMoveFlags       NavMoveFlags;
-    ImGuiScrollFlags        NavMoveScrollFlags;
-    ImGuiKeyChord           NavMoveKeyMods;
-    ImGuiDir                NavMoveDir;                         // Direction of the move request (left/right/up/down)
-    ImGuiDir                NavMoveDirForDebug;
-    ImGuiDir                NavMoveClipDir;                     // FIXME-NAV: Describe the purpose of this better. Might want to rename?
-    ImRect                  NavScoringRect;                     // Rectangle used for scoring, in screen space. Based of window->NavRectRel[], modified for directional navigation scoring.
-    ImRect                  NavScoringNoClipRect;               // Some nav operations (such as PageUp/PageDown) enforce a region which clipper will attempt to always keep submitted
-    int                     NavScoringDebugCount;               // Metrics for debugging
-    int                     NavTabbingDir;                      // Generally -1 or +1, 0 when tabbing without a nav id
-    int                     NavTabbingCounter;                  // >0 when counting items for tabbing
-    ImGuiNavItemData        NavMoveResultLocal;                 // Best move request candidate within NavWindow
-    ImGuiNavItemData        NavMoveResultLocalVisible;          // Best move request candidate within NavWindow that are mostly visible (when using ImGuiNavMoveFlags_AlsoScoreVisibleSet flag)
-    ImGuiNavItemData        NavMoveResultOther;                 // Best move request candidate within NavWindow's flattened hierarchy (when using ImGuiWindowFlags_NavFlattened flag)
-    ImGuiNavItemData        NavTabbingResultFirst;              // First tabbing request candidate within NavWindow and flattened hierarchy
+    bool NavAnyRequest = false;                     // ~~ NavMoveRequest || NavInitRequest this is to perform early out in ItemAdd()
+    bool NavInitRequest = false;                    // Init request for appearing window to select first item
+    bool NavInitRequestFromMove = false;
+    ImGuiID NavInitResultId = 0;                    // Init request result (first item of the window, or one for which SetItemDefaultFocus() was called)
+    ImRect NavInitResultRectRel;                    // Init request result rectangle (relative to parent window)
+    bool NavMoveSubmitted = false;                  // Move request submitted, will process result on next NewFrame()
+    bool NavMoveScoringItems = false;               // Move request submitted, still scoring incoming items
+    bool NavMoveForwardToNextFrame = false;
+    ImGuiNavMoveFlags NavMoveFlags = ImGuiNavMoveFlags_None;
+    ImGuiScrollFlags NavMoveScrollFlags = ImGuiScrollFlags_None;
+    ImGuiKeyChord NavMoveKeyMods = ImGuiMod_None;
+    ImGuiDir NavMoveDir = ImGuiDir_None;            // Direction of the move request (left/right/up/down)
+    ImGuiDir NavMoveDirForDebug = ImGuiDir_None;
+    ImGuiDir NavMoveClipDir = ImGuiDir_None;        // FIXME-NAV: Describe the purpose of this better. Might want to rename?
+    ImRect NavScoringRect;                          // Rectangle used for scoring, in screen space. Based of window->NavRectRel[], modified for directional navigation scoring.
+    ImRect NavScoringNoClipRect;                    // Some nav operations (such as PageUp/PageDown) enforce a region which clipper will attempt to always keep submitted
+    int NavScoringDebugCount = 0;                   // Metrics for debugging
+    int NavTabbingDir = 0;                          // Generally -1 or +1, 0 when tabbing without a nav id
+    int NavTabbingCounter = 0;                      // >0 when counting items for tabbing
+    ImGuiNavItemData NavMoveResultLocal;            // Best move request candidate within NavWindow
+    ImGuiNavItemData NavMoveResultLocalVisible;     // Best move request candidate within NavWindow that are mostly visible (when using ImGuiNavMoveFlags_AlsoScoreVisibleSet flag)
+    ImGuiNavItemData NavMoveResultOther;            // Best move request candidate within NavWindow's flattened hierarchy (when using ImGuiWindowFlags_NavFlattened flag)
+    ImGuiNavItemData NavTabbingResultFirst;         // First tabbing request candidate within NavWindow and flattened hierarchy
 
     // Navigation: Windowing (CTRL+TAB for list, or Menu button + keys or directional pads to move/resize)
-    ImGuiKeyChord           ConfigNavWindowingKeyNext;          // = ImGuiMod_Ctrl | ImGuiKey_Tab, for reconfiguration (see #4828)
-    ImGuiKeyChord           ConfigNavWindowingKeyPrev;          // = ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Tab
-    ImGuiWindow*            NavWindowingTarget;                 // Target window when doing CTRL+Tab (or Pad Menu + FocusPrev/Next), this window is temporarily displayed top-most!
-    ImGuiWindow*            NavWindowingTargetAnim;             // Record of last valid NavWindowingTarget until DimBgRatio and NavWindowingHighlightAlpha becomes 0.0f, so the fade-out can stay on it.
-    ImGuiWindow*            NavWindowingListWindow;             // Internal window actually listing the CTRL+Tab contents
-    float                   NavWindowingTimer;
-    float                   NavWindowingHighlightAlpha;
-    bool                    NavWindowingToggleLayer;
-    ImVec2                  NavWindowingAccumDeltaPos;
-    ImVec2                  NavWindowingAccumDeltaSize;
+    ImGuiKeyChord ConfigNavWindowingKeyNext = ImGuiMod_Ctrl | ImGuiKey_Tab;
+    ImGuiKeyChord ConfigNavWindowingKeyPrev = ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Tab;
+    ImGuiWindow* NavWindowingTarget = nullptr;      // Target window when doing CTRL+Tab (or Pad Menu + FocusPrev/Next), this window is temporarily displayed top-most!
+    ImGuiWindow* NavWindowingTargetAnim = nullptr;  // Record of last valid NavWindowingTarget until DimBgRatio and NavWindowingHighlightAlpha becomes 0.0f, so the fade-out can stay on it.
+    ImGuiWindow* NavWindowingListWindow = nullptr;  // Internal window actually listing the CTRL+Tab contents
+    float NavWindowingTimer = 0.0f;
+    float NavWindowingHighlightAlpha = 0.0f;
+    bool NavWindowingToggleLayer = false;
+    ImVec2 NavWindowingAccumDeltaPos;
+    ImVec2 NavWindowingAccumDeltaSize;
 
     // Render
-    float                   DimBgRatio;                         // 0.0..1.0 animation when fading in a dimming background (for modal window and CTRL+TAB list)
-    ImGuiMouseCursor        MouseCursor;
+    float DimBgRatio = 0.0f; // 0.0..1.0 animation when fading in a dimming background (for modal window and CTRL+TAB list)
+    ImGuiMouseCursor MouseCursor = ImGuiMouseCursor_Arrow;
 
     // Drag and Drop
-    bool                    DragDropActive;
-    bool                    DragDropWithinSource;               // Set when within a BeginDragDropXXX/EndDragDropXXX block for a drag source.
-    bool                    DragDropWithinTarget;               // Set when within a BeginDragDropXXX/EndDragDropXXX block for a drag target.
-    ImGuiDragDropFlags      DragDropSourceFlags;
-    int                     DragDropSourceFrameCount;
-    int                     DragDropMouseButton;
-    ImGuiPayload            DragDropPayload;
-    ImRect                  DragDropTargetRect;                 // Store rectangle of current target candidate (we favor small targets when overlapping)
-    ImGuiID                 DragDropTargetId;
-    ImGuiDragDropFlags      DragDropAcceptFlags;
-    float                   DragDropAcceptIdCurrRectSurface;    // Target item surface (we resolve overlapping targets by prioritizing the smaller surface)
-    ImGuiID                 DragDropAcceptIdCurr;               // Target item id (set at the time of accepting the payload)
-    ImGuiID                 DragDropAcceptIdPrev;               // Target item id from previous frame (we need to store this to allow for overlapping drag and drop targets)
-    int                     DragDropAcceptFrameCount;           // Last time a target expressed a desire to accept the source
-    ImGuiID                 DragDropHoldJustPressedId;          // Set when holding a payload just made ButtonBehavior() return a press.
-    ImVector<unsigned char> DragDropPayloadBufHeap;             // We don't expose the ImVector<> directly, ImGuiPayload only holds pointer+size
-    unsigned char           DragDropPayloadBufLocal[16];        // Local buffer for small payloads
+    bool DragDropActive = false;
+    bool DragDropWithinSource = false;              // Set when within a BeginDragDropXXX/EndDragDropXXX block for a drag source.
+    bool DragDropWithinTarget = false;              // Set when within a BeginDragDropXXX/EndDragDropXXX block for a drag target.
+    ImGuiDragDropFlags DragDropSourceFlags = ImGuiDragDropFlags_None;
+    int DragDropSourceFrameCount = -1;
+    int DragDropMouseButton = -1;
+    ImGuiPayload DragDropPayload;
+    ImRect DragDropTargetRect;                      // Store rectangle of current target candidate (we favor small targets when overlapping)
+    ImGuiID DragDropTargetId = 0;
+    ImGuiDragDropFlags DragDropAcceptFlags = ImGuiDragDropFlags_None;
+    float DragDropAcceptIdCurrRectSurface = 0.0f;   // Target item surface (we resolve overlapping targets by prioritizing the smaller surface)
+    ImGuiID DragDropAcceptIdCurr = 0;               // Target item id (set at the time of accepting the payload)
+    ImGuiID DragDropAcceptIdPrev = 0;               // Target item id from previous frame (we need to store this to allow for overlapping drag and drop targets)
+    int DragDropAcceptFrameCount = -1;              // Last time a target expressed a desire to accept the source
+    ImGuiID DragDropHoldJustPressedId = 0;          // Set when holding a payload just made ButtonBehavior() return a press.
+    ImVector<unsigned char> DragDropPayloadBufHeap; // We don't expose the ImVector<> directly, ImGuiPayload only holds pointer+size
+    unsigned char DragDropPayloadBufLocal[16];      // Local buffer for small payloads
 
     // Clipper
-    int                             ClipperTempDataStacked;
-    ImVector<ImGuiListClipperData>  ClipperTempData;
+    int ClipperTempDataStacked = 0;
+    ImVector<ImGuiListClipperData> ClipperTempData;
 
     // Tables
-    ImGuiTable*                     CurrentTable;
-    int                             TablesTempDataStacked;      // Temporary table data size (because we leave previous instances undestructed, we generally don't use TablesTempData.Size)
-    ImVector<ImGuiTableTempData>    TablesTempData;             // Temporary table data (buffers reused/shared across instances, support nesting)
-    ImPool<ImGuiTable>              Tables;                     // Persistent table data
-    ImVector<float>                 TablesLastTimeActive;       // Last used timestamp of each tables (SOA, for efficient GC)
-    ImVector<ImDrawChannel>         DrawChannelsTempMergeBuffer;
+    ImGuiTable* CurrentTable = nullptr;
+    int TablesTempDataStacked = 0;               // Temporary table data size (because we leave previous instances undestructed, we generally don't use TablesTempData.Size)
+    ImVector<ImGuiTableTempData> TablesTempData; // Temporary table data (buffers reused/shared across instances, support nesting)
+    ImPool<ImGuiTable> Tables;                   // Persistent table data
+    ImVector<float> TablesLastTimeActive;        // Last used timestamp of each tables (SOA, for efficient GC)
+    ImVector<ImDrawChannel> DrawChannelsTempMergeBuffer;
 
     // Tab bars
-    ImGuiTabBar*                    CurrentTabBar;
-    ImPool<ImGuiTabBar>             TabBars;
-    ImVector<ImGuiPtrOrIndex>       CurrentTabBarStack;
-    ImVector<ImGuiShrinkWidthItem>  ShrinkWidthBuffer;
+    ImGuiTabBar* CurrentTabBar = nullptr;
+    ImPool<ImGuiTabBar> TabBars;
+    ImVector<ImGuiPtrOrIndex> CurrentTabBarStack;
+    ImVector<ImGuiShrinkWidthItem> ShrinkWidthBuffer;
 
     // Hover Delay system
-    ImGuiID                 HoverDelayId;
-    ImGuiID                 HoverDelayIdPreviousFrame;
-    float                   HoverDelayTimer;                    // Currently used IsItemHovered(), generally inferred from g.HoveredIdTimer but kept uncleared until clear timer elapse.
-    float                   HoverDelayClearTimer;               // Currently used IsItemHovered(): grace time before g.TooltipHoverTimer gets cleared.
+    ImGuiID HoverDelayId = 0;
+    ImGuiID HoverDelayIdPreviousFrame = 0;
+    float HoverDelayTimer = 0.0f;           // Currently used IsItemHovered(), generally inferred from g.HoveredIdTimer but kept uncleared until clear timer elapse.
+    float HoverDelayClearTimer = 0.0f;      // Currently used IsItemHovered(): grace time before g.TooltipHoverTimer gets cleared.
 
     // Widget state
-    ImVec2                  MouseLastValidPos;
-    ImGuiInputTextState     InputTextState;
-    ImFont                  InputTextPasswordFont;
-    ImGuiID                 TempInputId;                        // Temporary text input when CTRL+clicking on a slider, etc.
-    ImGuiColorEditFlags     ColorEditOptions;                   // Store user options for color edit widgets
-    float                   ColorEditLastHue;                   // Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
-    float                   ColorEditLastSat;                   // Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
-    ImU32                   ColorEditLastColor;                 // RGB value with alpha set to 0.
-    ImVec4                  ColorPickerRef;                     // Initial/reference color at the time of opening the color picker.
-    ImGuiComboPreviewData   ComboPreviewData;
-    float                   SliderGrabClickOffset;
-    float                   SliderCurrentAccum;                 // Accumulated slider delta when using navigation controls.
-    bool                    SliderCurrentAccumDirty;            // Has the accumulated slider delta changed since last time we tried to apply it?
-    bool                    DragCurrentAccumDirty;
-    float                   DragCurrentAccum;                   // Accumulator for dragging modification. Always high-precision, not rounded by end-user precision settings
-    float                   DragSpeedDefaultRatio;              // If speed == 0.0f, uses (max-min) * DragSpeedDefaultRatio
-    float                   ScrollbarClickDeltaToGrabCenter;    // Distance between mouse and center of grab box, normalized in parent space. Use storage?
-    float                   DisabledAlphaBackup;                // Backup for style.Alpha for BeginDisabled()
-    short                   DisabledStackSize;
-    short                   TooltipOverrideCount;
-    ImVector<char>          ClipboardHandlerData;               // If no custom clipboard handler is defined
-    ImVector<ImGuiID>       MenusIdSubmittedThisFrame;          // A list of menu IDs that were rendered at least once
+    ImVec2 MouseLastValidPos;
+    ImGuiInputTextState InputTextState;
+    ImFont InputTextPasswordFont;
+    ImGuiID TempInputId = 0;                      // Temporary text input when CTRL+clicking on a slider, etc.
+    ImGuiColorEditFlags ColorEditOptions = ImGuiColorEditFlags_DefaultOptions_;                   // Store user options for color edit widgets
+    float ColorEditLastHue = 0.0f;                // Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
+    float ColorEditLastSat = 0.0f;                // Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
+    ImU32 ColorEditLastColor = 0;                 // RGB value with alpha set to 0.
+    ImVec4 ColorPickerRef;                        // Initial/reference color at the time of opening the color picker.
+    ImGuiComboPreviewData ComboPreviewData;
+    float SliderGrabClickOffset = 0.0f;
+    float SliderCurrentAccum = 0.0f;              // Accumulated slider delta when using navigation controls.
+    bool SliderCurrentAccumDirty = false;         // Has the accumulated slider delta changed since last time we tried to apply it?
+    bool DragCurrentAccumDirty = false;
+    float DragCurrentAccum = 0.0f;                // Accumulator for dragging modification. Always high-precision, not rounded by end-user precision settings
+    float DragSpeedDefaultRatio = 1.0f / 100.0f;  // If speed == 0.0f, uses (max-min) * DragSpeedDefaultRatio
+    float ScrollbarClickDeltaToGrabCenter = 0.0f; // Distance between mouse and center of grab box, normalized in parent space. Use storage?
+    float DisabledAlphaBackup = 0.0f;             // Backup for style.Alpha for BeginDisabled()
+    short DisabledStackSize = 0;
+    short TooltipOverrideCount = 0;
+    ImVector<char> ClipboardHandlerData;           // If no custom clipboard handler is defined
+    ImVector<ImGuiID> MenusIdSubmittedThisFrame;   // A list of menu IDs that were rendered at least once
 
     // Platform support
-    ImGuiPlatformImeData    PlatformImeData;                    // Data updated by current frame
-    ImGuiPlatformImeData    PlatformImeDataPrev;                // Previous frame data (when changing we will call io.SetPlatformImeDataFn
-    char                    PlatformLocaleDecimalPoint;         // '.' or *localeconv()->decimal_point
+    ImGuiPlatformImeData PlatformImeData;     // Data updated by current frame
+    ImGuiPlatformImeData PlatformImeDataPrev; // Previous frame data (when changing we will call io.SetPlatformImeDataFn
+    char PlatformLocaleDecimalPoint = '.';    // '.' or *localeconv()->decimal_point
 
     // Settings
-    bool                    SettingsLoaded;
-    float                   SettingsDirtyTimer;                 // Save .ini Settings to memory when time reaches zero
-    ImGuiTextBuffer         SettingsIniData;                    // In memory .ini settings
-    ImVector<ImGuiSettingsHandler>      SettingsHandlers;       // List of .ini settings handlers
-    ImChunkStream<ImGuiWindowSettings>  SettingsWindows;        // ImGuiWindow .ini settings entries
-    ImChunkStream<ImGuiTableSettings>   SettingsTables;         // ImGuiTable .ini settings entries
-    ImVector<ImGuiContextHook>          Hooks;                  // Hooks for extensions (e.g. test engine)
-    ImGuiID                             HookIdNext;             // Next available HookId
+    bool SettingsLoaded = false;
+    float SettingsDirtyTimer = 0.0f;                    // Save .ini Settings to memory when time reaches zero
+    ImGuiTextBuffer SettingsIniData;                    // In memory .ini settings
+    ImVector<ImGuiSettingsHandler> SettingsHandlers;    // List of .ini settings handlers
+    ImChunkStream<ImGuiWindowSettings> SettingsWindows; // ImGuiWindow .ini settings entries
+    ImChunkStream<ImGuiTableSettings> SettingsTables;   // ImGuiTable .ini settings entries
+    ImVector<ImGuiContextHook> Hooks;                   // Hooks for extensions (e.g. test engine)
+    ImGuiID HookIdNext = 0;                             // Next available HookId
 
     // Localization
-    const char*             LocalizationTable[ImGuiLocKey_COUNT];
+    const char* LocalizationTable[ImGuiLocKey_COUNT];
 
     // Capture/Logging
-    bool                    LogEnabled;                         // Currently capturing
-    ImGuiLogType            LogType;                            // Capture target
-    ImFileHandle            LogFile;                            // If != NULL log to stdout/ file
-    ImGuiTextBuffer         LogBuffer;                          // Accumulation buffer when log to clipboard. This is pointer so our GImGui static constructor doesn't call heap allocators.
-    const char*             LogNextPrefix;
-    const char*             LogNextSuffix;
-    float                   LogLinePosY;
-    bool                    LogLineFirstItem;
-    int                     LogDepthRef;
-    int                     LogDepthToExpand;
-    int                     LogDepthToExpandDefault;            // Default/stored value for LogDepthMaxExpand if not specified in the LogXXX function call.
+    bool LogEnabled = false;                  // Currently capturing
+    ImGuiLogType LogType = ImGuiLogType_None; // Capture target
+    ImFileHandle LogFile = NULL;              // If != NULL log to stdout/ file
+    ImGuiTextBuffer LogBuffer;                // Accumulation buffer when log to clipboard. This is pointer so our GImGui static constructor doesn't call heap allocators.
+    const char* LogNextPrefix = nullptr;
+    const char* LogNextSuffix = nullptr;
+    float LogLinePosY = FLT_MAX;
+    bool LogLineFirstItem = false;
+    int LogDepthRef = 0;
+    int LogDepthToExpand = 2;
+    int LogDepthToExpandDefault = 2; // Default/stored value for LogDepthMaxExpand if not specified in the LogXXX function call.
 
     // Debug Tools
-    ImGuiDebugLogFlags      DebugLogFlags;
-    ImGuiTextBuffer         DebugLogBuf;
-    ImGuiTextIndex          DebugLogIndex;
-    ImU8                    DebugLocateFrames;                  // For DebugLocateItemOnHover(). This is used together with DebugLocateId which is in a hot/cached spot above.
-    bool                    DebugItemPickerActive;              // Item picker is active (started with DebugStartItemPicker())
-    ImU8                    DebugItemPickerMouseButton;
-    ImGuiID                 DebugItemPickerBreakId;             // Will call IM_DEBUG_BREAK() when encountering this ID
-    ImGuiMetricsConfig      DebugMetricsConfig;
-    ImGuiStackTool          DebugStackTool;
-
-    // Misc
-    std::array<float, 60> FramerateSecPerFrame;           // Calculate estimate of framerate for user over the last 60 frames..
-    size_t FramerateSecPerFrameIdx = 0;
-    size_t FramerateSecPerFrameCount = 0;
-    float FramerateSecPerFrameAccum = 0.0f;
+    ImGuiDebugLogFlags DebugLogFlags = ImGuiDebugLogFlags_OutputToTTY;
+    ImGuiTextBuffer DebugLogBuf;
+    ImGuiTextIndex DebugLogIndex;
+    ImU8 DebugLocateFrames = 0;          // For DebugLocateItemOnHover(). This is used together with DebugLocateId which is in a hot/cached spot above.
+    bool DebugItemPickerActive = false;  // Item picker is active (started with DebugStartItemPicker())
+    ImU8 DebugItemPickerMouseButton = ImGuiMouseButton_Left;
+    ImGuiID DebugItemPickerBreakId = 0;  // Will call IM_DEBUG_BREAK() when encountering this ID
+    ImGuiMetricsConfig DebugMetricsConfig;
+    ImGuiStackTool DebugStackTool;
 
     ImGuiFPSCounter FpsCounter;
 
-    int                     WantCaptureMouseNextFrame;          // Explicit capture override via SetNextFrameWantCaptureMouse()/SetNextFrameWantCaptureKeyboard(). Default to -1.
-    int                     WantCaptureKeyboardNextFrame;       // "
-    int                     WantTextInputNextFrame;
-    ImVector<char>          TempBuffer;                         // Temporary text buffer
+    int WantCaptureMouseNextFrame = -1;     // Explicit capture override via SetNextFrameWantCaptureMouse()/SetNextFrameWantCaptureKeyboard(). Default to -1.
+    int WantCaptureKeyboardNextFrame = -1;  // "
+    int WantTextInputNextFrame = -1;
+    ImVector<char> TempBuffer;              // Temporary text buffer
 
     ImGuiContext(ImFontAtlas* shared_font_atlas)
         : InputTextState(this)
     {
-        Initialized = false;
         FontAtlasOwnedByContext = shared_font_atlas ? false : true;
-        Font = NULL;
-        FontSize = FontBaseSize = 0.0f;
         IO.Fonts = shared_font_atlas ? shared_font_atlas : IM_NEW(ImFontAtlas)();
-        Time = 0.0f;
-        FrameCount = 0;
-        FrameCountEnded = FrameCountRendered = -1;
-        WithinFrameScope = WithinFrameScopeWithImplicitWindow = WithinEndChild = false;
-        GcCompactAll = false;
-        TestEngineHookItems = false;
-        TestEngine = NULL;
 
-        WindowsActiveCount = 0;
-        CurrentWindow = NULL;
-        HoveredWindow = NULL;
-        HoveredWindowUnderMovingWindow = NULL;
-        MovingWindow = NULL;
-        WheelingWindow = NULL;
-        WheelingWindowStartFrame = -1;
-        WheelingWindowReleaseTimer = 0.0f;
-
-        DebugHookIdInfo = 0;
-        HoveredId = HoveredIdPreviousFrame = 0;
-        HoveredIdAllowOverlap = false;
-        HoveredIdDisabled = false;
-        HoveredIdTimer = HoveredIdNotActiveTimer = 0.0f;
-        ActiveId = 0;
-        ActiveIdIsAlive = 0;
-        ActiveIdTimer = 0.0f;
-        ActiveIdIsJustActivated = false;
-        ActiveIdAllowOverlap = false;
-        ActiveIdNoClearOnFocusLoss = false;
-        ActiveIdHasBeenPressedBefore = false;
-        ActiveIdHasBeenEditedBefore = false;
-        ActiveIdHasBeenEditedThisFrame = false;
-        ActiveIdClickOffset = ImVec2(-1, -1);
-        ActiveIdWindow = NULL;
-        ActiveIdSource = ImGuiInputSource_None;
-        ActiveIdMouseButton = -1;
-        ActiveIdPreviousFrame = 0;
-        ActiveIdPreviousFrameIsAlive = false;
-        ActiveIdPreviousFrameHasBeenEditedBefore = false;
-        ActiveIdPreviousFrameWindow = NULL;
-        LastActiveId = 0;
-        LastActiveIdTimer = 0.0f;
-
-        ActiveIdUsingNavDirMask = 0x00;
-        ActiveIdUsingAllKeyboardKeys = false;
-
-        CurrentFocusScopeId = 0;
-        CurrentItemFlags = ImGuiItemFlags_None;
-        BeginMenuCount = 0;
-
-        NavWindow = NULL;
-        NavId = NavFocusScopeId = NavActivateId = NavActivateDownId = NavActivatePressedId = NavActivateInputId = 0;
-        NavJustMovedToId = NavJustMovedToFocusScopeId = NavNextActivateId = 0;
-        NavActivateFlags = NavNextActivateFlags = ImGuiActivateFlags_None;
-        NavJustMovedToKeyMods = ImGuiMod_None;
-        NavInputSource = ImGuiInputSource_None;
-        NavLayer = ImGuiNavLayer_Main;
-        NavIdIsAlive = false;
-        NavMousePosDirty = false;
-        NavDisableHighlight = true;
-        NavDisableMouseHover = false;
-        NavAnyRequest = false;
-        NavInitRequest = false;
-        NavInitRequestFromMove = false;
-        NavInitResultId = 0;
-        NavMoveSubmitted = false;
-        NavMoveScoringItems = false;
-        NavMoveForwardToNextFrame = false;
-        NavMoveFlags = ImGuiNavMoveFlags_None;
-        NavMoveScrollFlags = ImGuiScrollFlags_None;
-        NavMoveKeyMods = ImGuiMod_None;
-        NavMoveDir = NavMoveDirForDebug = NavMoveClipDir = ImGuiDir_None;
-        NavScoringDebugCount = 0;
-        NavTabbingDir = 0;
-        NavTabbingCounter = 0;
-
-        ConfigNavWindowingKeyNext = ImGuiMod_Ctrl | ImGuiKey_Tab;
-        ConfigNavWindowingKeyPrev = ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Tab;
-        NavWindowingTarget = NavWindowingTargetAnim = NavWindowingListWindow = NULL;
-        NavWindowingTimer = NavWindowingHighlightAlpha = 0.0f;
-        NavWindowingToggleLayer = false;
-
-        DimBgRatio = 0.0f;
-        MouseCursor = ImGuiMouseCursor_Arrow;
-
-        DragDropActive = DragDropWithinSource = DragDropWithinTarget = false;
-        DragDropSourceFlags = ImGuiDragDropFlags_None;
-        DragDropSourceFrameCount = -1;
-        DragDropMouseButton = -1;
-        DragDropTargetId = 0;
-        DragDropAcceptFlags = ImGuiDragDropFlags_None;
-        DragDropAcceptIdCurrRectSurface = 0.0f;
-        DragDropAcceptIdPrev = DragDropAcceptIdCurr = 0;
-        DragDropAcceptFrameCount = -1;
-        DragDropHoldJustPressedId = 0;
-        memset(DragDropPayloadBufLocal, 0, sizeof(DragDropPayloadBufLocal));
-
-        ClipperTempDataStacked = 0;
-
-        CurrentTable = NULL;
-        TablesTempDataStacked = 0;
-        CurrentTabBar = NULL;
-
-        HoverDelayId = HoverDelayIdPreviousFrame = 0;
-        HoverDelayTimer = HoverDelayClearTimer = 0.0f;
-
-        TempInputId = 0;
-        ColorEditOptions = ImGuiColorEditFlags_DefaultOptions_;
-        ColorEditLastHue = ColorEditLastSat = 0.0f;
-        ColorEditLastColor = 0;
-        SliderGrabClickOffset = 0.0f;
-        SliderCurrentAccum = 0.0f;
-        SliderCurrentAccumDirty = false;
-        DragCurrentAccumDirty = false;
-        DragCurrentAccum = 0.0f;
-        DragSpeedDefaultRatio = 1.0f / 100.0f;
-        ScrollbarClickDeltaToGrabCenter = 0.0f;
-        DisabledAlphaBackup = 0.0f;
-        DisabledStackSize = 0;
-        TooltipOverrideCount = 0;
+        std::fill(std::begin(DragDropPayloadBufLocal), std::end(DragDropPayloadBufLocal), 0u);
 
         PlatformImeData.InputPos = ImVec2(0.0f, 0.0f);
         PlatformImeDataPrev.InputPos = ImVec2(-1.0f, -1.0f); // Different to ensure initial submission
-        PlatformLocaleDecimalPoint = '.';
 
-        SettingsLoaded = false;
-        SettingsDirtyTimer = 0.0f;
-        HookIdNext = 0;
-
-        memset(LocalizationTable, 0, sizeof(LocalizationTable));
-
-        LogEnabled = false;
-        LogType = ImGuiLogType_None;
-        LogNextPrefix = LogNextSuffix = NULL;
-        LogFile = NULL;
-        LogLinePosY = FLT_MAX;
-        LogLineFirstItem = false;
-        LogDepthRef = 0;
-        LogDepthToExpand = LogDepthToExpandDefault = 2;
-
-        DebugLogFlags = ImGuiDebugLogFlags_OutputToTTY;
-        DebugLocateId = 0;
-        DebugLocateFrames = 0;
-        DebugItemPickerActive = false;
-        DebugItemPickerMouseButton = ImGuiMouseButton_Left;
-        DebugItemPickerBreakId = 0;
-
-        WantCaptureMouseNextFrame = WantCaptureKeyboardNextFrame = WantTextInputNextFrame = -1;
+        std::fill(std::begin(LocalizationTable), std::end(LocalizationTable), nullptr);
     }
 };
 
