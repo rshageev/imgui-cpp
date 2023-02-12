@@ -24,6 +24,9 @@
     <ClInclude Include="..\..\backends\imgui_impl_win32.h">
       <Filter>sources</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\imgui_types.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp">

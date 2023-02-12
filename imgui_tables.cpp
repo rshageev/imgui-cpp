@@ -191,17 +191,7 @@ Index of this file:
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
 
-#ifndef IMGUI_DEFINE_MATH_OPERATORS
-#define IMGUI_DEFINE_MATH_OPERATORS
-#endif
 #include "imgui_internal.h"
-
-// System includes
-#if defined(_MSC_VER) && _MSC_VER <= 1500 // MSVC 2008 or earlier
-#include <stddef.h>     // intptr_t
-#else
-#include <stdint.h>     // intptr_t
-#endif
 
 // Visual Studio warnings
 #ifdef _MSC_VER

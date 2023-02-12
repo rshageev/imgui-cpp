@@ -156,6 +156,7 @@
     <ClInclude Include="..\..\imgui_internal.h" />
     <ClInclude Include="..\..\backends\imgui_impl_dx12.h" />
     <ClInclude Include="..\..\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\imgui_types.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\imgui.cpp" />

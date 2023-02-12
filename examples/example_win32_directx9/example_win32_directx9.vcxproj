@@ -164,6 +164,7 @@
     <ClInclude Include="..\..\imgui_internal.h" />
     <ClInclude Include="..\..\backends\imgui_impl_dx9.h" />
     <ClInclude Include="..\..\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\imgui_types.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\misc\debuggers\imgui.natvis" />

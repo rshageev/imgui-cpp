@@ -35,17 +35,7 @@ Index of this file:
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
 
-#ifndef IMGUI_DEFINE_MATH_OPERATORS
-#define IMGUI_DEFINE_MATH_OPERATORS
-#endif
 #include "imgui_internal.h"
-
-// System includes
-#if defined(_MSC_VER) && _MSC_VER <= 1500 // MSVC 2008 or earlier
-#include <stddef.h>     // intptr_t
-#else
-#include <stdint.h>     // intptr_t
-#endif
 
 //-------------------------------------------------------------------------
 // Warnings
@@ -53,7 +43,7 @@ Index of this file:
 
 // Visual Studio warnings
 #ifdef _MSC_VER
-#pragma warning (disable: 4127)     // condition expression is constant
+//#pragma warning (disable: 4127)     // condition expression is constant
 #pragma warning (disable: 4996)     // 'This function or variable may be unsafe': strcpy, strdup, sprintf, vsnprintf, sscanf, fopen
 #if defined(_MSC_VER) && _MSC_VER >= 1922 // MSVC 2019 16.2 or later
 #pragma warning (disable: 5054)     // operator '|': deprecated between enumerations of different types

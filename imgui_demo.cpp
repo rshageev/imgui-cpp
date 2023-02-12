@@ -37,10 +37,6 @@
 // - We never omit the ImGui:: prefix when calling functions, even though most code here is in the same namespace.
 // - We try to declare static variables in the local scope, as close as possible to the code using them.
 // - We never use any of the helpers/facilities used internally by Dear ImGui, unless available in the public API.
-// - We never use maths operators on ImVec2/ImVec4. For our other sources files we use them, and they are provided
-//   by imgui_internal.h using the IMGUI_DEFINE_MATH_OPERATORS define. For your own sources file they are optional
-//   and require you either enable those, either provide your own via IM_VEC2_CLASS_EXTRA in imconfig.h.
-//   Because we can't assume anything about your support of maths operators, we cannot use them in imgui_demo.cpp.
 
 // Navigating this file:
 // - In Visual Studio IDE: CTRL+comma ("Edit.GoToAll") can follow symbols in comments, whereas CTRL+F12 ("Edit.GoToImplementation") cannot.
@@ -91,11 +87,6 @@ Index of this file:
 #include <math.h>           // sqrtf, powf, cosf, sinf, floorf, ceilf
 #include <stdio.h>          // vsnprintf, sscanf, printf
 #include <stdlib.h>         // NULL, malloc, free, atoi
-#if defined(_MSC_VER) && _MSC_VER <= 1500 // MSVC 2008 or earlier
-#include <stddef.h>         // intptr_t
-#else
-#include <stdint.h>         // intptr_t
-#endif
 
 // Visual Studio warnings
 #ifdef _MSC_VER
@@ -7510,11 +7501,6 @@ static void ShowExampleAppCustomRendering(bool* p_open)
         return;
     }
     IMGUI_DEMO_MARKER("Examples/Custom Rendering");
-
-    // Tip: If you do a lot of custom rendering, you probably want to use your own geometrical types and benefit of
-    // overloaded operators, etc. Define IM_VEC2_CLASS_EXTRA in imconfig.h to create implicit conversions between your
-    // types and ImVec2/ImVec4. Dear ImGui defines overloaded operators but they are internal to imgui.cpp and not
-    // exposed outside (to avoid messing with your types) In this example we are not using the maths operators!
 
     if (ImGui::BeginTabBar("##TabBar"))
     {

@@ -33,6 +33,8 @@ Index of this file:
 #endif
 #include "imconfig.h"
 
+#include "imgui_types.h"
+
 #ifndef IMGUI_DISABLE
 
 //-----------------------------------------------------------------------------
@@ -194,63 +196,11 @@ typedef void* ImTextureID;          // Default: store a pointer or an integer fi
 typedef unsigned short ImDrawIdx;   // Default: 16-bit (for maximum compatibility with renderer backends)
 #endif
 
-// Scalar data types
-typedef unsigned int        ImGuiID;// A unique ID used by widgets (typically the result of hashing a stack of string)
-typedef signed char         ImS8;   // 8-bit signed integer
-typedef unsigned char       ImU8;   // 8-bit unsigned integer
-typedef signed short        ImS16;  // 16-bit signed integer
-typedef unsigned short      ImU16;  // 16-bit unsigned integer
-typedef signed int          ImS32;  // 32-bit signed integer == int
-typedef unsigned int        ImU32;  // 32-bit unsigned integer (often used to store packed colors)
-typedef signed   long long  ImS64;  // 64-bit signed integer
-typedef unsigned long long  ImU64;  // 64-bit unsigned integer
-
-// Character types
-// (we generally use UTF-8 encoded string in the API. This is storage specifically for a decoded character used for keyboard input and display)
-typedef unsigned short ImWchar16;   // A single decoded U16 character/code point. We encode them as multi bytes UTF-8 when used in strings.
-typedef unsigned int ImWchar32;     // A single decoded U32 character/code point. We encode them as multi bytes UTF-8 when used in strings.
-#ifdef IMGUI_USE_WCHAR32            // ImWchar [configurable type: override in imconfig.h with '#define IMGUI_USE_WCHAR32' to support Unicode planes 1-16]
-typedef ImWchar32 ImWchar;
-#else
-typedef ImWchar16 ImWchar;
-#endif
-
 // Callback and functions types
 typedef int     (*ImGuiInputTextCallback)(ImGuiInputTextCallbackData* data);    // Callback function for ImGui::InputText()
 typedef void    (*ImGuiSizeCallback)(ImGuiSizeCallbackData* data);              // Callback function for ImGui::SetNextWindowSizeConstraints()
 typedef void*   (*ImGuiMemAllocFunc)(size_t sz, void* user_data);               // Function signature for ImGui::SetAllocatorFunctions()
 typedef void    (*ImGuiMemFreeFunc)(void* ptr, void* user_data);                // Function signature for ImGui::SetAllocatorFunctions()
-
-// ImVec2: 2D vector used to store positions, sizes etc. [Compile-time configurable type]
-// This is a frequently used type in the API. Consider using IM_VEC2_CLASS_EXTRA to create implicit cast from/to our preferred type.
-struct ImVec2
-{
-    float                                   x, y;
-    constexpr ImVec2()                      : x(0.0f), y(0.0f) { }
-    constexpr ImVec2(float _x, float _y)    : x(_x), y(_y) { }
-    float  operator[] (size_t idx) const    { IM_ASSERT(idx == 0 || idx == 1); return (&x)[idx]; }  // We very rarely use this [] operator, the assert overhead is fine.
-    float& operator[] (size_t idx)          { IM_ASSERT(idx == 0 || idx == 1); return (&x)[idx]; }  // We very rarely use this [] operator, the assert overhead is fine.
-
-    bool operator==(const ImVec2& rhs) const = default;
-    bool operator!=(const ImVec2& rhs) const = default;
-#ifdef IM_VEC2_CLASS_EXTRA
-    IM_VEC2_CLASS_EXTRA     // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math types and ImVec2.
-#endif
-};
-
-// ImVec4: 4D vector used to store clipping rectangles, colors etc. [Compile-time configurable type]
-struct ImVec4
-{
-    float                                                     x, y, z, w;
-    constexpr ImVec4()                                        : x(0.0f), y(0.0f), z(0.0f), w(0.0f) { }
-    constexpr ImVec4(float _x, float _y, float _z, float _w)  : x(_x), y(_y), z(_z), w(_w) { }
-
-    bool operator==(const ImVec4& rhs) const = default;
-    bool operator!=(const ImVec4& rhs) const = default;
-#ifdef IM_VEC4_CLASS_EXTRA
-    IM_VEC4_CLASS_EXTRA     // Define additional constructors and implicit cast operators in imconfig.h to convert back and forth between your math types and ImVec4.
-#endif
-};
 
 //-----------------------------------------------------------------------------
 // [SECTION] Dear ImGui end-user API functions
