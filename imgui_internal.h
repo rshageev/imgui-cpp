@@ -1969,7 +1969,7 @@ struct ImGuiContext
     {
         IO.Fonts = shared_font_atlas ? shared_font_atlas : std::make_shared<ImFontAtlas>();
 
-        std::fill(std::begin(DragDropPayloadBufLocal), std::end(DragDropPayloadBufLocal), 0u);
+        std::fill(std::begin(DragDropPayloadBufLocal), std::end(DragDropPayloadBufLocal), static_cast<unsigned char>(0));
 
         PlatformImeData.InputPos = ImVec2(0.0f, 0.0f);
         PlatformImeDataPrev.InputPos = ImVec2(-1.0f, -1.0f); // Different to ensure initial submission

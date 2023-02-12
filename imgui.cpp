@@ -5823,7 +5823,7 @@ void ImGui::BringWindowToDisplayBehind(ImGuiWindow* window, ImGuiWindow* behind_
 int ImGui::FindWindowDisplayIndex(ImGuiWindow* window)
 {
     ImGuiContext& g = *GImGui;
-    return std::distance(stdr::begin(g.Windows), stdr::find(g.Windows, window));
+    return static_cast<int>(std::distance(stdr::begin(g.Windows), stdr::find(g.Windows, window)));
 }
 
 // Moving window to front of display and set focus (which happens to be back of our sorted list)
@@ -5870,7 +5870,7 @@ void ImGui::FocusWindow(ImGuiWindow* window)
 void ImGui::FocusTopMostWindowUnderOne(ImGuiWindow* under_this_window, ImGuiWindow* ignore_window)
 {
     ImGuiContext& g = *GImGui;
-    int start_idx = g.WindowsFocusOrder.size() - 1;
+    int start_idx = static_cast<int>(g.WindowsFocusOrder.size()) - 1;
     if (under_this_window != NULL)
     {
         // Aim at root window behind us, if we are in a child window that's our own root (see #4640)
@@ -10520,7 +10520,8 @@ static int ImGui::FindWindowFocusIndex(ImGuiWindow* window)
 static ImGuiWindow* FindWindowNavFocusable(int i_start, int i_stop, int dir) // FIXME-OPT O(N)
 {
     ImGuiContext& g = *GImGui;
-    for (int i = i_start; i >= 0 && i < g.WindowsFocusOrder.size() && i != i_stop; i += dir) {
+    const int size = static_cast<int>(g.WindowsFocusOrder.size());
+    for (int i = i_start; i >= 0 && i < size && i != i_stop; i += dir) {
         if (ImGui::IsWindowNavFocusable(g.WindowsFocusOrder[i])) {
             return g.WindowsFocusOrder[i];
         }
@@ -10538,7 +10539,8 @@ static void NavUpdateWindowingHighlightWindow(int focus_change_dir)
     const int i_current = ImGui::FindWindowFocusIndex(g.NavWindowingTarget);
     ImGuiWindow* window_target = FindWindowNavFocusable(i_current + focus_change_dir, -INT_MAX, focus_change_dir);
     if (!window_target) {
-        window_target = FindWindowNavFocusable((focus_change_dir < 0) ? (g.WindowsFocusOrder.size() - 1) : 0, i_current, focus_change_dir);
+        const int i_start = (focus_change_dir < 0) ? (static_cast<int>(g.WindowsFocusOrder.size()) - 1) : 0;
+        window_target = FindWindowNavFocusable(i_start, i_current, focus_change_dir);
     }
     if (window_target) // Don't reset windowing target if there's a single window in the list
     {
@@ -10581,7 +10583,10 @@ static void ImGui::NavUpdateWindowing()
     const bool start_windowing_with_keyboard = allow_windowing && !g.NavWindowingTarget && (keyboard_next_window || keyboard_prev_window); // Note: enabled even without NavEnableKeyboard!
     if (start_windowing_with_gamepad || start_windowing_with_keyboard)
     {
-        ImGuiWindow* window = g.NavWindow ? g.NavWindow : FindWindowNavFocusable(g.WindowsFocusOrder.size() - 1, -INT_MAX, -1);
+        ImGuiWindow* window = g.NavWindow;
+        if (!window) {
+            window = FindWindowNavFocusable(static_cast<int>(g.WindowsFocusOrder.size()) - 1, -INT_MAX, -1);
+        }
         if (window)
         {
             g.NavWindowingTarget = g.NavWindowingTargetAnim = window->RootWindow;
@@ -10764,9 +10769,8 @@ void ImGui::NavUpdateWindowingOverlay()
     SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
     PushStyleVar(ImGuiStyleVar_WindowPadding, g.Style.WindowPadding * 2.0f);
     Begin("###NavWindowingList", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings);
-    for (int n = g.WindowsFocusOrder.size() - 1; n >= 0; n--)
+    for (ImGuiWindow* window : stdv::reverse(g.WindowsFocusOrder))
     {
-        ImGuiWindow* window = g.WindowsFocusOrder[n];
         IM_ASSERT(window != NULL); // Fix static analyzers
         if (!IsWindowNavFocusable(window))
             continue;

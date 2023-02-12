@@ -2169,7 +2169,7 @@ int ImFontAtlas::AddCustomRectRegular(int width, int height)
         .Width = (unsigned short)width,
         .Height = (unsigned short)height,
     });
-    return CustomRects.size() - 1; // Return index
+    return static_cast<int>(CustomRects.size()) - 1; // Return index
 }
 
 int ImFontAtlas::AddCustomRectFontGlyph(ImFont* font, ImWchar id, int width, int height, float advance_x, const ImVec2& offset)
@@ -2189,7 +2189,7 @@ int ImFontAtlas::AddCustomRectFontGlyph(ImFont* font, ImWchar id, int width, int
         .GlyphOffset = offset,
         .Font = font,
     });
-    return CustomRects.size() - 1; // Return index
+    return static_cast<int>(CustomRects.size()) - 1; // Return index
 }
 
 void ImFontAtlas::CalcCustomRectUV(const ImFontAtlasCustomRect& rect, ImVec2* out_uv_min, ImVec2* out_uv_max) const
@@ -2587,7 +2587,7 @@ void ImFontAtlasBuildPackCustomRects(ImFontAtlas* atlas, void* stbrp_context_opa
     };
     auto pack_rects = user_rects | stdv::transform(to_stbrp_rect) | stdr::to<std::vector>();
 
-    stbrp_pack_rects(pack_context, pack_rects.data(), pack_rects.size());
+    stbrp_pack_rects(pack_context, pack_rects.data(), (int)pack_rects.size());
 
     for (auto [user_rect, pack_rect] : stdv::zip(user_rects, pack_rects))
     {
