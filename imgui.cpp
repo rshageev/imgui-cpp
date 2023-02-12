@@ -3344,15 +3344,6 @@ void ImGui::UpdateHoveredWindowAndCaptureFlags()
     io.WantTextInput = (g.WantTextInputNextFrame != -1) ? (g.WantTextInputNextFrame != 0) : false;
 }
 
-float ImGuiFPSCounter::UpdateCurrentFPS(float dt)
-{
-    FramerateSecPerFrameAccum += dt - FramerateSecPerFrame[FramerateSecPerFrameIdx];
-    FramerateSecPerFrame[FramerateSecPerFrameIdx] = dt;
-    FramerateSecPerFrameIdx = (FramerateSecPerFrameIdx + 1) % FramerateSecPerFrame.size();
-    FramerateSecPerFrameCount = std::min(FramerateSecPerFrameCount + 1, FramerateSecPerFrame.size());
-    return (FramerateSecPerFrameAccum > 0.0f) ? (1.0f / (FramerateSecPerFrameAccum / (float)FramerateSecPerFrameCount)) : FLT_MAX;
-}
-
 void ImGui::NewFrame()
 {
     IM_ASSERT(GImGui != NULL && "No current context. Did you call ImGui::CreateContext() and ImGui::SetCurrentContext() ?");

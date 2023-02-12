@@ -7,6 +7,9 @@
     <Filter Include="sources">
       <UniqueIdentifier>{4f33ddea-9910-456d-b868-4267eb3c2b19}</UniqueIdentifier>
     </Filter>
+    <Filter Include="imgui\utils">
+      <UniqueIdentifier>{208a8532-78bf-454b-8797-27cbf33cae6c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\imconfig.h">
@@ -26,6 +29,9 @@
     </ClInclude>
     <ClInclude Include="..\..\imgui_types.h">
       <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\utils\fps_counter.h">
+      <Filter>imgui\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -52,6 +58,9 @@
     </ClCompile>
     <ClCompile Include="..\..\imgui_widgets.cpp">
       <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\utils\fps_counter.cpp">
+      <Filter>imgui\utils</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

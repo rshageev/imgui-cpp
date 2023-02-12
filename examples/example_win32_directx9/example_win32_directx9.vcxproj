@@ -156,6 +156,7 @@
     <ClCompile Include="..\..\imgui_widgets.cpp" />
     <ClCompile Include="..\..\backends\imgui_impl_dx9.cpp" />
     <ClCompile Include="..\..\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\..\utils\fps_counter.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -165,6 +166,7 @@
     <ClInclude Include="..\..\backends\imgui_impl_dx9.h" />
     <ClInclude Include="..\..\backends\imgui_impl_win32.h" />
     <ClInclude Include="..\..\imgui_types.h" />
+    <ClInclude Include="..\..\utils\fps_counter.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\misc\debuggers\imgui.natvis" />

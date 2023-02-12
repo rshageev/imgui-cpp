@@ -44,6 +44,7 @@ Index of this file:
 #ifndef IMGUI_VERSION
 #include "imgui.h"
 #endif
+#include "utils/fps_counter.h"
 
 #include <stdio.h>      // FILE*, sscanf
 #include <stdlib.h>     // NULL, malloc, free, qsort, atoi, atof
@@ -1671,21 +1672,6 @@ struct ImGuiContextHook
 //-----------------------------------------------------------------------------
 // [SECTION] ImGuiContext (main Dear ImGui context)
 //-----------------------------------------------------------------------------
-
-class ImGuiFPSCounter
-{
-public:
-    ImGuiFPSCounter() { FramerateSecPerFrame.fill(0.0f); }
-
-    float UpdateCurrentFPS(float dt);
-
-private:
-    std::array<float, 60> FramerateSecPerFrame;
-    size_t FramerateSecPerFrameIdx = 0;
-    size_t FramerateSecPerFrameCount = 0;
-    float FramerateSecPerFrameAccum = 0.0f;
-};
-
 struct ImGuiContext
 {
     bool Initialized = false;

@@ -8,6 +8,9 @@
       <UniqueIdentifier>{f18ab499-84e1-499f-8eff-9754361e0e52}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="imgui\utils">
+      <UniqueIdentifier>{a60aacba-30cd-4657-957f-6bf7de2b9d9a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -34,6 +37,9 @@
     <ClCompile Include="..\..\backends\imgui_impl_opengl3.cpp">
       <Filter>sources</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\utils\fps_counter.cpp">
+      <Filter>imgui\utils</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\imconfig.h">
@@ -56,6 +62,9 @@
     </ClInclude>
     <ClInclude Include="..\..\imgui_types.h">
       <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\utils\fps_counter.h">
+      <Filter>imgui\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
