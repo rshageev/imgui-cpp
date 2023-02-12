@@ -1676,8 +1676,8 @@ struct ImGuiContext
 {
     bool Initialized = false;
     ImGuiIO IO;
-    ImVector<ImGuiInputEvent> InputEventsQueue;      // Input events which will be tricked/written into IO structure.
-    ImVector<ImGuiInputEvent> InputEventsTrail;      // Past input events processed in NewFrame(). This is to allow domain-specific application to access e.g mouse/pen trail.
+    std::vector<ImGuiInputEvent> InputEventsQueue;   // Input events which will be tricked/written into IO structure.
+    std::vector<ImGuiInputEvent> InputEventsTrail;   // Past input events processed in NewFrame(). This is to allow domain-specific application to access e.g mouse/pen trail.
     ImGuiStyle Style;
     ImFont* Font = nullptr;                          // (Shortcut) == FontStack.empty() ? IO.Font : FontStack.back()
     float FontSize = 0.0f;                           // (Shortcut) == FontBaseSize * g.CurrentWindow->FontWindowScale == window->FontSize(). Text height for current window.

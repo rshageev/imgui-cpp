@@ -461,18 +461,17 @@ void ImGuiIO::ClearInputKeys()
 static ImGuiInputEvent* FindLatestInputEvent(ImGuiInputEventType type, int arg = -1)
 {
     ImGuiContext& g = *GImGui;
-    for (int n = g.InputEventsQueue.Size - 1; n >= 0; n--)
+    for (ImGuiInputEvent& evt : stdv::reverse(g.InputEventsQueue))
     {
-        ImGuiInputEvent* e = &g.InputEventsQueue[n];
-        if (e->Type != type)
+        if (evt.Type != type)
             continue;
-        if (type == ImGuiInputEventType_Key && e->Key.Key != arg)
+        if (type == ImGuiInputEventType_Key && evt.Key.Key != arg)
             continue;
-        if (type == ImGuiInputEventType_MouseButton && e->MouseButton.Button != arg)
+        if (type == ImGuiInputEventType_MouseButton && evt.MouseButton.Button != arg)
             continue;
-        return e;
+        return &evt;
     }
-    return NULL;
+    return nullptr;
 }
 
 // Queue a new key down/up event.
@@ -7514,67 +7513,67 @@ void ImGui::UpdateInputEvents(bool trickle_fast_inputs)
     int  mouse_button_changed = 0x00;
     std::bitset<ImGuiKey_KeysData_SIZE> key_changed_mask;
 
-    int event_n = 0;
-    for (; event_n < g.InputEventsQueue.Size; event_n++)
+    size_t event_n = 0;
+    for (; event_n < g.InputEventsQueue.size(); ++event_n)
     {
-        ImGuiInputEvent* e = &g.InputEventsQueue[event_n];
-        if (e->Type == ImGuiInputEventType_MousePos)
+        ImGuiInputEvent& evt = g.InputEventsQueue[event_n];
+        if (evt.Type == ImGuiInputEventType_MousePos)
         {
             // Trickling Rule: Stop processing queued events if we already handled a mouse button change
-            ImVec2 event_pos(e->MousePos.PosX, e->MousePos.PosY);
+            ImVec2 event_pos(evt.MousePos.PosX, evt.MousePos.PosY);
             if (trickle_fast_inputs && (mouse_button_changed != 0 || mouse_wheeled || key_changed || text_inputted))
                 break;
             io.MousePos = event_pos;
             mouse_moved = true;
         }
-        else if (e->Type == ImGuiInputEventType_MouseButton)
+        else if (evt.Type == ImGuiInputEventType_MouseButton)
         {
             // Trickling Rule: Stop processing queued events if we got multiple action on the same button
-            const ImGuiMouseButton button = e->MouseButton.Button;
+            const ImGuiMouseButton button = evt.MouseButton.Button;
             IM_ASSERT(button >= 0 && button < ImGuiMouseButton_COUNT);
             if (trickle_fast_inputs && ((mouse_button_changed & (1 << button)) || mouse_wheeled))
                 break;
-            io.MouseDown[button] = e->MouseButton.Down;
+            io.MouseDown[button] = evt.MouseButton.Down;
             mouse_button_changed |= (1 << button);
         }
-        else if (e->Type == ImGuiInputEventType_MouseWheel)
+        else if (evt.Type == ImGuiInputEventType_MouseWheel)
         {
             // Trickling Rule: Stop processing queued events if we got multiple action on the event
             if (trickle_fast_inputs && (mouse_moved || mouse_button_changed != 0))
                 break;
-            io.MouseWheelH += e->MouseWheel.WheelX;
-            io.MouseWheel += e->MouseWheel.WheelY;
+            io.MouseWheelH += evt.MouseWheel.WheelX;
+            io.MouseWheel += evt.MouseWheel.WheelY;
             mouse_wheeled = true;
         }
-        else if (e->Type == ImGuiInputEventType_Key)
+        else if (evt.Type == ImGuiInputEventType_Key)
         {
             // Trickling Rule: Stop processing queued events if we got multiple action on the same button
-            ImGuiKey key = e->Key.Key;
+            ImGuiKey key = evt.Key.Key;
             IM_ASSERT(key != ImGuiKey_None);
             ImGuiKeyData* key_data = GetKeyData(key);
             const int key_data_index = (int)(key_data - g.IO.KeysData.data());
-            if (trickle_fast_inputs && key_data->Down != e->Key.Down && (key_changed_mask.test(key_data_index) || text_inputted || mouse_button_changed != 0))
+            if (trickle_fast_inputs && key_data->Down != evt.Key.Down && (key_changed_mask.test(key_data_index) || text_inputted || mouse_button_changed != 0))
                 break;
-            key_data->Down = e->Key.Down;
-            key_data->AnalogValue = e->Key.AnalogValue;
+            key_data->Down = evt.Key.Down;
+            key_data->AnalogValue = evt.Key.AnalogValue;
             key_changed = true;
             key_changed_mask.set(key_data_index);
         }
-        else if (e->Type == ImGuiInputEventType_Text)
+        else if (evt.Type == ImGuiInputEventType_Text)
         {
             // Trickling Rule: Stop processing queued events if keys/mouse have been interacted with
             if (trickle_fast_inputs && ((key_changed && trickle_interleaved_keys_and_text) || mouse_button_changed != 0 || mouse_moved || mouse_wheeled))
                 break;
-            unsigned int c = e->Text.Char;
+            unsigned int c = evt.Text.Char;
             io.InputQueueCharacters.push_back(c <= IM_UNICODE_CODEPOINT_MAX ? (ImWchar)c : IM_UNICODE_CODEPOINT_INVALID);
             if (trickle_interleaved_keys_and_text)
                 text_inputted = true;
         }
-        else if (e->Type == ImGuiInputEventType_Focus)
+        else if (evt.Type == ImGuiInputEventType_Focus)
         {
             // We intentionally overwrite this and process in NewFrame(), in order to give a chance
             // to multi-viewports backends to queue AddFocusEvent(false) + AddFocusEvent(true) in same frame.
-            const bool focus_lost = !e->AppFocused.Focused;
+            const bool focus_lost = !evt.AppFocused.Focused;
             io.AppFocusLost = focus_lost;
         }
         else
@@ -7585,21 +7584,21 @@ void ImGui::UpdateInputEvents(bool trickle_fast_inputs)
 
     // Record trail (for domain-specific applications wanting to access a precise trail)
     //if (event_n != 0) IMGUI_DEBUG_LOG_IO("Processed: %d / Remaining: %d\n", event_n, g.InputEventsQueue.Size - event_n);
-    for (int n = 0; n < event_n; n++)
+    for (size_t n = 0; n < event_n; n++) {
         g.InputEventsTrail.push_back(g.InputEventsQueue[n]);
+    }
 
     // [DEBUG]
 #ifndef IMGUI_DISABLE_DEBUG_TOOLS
-    if (event_n != 0 && (g.DebugLogFlags & ImGuiDebugLogFlags_EventIO))
-        for (int n = 0; n < g.InputEventsQueue.Size; n++)
+    if (event_n != 0 && (g.DebugLogFlags & ImGuiDebugLogFlags_EventIO)) {
+        for (size_t n = 0; n < g.InputEventsQueue.size(); n++) {
             DebugPrintInputEvent(n < event_n ? "Processed" : "Remaining", &g.InputEventsQueue[n]);
+        }
+    }
 #endif
 
     // Remaining events will be processed on the next frame
-    if (event_n == g.InputEventsQueue.Size)
-        g.InputEventsQueue.resize(0);
-    else
-        g.InputEventsQueue.erase(g.InputEventsQueue.Data, g.InputEventsQueue.Data + event_n);
+    g.InputEventsQueue.erase(g.InputEventsQueue.begin(), g.InputEventsQueue.begin() + event_n);
 
     // Clear buttons state when focus is lost
     // - this is useful so e.g. releasing Alt after focus loss on Alt-Tab doesn't trigger the Alt menu toggle.
