@@ -51,6 +51,13 @@ Index of this file:
 #include <math.h>       // sqrtf, fabsf, fmodf, powf, floorf, ceilf, cosf, sinf
 #include <limits.h>     // INT_MIN, INT_MAX
 
+#include <algorithm>
+#include <ranges>
+#include <map>
+
+namespace stdr = std::ranges;
+namespace stdv = std::views;
+
 // Visual Studio warnings
 #ifdef _MSC_VER
 #pragma warning (push)
@@ -585,34 +592,95 @@ struct ImSpanAllocator
 // Helper: ImPool<>
 // Basic keyed storage for contiguous instances, slow/amortized insertion, O(1) indexable, O(Log N) queries by ID over a dense/hot buffer,
 // Honor constructor/destructor. Add/remove invalidate all pointers. Indexes have the same lifetime as the associated object.
-typedef int ImPoolIdx;
 template<typename T>
-struct ImPool
+class ImPool
 {
-    ImVector<T>     Buf;        // Contiguous data
-    ImGuiStorage    Map;        // ID->Index
-    ImPoolIdx       FreeIdx;    // Next free idx to use
-    ImPoolIdx       AliveCount; // Number of active/alive items (for display purpose)
+public:
+    ImPool() = default;
 
-    ImPool()    { FreeIdx = AliveCount = 0; }
-    ~ImPool()   { Clear(); }
-    T*          GetByKey(ImGuiID key)               { int idx = Map.GetInt(key, -1); return (idx != -1) ? &Buf[idx] : NULL; }
-    T*          GetByIndex(ImPoolIdx n)             { return &Buf[n]; }
-    ImPoolIdx   GetIndex(const T* p) const          { IM_ASSERT(p >= Buf.Data && p < Buf.Data + Buf.Size); return (ImPoolIdx)(p - Buf.Data); }
-    T*          GetOrAddByKey(ImGuiID key)          { int* p_idx = Map.GetIntRef(key, -1); if (*p_idx != -1) return &Buf[*p_idx]; *p_idx = FreeIdx; return Add(); }
-    bool        Contains(const T* p) const          { return (p >= Buf.Data && p < Buf.Data + Buf.Size); }
-    void        Clear()                             { for (int n = 0; n < Map.Data.Size; n++) { int idx = Map.Data[n].val_i; if (idx != -1) Buf[idx].~T(); } Map.Clear(); Buf.clear(); FreeIdx = AliveCount = 0; }
-    T*          Add()                               { int idx = FreeIdx; if (idx == Buf.Size) { Buf.resize(Buf.Size + 1); FreeIdx++; } else { FreeIdx = *(int*)&Buf[idx]; } IM_PLACEMENT_NEW(&Buf[idx]) T(); AliveCount++; return &Buf[idx]; }
-    void        Remove(ImGuiID key, const T* p)     { Remove(key, GetIndex(p)); }
-    void        Remove(ImGuiID key, ImPoolIdx idx)  { Buf[idx].~T(); *(int*)&Buf[idx] = FreeIdx; FreeIdx = idx; Map.SetInt(key, -1); AliveCount--; }
-    void        Reserve(int capacity)               { Buf.reserve(capacity); Map.Data.reserve(capacity); }
+    ~ImPool() { Clear(); }
 
-    // To iterate a ImPool: for (int n = 0; n < pool.GetMapSize(); n++) if (T* t = pool.TryGetMapData(n)) { ... }
-    // Can be avoided if you know .Remove() has never been called on the pool, or AliveCount == GetMapSize()
-    int         GetAliveCount() const               { return AliveCount; }      // Number of active/alive items in the pool (for display purpose)
-    int         GetBufSize() const                  { return Buf.Size; }
-    int         GetMapSize() const                  { return Map.Data.Size; }   // It is the map we need iterate to find valid items, since we don't have "alive" storage anywhere
-    T*          TryGetMapData(ImPoolIdx n)          { int idx = Map.Data[n].val_i; if (idx == -1) return NULL; return GetByIndex(idx); }
+    ImPool(const ImPool&) = delete;
+    ImPool& operator=(const ImPool&) = delete;
+
+    T* GetByKey(ImGuiID key) {
+        auto itr = map.find(key);
+        if (itr != map.end()) {
+            return vec[itr->second].get();
+        } else {
+            return nullptr;
+        }
+    }
+
+    T* GetByIndex(int n) { return vec[n].get(); }
+
+    int GetIndex(const T* p) const {
+        auto itr = stdr::find_if(vec, [p](auto& up){ return p == up.get(); });
+        return (int)(itr - stdr::begin(vec));
+    }
+
+    T* GetOrAddByKey(ImGuiID key) {
+        auto itr = map.find(key);
+        if (itr != map.end()) {
+            return vec[itr->second].get();
+        } else {
+            T* added = Add();
+            map[key] = GetIndex(added);
+            return added;
+        }
+    }
+
+    bool Contains(const T* p) const {
+        return stdr::find_if(vec, [p](auto& up){ return p == up.get(); }) != stdr::end(vec);
+    }
+
+    void Clear() {
+        map.clear();
+        vec.clear();
+        AliveCount = 0;
+    }
+
+    void Remove(ImGuiID key, const T* p) {
+        Remove(key, GetIndex(p));
+    }
+
+    void Remove(ImGuiID key, int idx) {
+        vec[idx].reset();
+        map.erase(key);
+        AliveCount--;
+    }
+
+    void Reserve(int capacity) {
+        vec.reserve(capacity);
+    }
+
+    int GetAliveCount() const {
+        return (int)stdr::count_if(vec, [](auto& up){ return up != nullptr; });
+    }
+
+    auto Iterate()
+    {
+        return vec
+            | stdv::filter([](auto& uptr){ return uptr != nullptr; }) // skipp null elements
+            | stdv::transform([](auto& uptr){ return uptr.get(); });  // convert to raw pointers
+    }
+
+private:
+    std::vector<std::unique_ptr<T>> vec; // Contiguous data
+    std::map<ImGuiID, size_t> map;
+    int AliveCount = 0; // Number of active/alive items (for display purpose)
+
+    T* Add() {
+        T* elem = new T();
+        auto itr = stdr::find_if(vec, [](auto& up){ return up == nullptr; });
+        if (itr == stdr::end(vec)) {
+            vec.emplace_back(elem);
+        } else {
+            itr->reset(elem);
+        }
+        AliveCount++;
+        return elem;
+    }
 };
 
 // Helper: ImChunkStream<>
@@ -1867,7 +1935,7 @@ struct ImGuiContext
     // Tab bars
     ImGuiTabBar* CurrentTabBar = nullptr;
     ImPool<ImGuiTabBar> TabBars;
-    ImVector<ImGuiPtrOrIndex> CurrentTabBarStack;
+    ImVector<ImGuiPtrOrIndex> CurrentTabBarStack; // pointers or indices into TabBars
     ImVector<ImGuiShrinkWidthItem> ShrinkWidthBuffer;
 
     // Hover Delay system
