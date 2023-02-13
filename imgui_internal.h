@@ -1831,9 +1831,9 @@ struct ImGuiContext
     std::vector<ImFont*> FontStack;                 // Stack for PushFont()/PopFont() - inherited by Begin()
     std::vector<ImGuiID> FocusScopeStack;           // Stack for PushFocusScope()/PopFocusScope() - inherited by BeginChild(), pushed into by Begin()
     std::vector<ImGuiItemFlags> ItemFlagsStack;     // Stack for PushItemFlag()/PopItemFlag() - inherited by Begin()
-    std::vector<ImGuiGroupData> GroupStack;            // Stack for BeginGroup()/EndGroup() - not inherited by Begin()
-    ImVector<ImGuiPopupData> OpenPopupStack;        // Which popups are open (persistent)
-    ImVector<ImGuiPopupData> BeginPopupStack;       // Which level of BeginPopup() we are in (reset every frame)
+    std::vector<ImGuiGroupData> GroupStack;         // Stack for BeginGroup()/EndGroup() - not inherited by Begin()
+    std::vector<ImGuiPopupData> OpenPopupStack;     // Which popups are open (persistent)
+    std::vector<ImGuiPopupData> BeginPopupStack;    // Which level of BeginPopup() we are in (reset every frame)
     int BeginMenuCount = 0;
 
     // Viewports
