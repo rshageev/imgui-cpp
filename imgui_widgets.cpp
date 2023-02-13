@@ -37,6 +37,12 @@ Index of this file:
 
 #include "imgui_internal.h"
 
+#include <algorithm>
+#include <ranges>
+
+namespace stdr = std::ranges;
+namespace stdv = std::views;
+
 //-------------------------------------------------------------------------
 // Warnings
 //-------------------------------------------------------------------------
@@ -7330,27 +7336,17 @@ namespace ImGui
     static ImGuiTabItem*    TabBarTabListPopupButton(ImGuiTabBar* tab_bar);
 }
 
-static inline int TabItemGetSectionIdx(const ImGuiTabItem* tab)
+static int TabItemGetSectionIdx(const ImGuiTabItem* tab)
 {
     return (tab->Flags & ImGuiTabItemFlags_Leading) ? 0 : (tab->Flags & ImGuiTabItemFlags_Trailing) ? 2 : 1;
 }
 
-static int IMGUI_CDECL TabItemComparerBySection(const void* lhs, const void* rhs)
+static bool TabItemCompareBySection(const ImGuiTabItem& a, const ImGuiTabItem& b)
 {
-    const ImGuiTabItem* a = (const ImGuiTabItem*)lhs;
-    const ImGuiTabItem* b = (const ImGuiTabItem*)rhs;
-    const int a_section = TabItemGetSectionIdx(a);
-    const int b_section = TabItemGetSectionIdx(b);
-    if (a_section != b_section)
-        return a_section - b_section;
-    return (int)(a->IndexDuringLayout - b->IndexDuringLayout);
-}
+    const int a_section = TabItemGetSectionIdx(&a);
+    const int b_section = TabItemGetSectionIdx(&b);
 
-static int IMGUI_CDECL TabItemComparerByBeginOrder(const void* lhs, const void* rhs)
-{
-    const ImGuiTabItem* a = (const ImGuiTabItem*)lhs;
-    const ImGuiTabItem* b = (const ImGuiTabItem*)rhs;
-    return (int)(a->BeginOrder - b->BeginOrder);
+    return std::tie(a_section, a.IndexDuringLayout) < std::tie(b_section, b.IndexDuringLayout);
 }
 
 static ImGuiTabBar* GetTabBarFromTabBarRef(const ImGuiPtrOrIndex& ref)
@@ -7405,8 +7401,11 @@ bool    ImGui::BeginTabBarEx(ImGuiTabBar* tab_bar, const ImRect& tab_bar_bb, ImG
     }
 
     // Ensure correct ordering when toggling ImGuiTabBarFlags_Reorderable flag, or when a new tab was added while being not reorderable
-    if ((flags & ImGuiTabBarFlags_Reorderable) != (tab_bar->Flags & ImGuiTabBarFlags_Reorderable) || (tab_bar->TabsAddedNew && !(flags & ImGuiTabBarFlags_Reorderable)))
-        ImQsort(tab_bar->Tabs.Data, tab_bar->Tabs.Size, sizeof(ImGuiTabItem), TabItemComparerByBeginOrder);
+    if ((flags & ImGuiTabBarFlags_Reorderable) != (tab_bar->Flags & ImGuiTabBarFlags_Reorderable)
+        || (tab_bar->TabsAddedNew && !(flags & ImGuiTabBarFlags_Reorderable)))
+    {
+        stdr::sort(tab_bar->Tabs, std::less<>{}, &ImGuiTabItem::BeginOrder);
+    }
     tab_bar->TabsAddedNew = false;
 
     // Flags
@@ -7489,10 +7488,10 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
 
     // Garbage collect by compacting list
     // Detect if we need to sort out tab list (e.g. in rare case where a tab changed section)
-    int tab_dst_n = 0;
+    size_t tab_dst_n = 0;
     bool need_sort_by_section = false;
     ImGuiTabBarSection sections[3]; // Layout sections: Leading, Central, Trailing
-    for (int tab_src_n = 0; tab_src_n < tab_bar->Tabs.Size; tab_src_n++)
+    for (size_t tab_src_n = 0; tab_src_n < tab_bar->Tabs.size(); tab_src_n++)
     {
         ImGuiTabItem* tab = &tab_bar->Tabs[tab_src_n];
         if (tab->LastFrameVisible < tab_bar->PrevFrameVisible || tab->WantClose)
@@ -7503,8 +7502,9 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
             if (tab_bar->NextSelectedTabId == tab->ID) { tab_bar->NextSelectedTabId = 0; }
             continue;
         }
-        if (tab_dst_n != tab_src_n)
+        if (tab_dst_n != tab_src_n) {
             tab_bar->Tabs[tab_dst_n] = tab_bar->Tabs[tab_src_n];
+        }
 
         tab = &tab_bar->Tabs[tab_dst_n];
         tab->IndexDuringLayout = (ImS16)tab_dst_n;
@@ -7524,11 +7524,13 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
         sections[curr_tab_section_n].TabCount++;
         tab_dst_n++;
     }
-    if (tab_bar->Tabs.Size != tab_dst_n)
+    if (tab_bar->Tabs.size() != tab_dst_n) {
         tab_bar->Tabs.resize(tab_dst_n);
+    }
 
-    if (need_sort_by_section)
-        ImQsort(tab_bar->Tabs.Data, tab_bar->Tabs.Size, sizeof(ImGuiTabItem), TabItemComparerBySection);
+    if (need_sort_by_section) {
+        stdr::sort(tab_bar->Tabs, TabItemCompareBySection);
+    }
 
     // Calculate spacing between sections
     sections[0].Spacing = sections[0].TabCount > 0 && (sections[1].TabCount + sections[2].TabCount) > 0 ? g.Style.ItemInnerSpacing.x : 0.0f;
@@ -7561,13 +7563,13 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
     // Leading/Trailing tabs will be shrink only if central one aren't visible anymore, so layout the shrink data as: leading, trailing, central
     // (whereas our tabs are stored as: leading, central, trailing)
     int shrink_buffer_indexes[3] = { 0, sections[0].TabCount + sections[2].TabCount, sections[0].TabCount };
-    g.ShrinkWidthBuffer.resize(tab_bar->Tabs.Size);
+    g.ShrinkWidthBuffer.resize(tab_bar->Tabs.size());
 
     // Compute ideal tabs widths + store them into shrink buffer
     ImGuiTabItem* most_recently_selected_tab = NULL;
     int curr_section_n = -1;
     bool found_selected_tab_id = false;
-    for (int tab_n = 0; tab_n < tab_bar->Tabs.Size; tab_n++)
+    for (size_t tab_n = 0; tab_n < tab_bar->Tabs.size(); tab_n++)
     {
         ImGuiTabItem* tab = &tab_bar->Tabs[tab_n];
         IM_ASSERT(tab->LastFrameVisible >= tab_bar->PrevFrameVisible);
@@ -7606,7 +7608,7 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
 
     // Horizontal scrolling buttons
     // (note that TabBarScrollButtons() will alter BarRect.Max.x)
-    if ((tab_bar->WidthAllTabsIdeal > tab_bar->BarRect.GetWidth() && tab_bar->Tabs.Size > 1) && !(tab_bar->Flags & ImGuiTabBarFlags_NoTabListScrollingButtons) && (tab_bar->Flags & ImGuiTabBarFlags_FittingPolicyScroll))
+    if ((tab_bar->WidthAllTabsIdeal > tab_bar->BarRect.GetWidth() && tab_bar->Tabs.size() > 1) && !(tab_bar->Flags & ImGuiTabBarFlags_NoTabListScrollingButtons) && (tab_bar->Flags & ImGuiTabBarFlags_FittingPolicyScroll))
         if (ImGuiTabItem* scroll_and_select_tab = TabBarScrollingButtons(tab_bar))
         {
             scroll_to_tab_id = scroll_and_select_tab->ID;
@@ -7734,26 +7736,9 @@ static float ImGui::TabBarCalcMaxTabWidth()
     return g.FontSize * 20.0f;
 }
 
-ImGuiTabItem* ImGui::TabBarFindTabByID(ImGuiTabBar* tab_bar, ImGuiID tab_id)
-{
-    if (tab_id != 0)
-        for (int n = 0; n < tab_bar->Tabs.Size; n++)
-            if (tab_bar->Tabs[n].ID == tab_id)
-                return &tab_bar->Tabs[n];
-    return NULL;
-}
-
-// Order = visible order, not submission order! (which is tab->BeginOrder)
-ImGuiTabItem* ImGui::TabBarFindTabByOrder(ImGuiTabBar* tab_bar, int order)
-{
-    if (order < 0 || order >= tab_bar->Tabs.Size)
-        return NULL;
-    return &tab_bar->Tabs[order];
-}
-
 ImGuiTabItem* ImGui::TabBarGetCurrentTab(ImGuiTabBar* tab_bar)
 {
-    if (tab_bar->LastTabItemIdx <= 0 || tab_bar->LastTabItemIdx >= tab_bar->Tabs.Size)
+    if (tab_bar->LastTabItemIdx <= 0 || tab_bar->LastTabItemIdx >= tab_bar->Tabs.size())
         return NULL;
     return &tab_bar->Tabs[tab_bar->LastTabItemIdx];
 }
@@ -7769,35 +7754,36 @@ const char* ImGui::TabBarGetTabName(ImGuiTabBar* tab_bar, ImGuiTabItem* tab)
 // The *TabId fields are already set by the docking system _before_ the actual TabItem was created, so we clear them regardless.
 void ImGui::TabBarRemoveTab(ImGuiTabBar* tab_bar, ImGuiID tab_id)
 {
-    if (ImGuiTabItem* tab = TabBarFindTabByID(tab_bar, tab_id))
-        tab_bar->Tabs.erase(tab);
+    std::erase_if(tab_bar->Tabs, [tab_id](auto& tab){ return tab.ID == tab_id; });
+
     if (tab_bar->VisibleTabId == tab_id)      { tab_bar->VisibleTabId = 0; }
     if (tab_bar->SelectedTabId == tab_id)     { tab_bar->SelectedTabId = 0; }
     if (tab_bar->NextSelectedTabId == tab_id) { tab_bar->NextSelectedTabId = 0; }
 }
 
 // Called on manual closure attempt
-void ImGui::TabBarCloseTab(ImGuiTabBar* tab_bar, ImGuiTabItem* tab)
+void ImGui::TabBarCloseTab(ImGuiTabBar* tab_bar, ImGuiTabItem& tab)
 {
-    if (tab->Flags & ImGuiTabItemFlags_Button)
+    if (tab.Flags & ImGuiTabItemFlags_Button)
         return; // A button appended with TabItemButton().
 
-    if (!(tab->Flags & ImGuiTabItemFlags_UnsavedDocument))
+    if (!(tab.Flags & ImGuiTabItemFlags_UnsavedDocument))
     {
         // This will remove a frame of lag for selecting another tab on closure.
         // However we don't run it in the case where the 'Unsaved' flag is set, so user gets a chance to fully undo the closure
-        tab->WantClose = true;
-        if (tab_bar->VisibleTabId == tab->ID)
+        tab.WantClose = true;
+        if (tab_bar->VisibleTabId == tab.ID)
         {
-            tab->LastFrameVisible = -1;
+            tab.LastFrameVisible = -1;
             tab_bar->SelectedTabId = tab_bar->NextSelectedTabId = 0;
         }
     }
     else
     {
         // Actually select before expecting closure attempt (on an UnsavedDocument tab user is expect to e.g. show a popup)
-        if (tab_bar->VisibleTabId != tab->ID)
-            TabBarQueueFocus(tab_bar, tab);
+        if (tab_bar->VisibleTabId != tab.ID) {
+            tab_bar->NextSelectedTabId = tab.ID;
+        }
     }
 }
 
@@ -7810,15 +7796,15 @@ static float ImGui::TabBarScrollClamp(ImGuiTabBar* tab_bar, float scrolling)
 // Note: we may scroll to tab that are not selected! e.g. using keyboard arrow keys
 static void ImGui::TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, ImGuiTabBarSection* sections)
 {
-    ImGuiTabItem* tab = TabBarFindTabByID(tab_bar, tab_id);
-    if (tab == NULL)
+    auto tab = stdr::find(tab_bar->Tabs, tab_id, &ImGuiTabItem::ID);
+    if (tab == std::end(tab_bar->Tabs))
         return;
     if (tab->Flags & ImGuiTabItemFlags_SectionMask_)
         return;
 
     ImGuiContext& g = *GImGui;
     float margin = g.FontSize * 1.0f; // When to scroll to make Tab N+1 visible always make a bit of N visible to suggest more scrolling area (since we don't have a scrollbar)
-    int order = TabBarGetTabOrder(tab_bar, tab);
+    int order = std::distance(tab_bar->Tabs.begin(), tab);
 
     // Scrolling happens only in the central section (leading/trailing sections are not scrolling)
     // FIXME: This is all confusing.
@@ -7826,7 +7812,7 @@ static void ImGui::TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, ImGui
 
     // We make all tabs positions all relative Sections[0].Width to make code simpler
     float tab_x1 = tab->Offset - sections[0].Width + (order > sections[0].TabCount - 1 ? -margin : 0.0f);
-    float tab_x2 = tab->Offset - sections[0].Width + tab->Width + (order + 1 < tab_bar->Tabs.Size - sections[2].TabCount ? margin : 1.0f);
+    float tab_x2 = tab->Offset - sections[0].Width + tab->Width + (order + 1 < tab_bar->Tabs.size() - sections[2].TabCount ? margin : 1.0f);
     tab_bar->ScrollingTargetDistToVisibility = 0.0f;
     if (tab_bar->ScrollingTarget > tab_x1 || (tab_x2 - tab_x1 >= scrollable_width))
     {
@@ -7840,11 +7826,6 @@ static void ImGui::TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, ImGui
         tab_bar->ScrollingTargetDistToVisibility = ImMax((tab_x1 - scrollable_width) - tab_bar->ScrollingAnim, 0.0f);
         tab_bar->ScrollingTarget = tab_x2 - scrollable_width;
     }
-}
-
-void ImGui::TabBarQueueFocus(ImGuiTabBar* tab_bar, ImGuiTabItem* tab)
-{
-    tab_bar->NextSelectedTabId = tab->ID;
 }
 
 void ImGui::TabBarQueueReorder(ImGuiTabBar* tab_bar, ImGuiTabItem* tab, int offset)
@@ -7867,9 +7848,9 @@ void ImGui::TabBarQueueReorderFromMousePos(ImGuiTabBar* tab_bar, ImGuiTabItem* s
 
     // Count number of contiguous tabs we are crossing over
     const int dir = (bar_offset + src_tab->Offset) > mouse_pos.x ? -1 : +1;
-    const int src_idx = tab_bar->Tabs.index_from_ptr(src_tab);
+    const int src_idx = src_tab - tab_bar->Tabs.data();
     int dst_idx = src_idx;
-    for (int i = src_idx; i >= 0 && i < tab_bar->Tabs.Size; i += dir)
+    for (int i = src_idx; i >= 0 && i < tab_bar->Tabs.size(); i += dir)
     {
         // Reordered tabs must share the same section
         const ImGuiTabItem* dst_tab = &tab_bar->Tabs[i];
@@ -7893,29 +7874,28 @@ void ImGui::TabBarQueueReorderFromMousePos(ImGuiTabBar* tab_bar, ImGuiTabItem* s
 
 bool ImGui::TabBarProcessReorder(ImGuiTabBar* tab_bar)
 {
-    ImGuiTabItem* tab1 = TabBarFindTabByID(tab_bar, tab_bar->ReorderRequestTabId);
-    if (tab1 == NULL || (tab1->Flags & ImGuiTabItemFlags_NoReorder))
+    auto tab1 = stdr::find(tab_bar->Tabs, tab_bar->ReorderRequestTabId, &ImGuiTabItem::ID);
+    if (tab1 == stdr::end(tab_bar->Tabs) || (tab1->Flags & ImGuiTabItemFlags_NoReorder))
         return false;
 
     //IM_ASSERT(tab_bar->Flags & ImGuiTabBarFlags_Reorderable); // <- this may happen when using debug tools
-    int tab2_order = TabBarGetTabOrder(tab_bar, tab1) + tab_bar->ReorderRequestOffset;
-    if (tab2_order < 0 || tab2_order >= tab_bar->Tabs.Size)
+    int tab2_order = std::distance(tab_bar->Tabs.begin(), tab1) + tab_bar->ReorderRequestOffset;
+    if (tab2_order < 0 || tab2_order >= tab_bar->Tabs.size())
         return false;
-
+    
     // Reordered tabs must share the same section
     // (Note: TabBarQueueReorderFromMousePos() also has a similar test but since we allow direct calls to TabBarQueueReorder() we do it here too)
-    ImGuiTabItem* tab2 = &tab_bar->Tabs[tab2_order];
+    auto tab2 = tab1 + tab_bar->ReorderRequestOffset;
     if (tab2->Flags & ImGuiTabItemFlags_NoReorder)
         return false;
     if ((tab1->Flags & ImGuiTabItemFlags_SectionMask_) != (tab2->Flags & ImGuiTabItemFlags_SectionMask_))
         return false;
 
-    ImGuiTabItem item_tmp = *tab1;
-    ImGuiTabItem* src_tab = (tab_bar->ReorderRequestOffset > 0) ? tab1 + 1 : tab2;
-    ImGuiTabItem* dst_tab = (tab_bar->ReorderRequestOffset > 0) ? tab1 : tab2 + 1;
-    const int move_count = (tab_bar->ReorderRequestOffset > 0) ? tab_bar->ReorderRequestOffset : -tab_bar->ReorderRequestOffset;
-    memmove(dst_tab, src_tab, move_count * sizeof(ImGuiTabItem));
-    *tab2 = item_tmp;
+    if (tab_bar->ReorderRequestOffset > 0) {
+        std::rotate(tab1, tab1 + 1, tab2 + 1);
+    } else {
+        std::rotate(tab2, tab1, tab1 + 1);
+    }
 
     if (tab_bar->Flags & ImGuiTabBarFlags_SaveSettings)
         MarkIniSettingsDirty();
@@ -7955,17 +7935,18 @@ static ImGuiTabItem* ImGui::TabBarScrollingButtons(ImGuiTabBar* tab_bar)
     g.IO.KeyRepeatDelay = backup_repeat_delay;
 
     ImGuiTabItem* tab_to_scroll_to = NULL;
-    if (select_dir != 0)
-        if (ImGuiTabItem* tab_item = TabBarFindTabByID(tab_bar, tab_bar->SelectedTabId))
+    if (select_dir != 0) {
+        auto tab_item = stdr::find(tab_bar->Tabs, tab_bar->SelectedTabId, &ImGuiTabItem::ID);
+        if (tab_item != tab_bar->Tabs.end())
         {
-            int selected_order = TabBarGetTabOrder(tab_bar, tab_item);
+            int selected_order = std::distance(tab_bar->Tabs.begin(), tab_item);
             int target_order = selected_order + select_dir;
 
             // Skip tab item buttons until another tab item is found or end is reached
             while (tab_to_scroll_to == NULL)
             {
                 // If we are at the end of the list, still scroll to make our tab visible
-                tab_to_scroll_to = &tab_bar->Tabs[(target_order >= 0 && target_order < tab_bar->Tabs.Size) ? target_order : selected_order];
+                tab_to_scroll_to = &tab_bar->Tabs[(target_order >= 0 && target_order < tab_bar->Tabs.size()) ? target_order : selected_order];
 
                 // Cross through buttons
                 // (even if first/last item is a button, return it so we can update the scroll)
@@ -7973,10 +7954,11 @@ static ImGuiTabItem* ImGui::TabBarScrollingButtons(ImGuiTabBar* tab_bar)
                 {
                     target_order += select_dir;
                     selected_order += select_dir;
-                    tab_to_scroll_to = (target_order < 0 || target_order >= tab_bar->Tabs.Size) ? tab_to_scroll_to : NULL;
+                    tab_to_scroll_to = (target_order < 0 || target_order >= tab_bar->Tabs.size()) ? tab_to_scroll_to : NULL;
                 }
             }
         }
+    }
     window->DC.CursorPos = backup_cursor_pos;
     tab_bar->BarRect.Max.x -= scrolling_buttons_width + 1.0f;
 
@@ -8004,15 +7986,14 @@ static ImGuiTabItem* ImGui::TabBarTabListPopupButton(ImGuiTabBar* tab_bar)
     ImGuiTabItem* tab_to_select = NULL;
     if (open)
     {
-        for (int tab_n = 0; tab_n < tab_bar->Tabs.Size; tab_n++)
+        for (auto& tab : tab_bar->Tabs)
         {
-            ImGuiTabItem* tab = &tab_bar->Tabs[tab_n];
-            if (tab->Flags & ImGuiTabItemFlags_Button)
+            if (tab.Flags & ImGuiTabItemFlags_Button)
                 continue;
 
-            const char* tab_name = TabBarGetTabName(tab_bar, tab);
-            if (Selectable(tab_name, tab_bar->SelectedTabId == tab->ID))
-                tab_to_select = tab;
+            const char* tab_name = TabBarGetTabName(tab_bar, &tab);
+            if (Selectable(tab_name, tab_bar->SelectedTabId == tab.ID))
+                tab_to_select = &tab;
         }
         EndCombo();
     }
@@ -8093,7 +8074,7 @@ bool    ImGui::TabItemButton(const char* label, ImGuiTabItemFlags flags)
     return TabItemEx(tab_bar, label, NULL, flags | ImGuiTabItemFlags_Button | ImGuiTabItemFlags_NoReorder, NULL);
 }
 
-bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, ImGuiTabItemFlags flags, ImGuiWindow* docked_window)
+bool ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, ImGuiTabItemFlags flags, ImGuiWindow* docked_window)
 {
     // Layout whole tab bar if not already done
     ImGuiContext& g = *GImGui;
@@ -8129,16 +8110,22 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
         flags |= ImGuiTabItemFlags_NoCloseButton;
 
     // Acquire tab data
-    ImGuiTabItem* tab = TabBarFindTabByID(tab_bar, id);
+    auto tab = stdr::find(tab_bar->Tabs, id, &ImGuiTabItem::ID);
+
     bool tab_is_new = false;
-    if (tab == NULL)
+    if (tab == stdr::end(tab_bar->Tabs))
     {
-        tab_bar->Tabs.push_back(ImGuiTabItem());
-        tab = &tab_bar->Tabs.back();
-        tab->ID = id;
-        tab_bar->TabsAddedNew = tab_is_new = true;
+        tab_bar->Tabs.push_back(ImGuiTabItem{ .ID = id });
+        tab_bar->TabsAddedNew = true;
+        tab_is_new = true;
+        tab_bar->LastTabItemIdx = tab_bar->Tabs.size() - 1;
+        tab = tab_bar->Tabs.begin() + tab_bar->Tabs.size() - 1;
     }
-    tab_bar->LastTabItemIdx = (ImS16)tab_bar->Tabs.index_from_ptr(tab);
+    else
+    {
+        tab_bar->LastTabItemIdx = std::distance(tab_bar->Tabs.begin(), tab);
+    }
+    
 
     // Calculate tab contents size
     ImVec2 size = TabItemCalcSize(label, (p_open != NULL) || (flags & ImGuiTabItemFlags_UnsavedDocument));
@@ -8172,11 +8159,14 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
     // Update selected tab
     if (!is_tab_button)
     {
-        if (tab_appearing && (tab_bar->Flags & ImGuiTabBarFlags_AutoSelectNewTabs) && tab_bar->NextSelectedTabId == 0)
-            if (!tab_bar_appearing || tab_bar->SelectedTabId == 0)
-                TabBarQueueFocus(tab_bar, tab); // New tabs gets activated
-        if ((flags & ImGuiTabItemFlags_SetSelected) && (tab_bar->SelectedTabId != id)) // _SetSelected can only be passed on explicit tab bar
-            TabBarQueueFocus(tab_bar, tab);
+        if (tab_appearing && (tab_bar->Flags & ImGuiTabBarFlags_AutoSelectNewTabs) && tab_bar->NextSelectedTabId == 0) {
+            if (!tab_bar_appearing || tab_bar->SelectedTabId == 0) {
+                tab_bar->NextSelectedTabId = tab->ID; // New tabs gets activated
+            }
+        }
+        if ((flags & ImGuiTabItemFlags_SetSelected) && (tab_bar->SelectedTabId != id)) { // _SetSelected can only be passed on explicit tab bar
+            tab_bar->NextSelectedTabId = tab->ID;
+        }
     }
 
     // Lock visibility
@@ -8186,9 +8176,11 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
         tab_bar->VisibleTabWasSubmitted = true;
 
     // On the very first frame of a tab bar we let first tab contents be visible to minimize appearing glitches
-    if (!tab_contents_visible && tab_bar->SelectedTabId == 0 && tab_bar_appearing)
-        if (tab_bar->Tabs.Size == 1 && !(tab_bar->Flags & ImGuiTabBarFlags_AutoSelectNewTabs))
+    if (!tab_contents_visible && tab_bar->SelectedTabId == 0 && tab_bar_appearing) {
+        if (tab_bar->Tabs.size() == 1 && !(tab_bar->Flags & ImGuiTabBarFlags_AutoSelectNewTabs)) {
             tab_contents_visible = true;
+        }
+    }
 
     // Note that tab_is_new is not necessarily the same as tab_appearing! When a tab bar stops being submitted
     // and then gets submitted again, the tabs will have 'tab_appearing=true' but 'tab_is_new=false'.
@@ -8200,8 +8192,9 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
         return tab_contents_visible;
     }
 
-    if (tab_bar->SelectedTabId == id)
+    if (tab_bar->SelectedTabId == id) {
         tab->LastFrameSelected = g.FrameCount;
+    }
 
     // Backup current layout position
     const ImVec2 backup_main_cursor_pos = window->DC.CursorPos;
@@ -8239,8 +8232,9 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
         button_flags |= ImGuiButtonFlags_PressedOnDragDropHold;
     bool hovered, held;
     bool pressed = ButtonBehavior(bb, id, &hovered, &held, button_flags);
-    if (pressed && !is_tab_button)
-        TabBarQueueFocus(tab_bar, tab);
+    if (pressed && !is_tab_button) {
+        tab_bar->NextSelectedTabId = tab->ID;
+    }
 
     // Allow the close button to overlap unless we are dragging (in which case we don't want any overlapping tabs to be hovered)
     if (g.ActiveId != id)
@@ -8254,11 +8248,11 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
             // While moving a tab it will jump on the other side of the mouse, so we also test for MouseDelta.x
             if (g.IO.MouseDelta.x < 0.0f && g.IO.MousePos.x < bb.Min.x)
             {
-                TabBarQueueReorderFromMousePos(tab_bar, tab, g.IO.MousePos);
+                TabBarQueueReorderFromMousePos(tab_bar, &(*tab), g.IO.MousePos);
             }
             else if (g.IO.MouseDelta.x > 0.0f && g.IO.MousePos.x > bb.Max.x)
             {
-                TabBarQueueReorderFromMousePos(tab_bar, tab, g.IO.MousePos);
+                TabBarQueueReorderFromMousePos(tab_bar, &(*tab), g.IO.MousePos);
             }
         }
     }
@@ -8281,8 +8275,9 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
 
     // Select with right mouse button. This is so the common idiom for context menu automatically highlight the current widget.
     const bool hovered_unblocked = IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup);
-    if (hovered_unblocked && (IsMouseClicked(1) || IsMouseReleased(1)) && !is_tab_button)
-        TabBarQueueFocus(tab_bar, tab);
+    if (hovered_unblocked && (IsMouseClicked(1) || IsMouseReleased(1)) && !is_tab_button) {
+        tab_bar->NextSelectedTabId = tab->ID;
+    }
 
     if (tab_bar->Flags & ImGuiTabBarFlags_NoCloseWithMiddleMouseButton)
         flags |= ImGuiTabItemFlags_NoCloseWithMiddleMouseButton;
@@ -8295,7 +8290,7 @@ bool    ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, 
     if (just_closed && p_open != NULL)
     {
         *p_open = false;
-        TabBarCloseTab(tab_bar, tab);
+        TabBarCloseTab(tab_bar, *tab);
     }
 
     // Restore main window position so user can draw there
@@ -8330,8 +8325,10 @@ void    ImGui::SetTabItemClosed(const char* label)
     {
         ImGuiTabBar* tab_bar = g.CurrentTabBar;
         ImGuiID tab_id = TabBarCalcTabID(tab_bar, label, NULL);
-        if (ImGuiTabItem* tab = TabBarFindTabByID(tab_bar, tab_id))
+        auto tab = stdr::find(tab_bar->Tabs, tab_id, &ImGuiTabItem::ID);
+        if (tab != stdr::end(tab_bar->Tabs)) {
             tab->WantClose = true; // Will be processed by next call to TabBarLayout()
+        }
     }
 }
 

@@ -2266,10 +2266,10 @@ struct ImGuiTabItem
     bool WantClose = false;          // Marked as closed by SetTabItemClosed()
 };
 
-// Storage for a tab bar (sizeof() 152 bytes)
+// Storage for a tab bar
 struct ImGuiTabBar
 {
-    ImVector<ImGuiTabItem> Tabs;
+    std::vector<ImGuiTabItem> Tabs;
     ImGuiTabBarFlags Flags = ImGuiTabBarFlags_None;
     ImGuiID ID = 0;                     // Zero for tab-bars used by docking
     ImGuiID SelectedTabId = 0;          // Selected tab/window
@@ -2906,16 +2906,16 @@ namespace ImGui
     ImGuiTableSettings*   TableSettingsFindByID(ImGuiID id);
 
     // Tab Bars
-    inline    ImGuiTabBar*  GetCurrentTabBar() { ImGuiContext& g = *GImGui; return g.CurrentTabBar; }
-    bool          BeginTabBarEx(ImGuiTabBar* tab_bar, const ImRect& bb, ImGuiTabBarFlags flags);
-    ImGuiTabItem* TabBarFindTabByID(ImGuiTabBar* tab_bar, ImGuiID tab_id);
-    ImGuiTabItem* TabBarFindTabByOrder(ImGuiTabBar* tab_bar, int order);
+    inline ImGuiTabBar* GetCurrentTabBar() {
+        ImGuiContext& g = *GImGui;
+        return g.CurrentTabBar;
+    }
+    bool BeginTabBarEx(ImGuiTabBar* tab_bar, const ImRect& bb, ImGuiTabBarFlags flags);
+
     ImGuiTabItem* TabBarGetCurrentTab(ImGuiTabBar* tab_bar);
-    inline int              TabBarGetTabOrder(ImGuiTabBar* tab_bar, ImGuiTabItem* tab) { return tab_bar->Tabs.index_from_ptr(tab); }
-    const char*   TabBarGetTabName(ImGuiTabBar* tab_bar, ImGuiTabItem* tab);
-    void          TabBarRemoveTab(ImGuiTabBar* tab_bar, ImGuiID tab_id);
-    void          TabBarCloseTab(ImGuiTabBar* tab_bar, ImGuiTabItem* tab);
-    void          TabBarQueueFocus(ImGuiTabBar* tab_bar, ImGuiTabItem* tab);
+    const char* TabBarGetTabName(ImGuiTabBar* tab_bar, ImGuiTabItem* tab);
+    void TabBarRemoveTab(ImGuiTabBar* tab_bar, ImGuiID tab_id);
+    void TabBarCloseTab(ImGuiTabBar* tab_bar, ImGuiTabItem& tab);
     void          TabBarQueueReorder(ImGuiTabBar* tab_bar, ImGuiTabItem* tab, int offset);
     void          TabBarQueueReorderFromMousePos(ImGuiTabBar* tab_bar, ImGuiTabItem* tab, ImVec2 mouse_pos);
     bool          TabBarProcessReorder(ImGuiTabBar* tab_bar);
