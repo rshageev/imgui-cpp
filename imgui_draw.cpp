@@ -1773,13 +1773,13 @@ void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
         return;
 
     // Overwrite ImVector (12/16 bytes), four times. This is merely a silly optimization instead of doing .swap()
-    _Channels.Data[_Current]._CmdBuffer.memcpy_from(draw_list->CmdBuffer);
-    _Channels.Data[_Current]._IdxBuffer.memcpy_from(draw_list->IdxBuffer);
+    _Channels.Data[_Current]._CmdBuffer.swap(draw_list->CmdBuffer);
+    _Channels.Data[_Current]._IdxBuffer.swap(draw_list->IdxBuffer);
 
     _Current = idx;
 
-    draw_list->CmdBuffer.memcpy_from(_Channels.Data[idx]._CmdBuffer);
-    draw_list->IdxBuffer.memcpy_from(_Channels.Data[idx]._IdxBuffer);
+    draw_list->CmdBuffer.swap(_Channels.Data[idx]._CmdBuffer);
+    draw_list->IdxBuffer.swap(_Channels.Data[idx]._IdxBuffer);
 
     draw_list->_IdxWritePtr = draw_list->IdxBuffer.Data + draw_list->IdxBuffer.Size;
 
