@@ -1699,7 +1699,6 @@ struct ImGuiContext
     std::vector<ImGuiWindow*> WindowsFocusOrder;                  // Root windows, sorted in focus order, back to front.
     std::vector<ImGuiWindow*> WindowsTempSortBuffer;              // Temporary buffer used in EndFrame() to reorder windows so parents are kept before their child
     std::vector<ImGuiWindowStackData> CurrentWindowStack;
-    ImGuiStorage WindowsById;                        // Map window's ImGuiID to ImGuiWindow*
     int WindowsActiveCount = 0;                 // Number of unique windows submitted by frame
     ImVec2 WindowsHoverPadding;                // Padding around resizable windows for which hovering on counts as hovering the window == ImMax(style.TouchExtraPadding, WINDOWS_HOVER_PADDING)
     ImGuiWindow* CurrentWindow = nullptr;                      // Window being drawn into

@@ -2564,7 +2564,6 @@ void ImGui::Shutdown()
     g.WindowsTempSortBuffer.clear();
     g.CurrentWindow = NULL;
     g.CurrentWindowStack.clear();
-    g.WindowsById.Clear();
     g.NavWindow = NULL;
     g.HoveredWindow = g.HoveredWindowUnderMovingWindow = NULL;
     g.ActiveIdWindow = g.ActiveIdPreviousFrameWindow = NULL;
@@ -4323,7 +4322,8 @@ static void SetWindowConditionAllowFlags(ImGuiWindow* window, ImGuiCond flags, b
 ImGuiWindow* ImGui::FindWindowByID(ImGuiID id)
 {
     ImGuiContext& g = *GImGui;
-    return (ImGuiWindow*)g.WindowsById.GetVoidPtr(id);
+    auto itr = stdr::find(g.Windows, id, &ImGuiWindow::ID);
+    return (itr != stdr::end(g.Windows)) ? *itr : nullptr;
 }
 
 ImGuiWindow* ImGui::FindWindowByName(const char* name)
@@ -4401,7 +4401,6 @@ static ImGuiWindow* CreateNewWindow(const char* name, ImGuiWindowFlags flags)
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = IM_NEW(ImGuiWindow)(&g, name);
     window->Flags = flags;
-    g.WindowsById.SetVoidPtr(window->ID, window);
 
     ImGuiWindowSettings* settings = NULL;
     if (!(flags & ImGuiWindowFlags_NoSavedSettings))
