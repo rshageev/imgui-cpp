@@ -88,6 +88,13 @@ Index of this file:
 #include <stdio.h>          // vsnprintf, sscanf, printf
 #include <stdlib.h>         // NULL, malloc, free, atoi
 
+#include <algorithm>
+#include <ranges>
+#include <functional>
+
+namespace stdr = std::ranges;
+namespace stdv = std::views;
+
 // Visual Studio warnings
 #ifdef _MSC_VER
 #pragma warning (disable: 4127)     // condition expression is constant
@@ -1584,11 +1591,8 @@ static void ShowDemoWindowWidgets()
         IMGUI_DEMO_MARKER("Widgets/Tabs/TabItemButton & Leading-Trailing flags");
         if (ImGui::TreeNode("TabItemButton & Leading/Trailing flags"))
         {
-            static ImVector<int> active_tabs;
-            static int next_tab_id = 0;
-            if (next_tab_id == 0) // Initialize with some default tabs
-                for (int i = 0; i < 3; i++)
-                    active_tabs.push_back(next_tab_id++);
+            static std::vector<int> active_tabs = {0, 1, 2};
+            static int next_tab_id = 3;
 
             // TabItemButton() and Leading/Trailing flags are distinct features which we will demo together.
             // (It is possible to submit regular tabs with Leading/Trailing flags, or TabItemButton tabs without Leading/Trailing flags...
@@ -1609,9 +1613,11 @@ static void ShowDemoWindowWidgets()
             if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
             {
                 // Demo a Leading TabItemButton(): click the "?" button to open a menu
-                if (show_leading_button)
-                    if (ImGui::TabItemButton("?", ImGuiTabItemFlags_Leading | ImGuiTabItemFlags_NoTooltip))
+                if (show_leading_button) {
+                    if (ImGui::TabItemButton("?", ImGuiTabItemFlags_Leading | ImGuiTabItemFlags_NoTooltip)) {
                         ImGui::OpenPopup("MyHelpMenu");
+                    }
+                }
                 if (ImGui::BeginPopup("MyHelpMenu"))
                 {
                     ImGui::Selectable("Hello!");
@@ -1620,26 +1626,29 @@ static void ShowDemoWindowWidgets()
 
                 // Demo Trailing Tabs: click the "+" button to add a new tab (in your app you may want to use a font icon instead of the "+")
                 // Note that we submit it before the regular tabs, but because of the ImGuiTabItemFlags_Trailing flag it will always appear at the end.
-                if (show_trailing_button)
-                    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+                if (show_trailing_button) {
+                    if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip)) {
                         active_tabs.push_back(next_tab_id++); // Add new tab
+                    }
+                }
 
                 // Submit our regular tabs
-                for (int n = 0; n < active_tabs.Size; )
+                for (auto tab_itr = active_tabs.begin(); tab_itr != active_tabs.end(); )
                 {
                     bool open = true;
                     char name[16];
-                    snprintf(name, IM_ARRAYSIZE(name), "%04d", active_tabs[n]);
+                    snprintf(name, IM_ARRAYSIZE(name), "%04d", *tab_itr);
                     if (ImGui::BeginTabItem(name, &open, ImGuiTabItemFlags_None))
                     {
                         ImGui::Text("This is the %s tab!", name);
                         ImGui::EndTabItem();
                     }
 
-                    if (!open)
-                        active_tabs.erase(active_tabs.Data + n);
-                    else
-                        n++;
+                    if (!open) {
+                        tab_itr = active_tabs.erase(tab_itr);
+                    } else {
+                        ++tab_itr;
+                    }
                 }
 
                 ImGui::EndTabBar();
@@ -3630,50 +3639,43 @@ enum MyItemColumnID
 
 struct MyItem
 {
-    int         ID;
-    const char* Name;
-    int         Quantity;
+    int ID;
+    std::string Name;
+    int Quantity;
 
-    // We have a problem which is affecting _only this demo_ and should not affect your code:
-    // As we don't rely on std:: or other third-party library to compile dear imgui, we only have reliable access to qsort(),
-    // however qsort doesn't allow passing user data to comparing function.
-    // As a workaround, we are storing the sort specs in a static/global for the comparing function to access.
-    // In your own use case you would probably pass the sort specs to your sorting/comparing functions directly and not use a global.
-    // We could technically call ImGui::TableGetSortSpecs() in CompareWithSortSpecs(), but considering that this function is called
-    // very often by the sorting algorithm it would be a little wasteful.
-    static const ImGuiTableSortSpecs* s_current_sort_specs;
-
-    // Compare function to be used by qsort()
-    static int IMGUI_CDECL CompareWithSortSpecs(const void* lhs, const void* rhs)
+    static bool CompareWithSortSpecs(const ImGuiTableSortSpecs* sort_specs, const MyItem& lhs, const MyItem& rhs)
     {
-        const MyItem* a = (const MyItem*)lhs;
-        const MyItem* b = (const MyItem*)rhs;
-        for (int n = 0; n < s_current_sort_specs->SpecsCount; n++)
+        for (int n = 0; n < sort_specs->SpecsCount; n++)
         {
-            // Here we identify columns using the ColumnUserID value that we ourselves passed to TableSetupColumn()
-            // We could also choose to identify columns based on their index (sort_spec->ColumnIndex), which is simpler!
-            const ImGuiTableColumnSortSpecs* sort_spec = &s_current_sort_specs->Specs[n];
-            int delta = 0;
-            switch (sort_spec->ColumnUserID)
+            const auto& sort_spec = sort_specs->Specs[n];
+
+            std::weak_ordering order;
+            switch (sort_spec.ColumnUserID)
             {
-            case MyItemColumnID_ID:             delta = (a->ID - b->ID);                break;
-            case MyItemColumnID_Name:           delta = (strcmp(a->Name, b->Name));     break;
-            case MyItemColumnID_Quantity:       delta = (a->Quantity - b->Quantity);    break;
-            case MyItemColumnID_Description:    delta = (strcmp(a->Name, b->Name));     break;
+            case MyItemColumnID_ID:
+                order = (lhs.ID <=> rhs.ID);
+                break;
+            case MyItemColumnID_Name:
+                order = (lhs.Name <=> rhs.Name);
+                break;
+            case MyItemColumnID_Quantity:
+                order = (lhs.Quantity <=> rhs.Quantity);
+                break;
+            case MyItemColumnID_Description:
+                order = (lhs.Name <=> rhs.Name);
+                break;
             default: IM_ASSERT(0); break;
             }
-            if (delta > 0)
-                return (sort_spec->SortDirection == ImGuiSortDirection_Ascending) ? +1 : -1;
-            if (delta < 0)
-                return (sort_spec->SortDirection == ImGuiSortDirection_Ascending) ? -1 : +1;
-        }
 
-        // qsort() is instable so always return a way to differenciate items.
-        // Your own compare function may want to avoid fallback on implicit sort specs e.g. a Name compare if it wasn't already part of the sort specs.
-        return (a->ID - b->ID);
+            if (order != std::weak_ordering::equivalent) {
+                const auto req_order = (sort_spec.SortDirection == ImGuiSortDirection_Ascending) ? std::weak_ordering::less : std::weak_ordering::greater;
+                return order == req_order;
+            }
+        }
+        return lhs.ID < rhs.ID;
     }
 };
-const ImGuiTableSortSpecs* MyItem::s_current_sort_specs = NULL;
+
 }
 
 // Make the UI compact because there are so many fields
@@ -5098,19 +5100,14 @@ static void ShowDemoWindowTables()
     if (ImGui::TreeNode("Sorting"))
     {
         // Create item list
-        static ImVector<MyItem> items;
-        if (items.Size == 0)
-        {
-            items.resize(50, MyItem());
-            for (int n = 0; n < items.Size; n++)
-            {
-                const int template_n = n % IM_ARRAYSIZE(template_items_names);
-                MyItem& item = items[n];
-                item.ID = n;
-                item.Name = template_items_names[template_n];
-                item.Quantity = (n * n - n) % 20; // Assign default quantities
-            }
-        }
+        auto gen_item = [](int n){
+            return MyItem{
+                .ID = n,
+                .Name = template_items_names[n % std::size(template_items_names)],
+                .Quantity = (n * n - n) % 20,
+            };
+        };
+        static auto items = stdv::iota(0, 50) | stdv::transform(gen_item) | stdr::to<std::vector>();
 
         // Options
         static ImGuiTableFlags flags =
@@ -5141,20 +5138,17 @@ static void ShowDemoWindowTables()
             ImGui::TableHeadersRow();
 
             // Sort our data if sort specs have been changed!
-            if (ImGuiTableSortSpecs* sorts_specs = ImGui::TableGetSortSpecs())
-                if (sorts_specs->SpecsDirty)
-                {
-                    MyItem::s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
-                    if (items.Size > 1)
-                        qsort(&items[0], (size_t)items.Size, sizeof(items[0]), MyItem::CompareWithSortSpecs);
-                    MyItem::s_current_sort_specs = NULL;
-                    sorts_specs->SpecsDirty = false;
+            if (ImGuiTableSortSpecs* sort_specs = ImGui::TableGetSortSpecs()) {
+                if (sort_specs->SpecsDirty) {
+                    stdr::sort(items, std::bind_front(MyItem::CompareWithSortSpecs, sort_specs));
+                    sort_specs->SpecsDirty = false;
                 }
+            }
 
             // Demonstrate using clipper for large vertical lists
             ImGuiListClipper clipper;
-            clipper.Begin(items.Size);
-            while (clipper.Step())
+            clipper.Begin(items.size());
+            while (clipper.Step()) {
                 for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
                 {
                     // Display a data item
@@ -5164,13 +5158,14 @@ static void ShowDemoWindowTables()
                     ImGui::TableNextColumn();
                     ImGui::Text("%04d", item->ID);
                     ImGui::TableNextColumn();
-                    ImGui::TextUnformatted(item->Name);
+                    ImGui::TextUnformatted(item->Name.c_str());
                     ImGui::TableNextColumn();
                     ImGui::SmallButton("None");
                     ImGui::TableNextColumn();
                     ImGui::Text("%d", item->Quantity);
                     ImGui::PopID();
                 }
+            }
             ImGui::EndTable();
         }
         ImGui::TreePop();
@@ -5197,7 +5192,7 @@ static void ShowDemoWindowTables()
         const char* contents_type_names[] = { "Text", "Button", "SmallButton", "FillButton", "Selectable", "Selectable (span row)" };
         static int freeze_cols = 1;
         static int freeze_rows = 1;
-        static int items_count = IM_ARRAYSIZE(template_items_names) * 2;
+        static int items_count = std::size(template_items_names) * 2;
         static ImVec2 outer_size_value = ImVec2(0.0f, TEXT_BASE_HEIGHT * 12);
         static float row_min_height = 0.0f; // Auto
         static float inner_width_with_scroll = 0.0f; // Auto-extend
@@ -5319,20 +5314,21 @@ static void ShowDemoWindowTables()
         }
 
         // Update item list if we changed the number of items
-        static ImVector<MyItem> items;
-        static ImVector<int> selection;
+        static std::vector<MyItem> items;
+        static std::vector<int> selection;
         static bool items_need_sort = false;
-        if (items.Size != items_count)
+
+        auto gen_item = [](int n) {
+            const auto template_n = n % std::size(template_items_names);
+            return MyItem{
+                .ID = n,
+                .Name = template_items_names[template_n],
+                .Quantity = (template_n == 3) ? 10 : ((template_n == 4) ? 20 : 0),
+            };
+        };
+        if (items.size() != items_count)
         {
-            items.resize(items_count, MyItem());
-            for (int n = 0; n < items_count; n++)
-            {
-                const int template_n = n % IM_ARRAYSIZE(template_items_names);
-                MyItem& item = items[n];
-                item.ID = n;
-                item.Name = template_items_names[template_n];
-                item.Quantity = (template_n == 3) ? 10 : (template_n == 4) ? 20 : 0; // Assign default quantities
-            }
+            items = stdv::iota(0, items_count) | stdv::transform(gen_item) | stdr::to<std::vector>();
         }
 
         const ImDrawList* parent_draw_list = ImGui::GetWindowDrawList();
@@ -5357,13 +5353,12 @@ static void ShowDemoWindowTables()
 
             // Sort our data if sort specs have been changed!
             ImGuiTableSortSpecs* sorts_specs = ImGui::TableGetSortSpecs();
-            if (sorts_specs && sorts_specs->SpecsDirty)
+            if (sorts_specs && sorts_specs->SpecsDirty) {
                 items_need_sort = true;
-            if (sorts_specs && items_need_sort && items.Size > 1)
+            }
+            if (sorts_specs && items_need_sort)
             {
-                MyItem::s_current_sort_specs = sorts_specs; // Store in variable accessible by the sort function.
-                qsort(&items[0], (size_t)items.Size, sizeof(items[0]), MyItem::CompareWithSortSpecs);
-                MyItem::s_current_sort_specs = NULL;
+                stdr::sort(items, std::bind_front(MyItem::CompareWithSortSpecs, sorts_specs));
                 sorts_specs->SpecsDirty = false;
             }
             items_need_sort = false;
@@ -5382,7 +5377,7 @@ static void ShowDemoWindowTables()
 #if 1
             // Demonstrate using clipper for large vertical lists
             ImGuiListClipper clipper;
-            clipper.Begin(items.Size);
+            clipper.Begin(items.size());
             while (clipper.Step())
             {
                 for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
@@ -5396,7 +5391,7 @@ static void ShowDemoWindowTables()
                     //if (!filter.PassFilter(item->Name))
                     //    continue;
 
-                    const bool item_is_selected = selection.contains(item->ID);
+                    const bool item_is_selected = stdr::find(selection, item->ID) != stdr::end(selection);
                     ImGui::PushID(item->ID);
                     ImGui::TableNextRow(ImGuiTableRowFlags_None, row_min_height);
 
@@ -5419,10 +5414,11 @@ static void ShowDemoWindowTables()
                         {
                             if (ImGui::GetIO().KeyCtrl)
                             {
-                                if (item_is_selected)
-                                    selection.find_erase_unsorted(item->ID);
-                                else
+                                if (item_is_selected) {
+                                    std::erase(selection, item->ID);
+                                } else {
                                     selection.push_back(item->ID);
+                                }
                             }
                             else
                             {
@@ -5432,8 +5428,9 @@ static void ShowDemoWindowTables()
                         }
                     }
 
-                    if (ImGui::TableSetColumnIndex(1))
-                        ImGui::TextUnformatted(item->Name);
+                    if (ImGui::TableSetColumnIndex(1)) {
+                        ImGui::TextUnformatted(item->Name.c_str());
+                    }
 
                     // Here we demonstrate marking our data set as needing to be sorted again if we modified a quantity,
                     // and we are currently sorting on the column showing the Quantity.
