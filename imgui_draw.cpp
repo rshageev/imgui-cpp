@@ -743,11 +743,8 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
         const int vtx_count = use_texture ? (points_count * 2) : (thick_line ? points_count * 4 : points_count * 3);
         PrimReserve(idx_count, vtx_count);
 
-        // Temporary buffer
-        // The first <points_count> items are normals at each line point, then after that there are either 2 or 4 temp points for each line point
-        _Data->TempBuffer.reserve_discard(points_count * ((use_texture || !thick_line) ? 3 : 5));
-        ImVec2* temp_normals = _Data->TempBuffer.Data;
-        ImVec2* temp_points = temp_normals + points_count;
+        std::vector<ImVec2> temp_normals(points_count);
+        std::vector<ImVec2> temp_points(points_count * ((use_texture || !thick_line) ? 2 : 4));
 
         // Calculate normals (tangents) for each line segment
         for (int i1 = 0; i1 < count; i1++)
@@ -759,8 +756,9 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             temp_normals[i1].x = dy;
             temp_normals[i1].y = -dx;
         }
-        if (!closed)
+        if (!closed) {
             temp_normals[points_count - 1] = temp_normals[points_count - 2];
+        }
 
         // If we are drawing a one-pixel-wide line without a texture, or a textured line of any width, we only need 2 or 3 vertices per point
         if (use_texture || !thick_line)
@@ -994,8 +992,7 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
         }
 
         // Compute normals
-        _Data->TempBuffer.reserve_discard(points_count);
-        ImVec2* temp_normals = _Data->TempBuffer.Data;
+        std::vector<ImVec2> temp_normals(points_count);
         for (int i0 = points_count - 1, i1 = 0; i1 < points_count; i0 = i1++)
         {
             const ImVec2& p0 = points[i0];
