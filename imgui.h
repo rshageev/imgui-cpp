@@ -2343,6 +2343,38 @@ struct ImGuiStorage
 // - Clipper calculate the actual range of elements to display based on the current clipping rectangle, position the cursor before the first visible element.
 // - User code submit visible elements.
 // - The clipper also handles various subtleties related to keyboard/gamepad navigation, wrapping etc.
+struct ImGuiListClipperRange
+{
+    int Min = 0;
+    int Max = 0;
+    bool PosToIndexConvert = false;  // Begin/End are absolute position (will be converted to indices later)
+    ImS8 PosToIndexOffsetMin = 0;    // Add to Min after converting to indices
+    ImS8 PosToIndexOffsetMax = 0;    // Add to Min after converting to indices
+
+    static ImGuiListClipperRange FromIndices(int min, int max) {
+        return { min, max, false, 0, 0 };
+    }
+    static ImGuiListClipperRange FromPositions(float y1, float y2, int off_min, int off_max) {
+        return { (int)y1, (int)y2, true, (ImS8)off_min, (ImS8)off_max };
+    }
+};
+
+struct ImGuiListClipper;
+// Temporary clipper data, buffers shared/reused between instances
+struct ImGuiListClipperData
+{
+    ImGuiListClipper* ListClipper = nullptr;
+    float LossynessOffset = 0.0f;
+    int StepNo = 0;
+    int ItemsFrozen = 0;
+    std::vector<ImGuiListClipperRange> Ranges;
+
+    void Reset(ImGuiListClipper* clipper) {
+        ListClipper = clipper;
+        StepNo = ItemsFrozen = 0;
+        Ranges.clear();
+    }
+};
 struct ImGuiListClipper
 {
     int DisplayStart = 0;       // First item to display, updated by each call to Step()
@@ -2350,7 +2382,7 @@ struct ImGuiListClipper
     int ItemsCount = -1;        // [Internal] Number of items
     float ItemsHeight = 0.0f;   // [Internal] Height of item after a first step and item submission can calculate it
     float StartPosY = 0.0f;     // [Internal] Cursor position at the time of Begin() or after table frozen rows are all processed
-    void* TempData = nullptr;   // [Internal] Internal data
+    std::unique_ptr<ImGuiListClipperData> TempData;   // [Internal] Internal data
 
     // items_count: Use INT_MAX if you don't know how many items you have (in which case the cursor won't be advanced in the final step)
     // items_height: Use -1.0f to be calculated automatically on first step. Otherwise pass in the distance between your items, typically GetTextLineHeightWithSpacing() or GetFrameHeightWithSpacing().

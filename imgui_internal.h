@@ -1403,29 +1403,7 @@ enum ImGuiInputFlags_
 // [SECTION] Clipper support
 //-----------------------------------------------------------------------------
 
-struct ImGuiListClipperRange
-{
-    int Min = 0;
-    int Max = 0;
-    bool PosToIndexConvert = false;  // Begin/End are absolute position (will be converted to indices later)
-    ImS8 PosToIndexOffsetMin = 0;    // Add to Min after converting to indices
-    ImS8 PosToIndexOffsetMax = 0;    // Add to Min after converting to indices
 
-    static ImGuiListClipperRange    FromIndices(int min, int max)                               { ImGuiListClipperRange r = { min, max, false, 0, 0 }; return r; }
-    static ImGuiListClipperRange    FromPositions(float y1, float y2, int off_min, int off_max) { ImGuiListClipperRange r = { (int)y1, (int)y2, true, (ImS8)off_min, (ImS8)off_max }; return r; }
-};
-
-// Temporary clipper data, buffers shared/reused between instances
-struct ImGuiListClipperData
-{
-    ImGuiListClipper* ListClipper = nullptr;
-    float LossynessOffset = 0.0f;
-    int StepNo = 0;
-    int ItemsFrozen = 0;
-    ImVector<ImGuiListClipperRange> Ranges;
-
-    void Reset(ImGuiListClipper* clipper) { ListClipper = clipper; StepNo = ItemsFrozen = 0; Ranges.resize(0); }
-};
 
 //-----------------------------------------------------------------------------
 // [SECTION] Navigation support
@@ -1916,10 +1894,6 @@ struct ImGuiContext
     ImGuiID DragDropHoldJustPressedId = 0;          // Set when holding a payload just made ButtonBehavior() return a press.
     ImVector<unsigned char> DragDropPayloadBufHeap; // We don't expose the ImVector<> directly, ImGuiPayload only holds pointer+size
     unsigned char DragDropPayloadBufLocal[16];      // Local buffer for small payloads
-
-    // Clipper
-    int ClipperTempDataStacked = 0;
-    ImVector<ImGuiListClipperData> ClipperTempData;
 
     // Tables
     ImGuiTable* CurrentTable = nullptr;
