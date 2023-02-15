@@ -110,7 +110,6 @@ struct ImGuiContext;                // Dear ImGui context (opaque structure, unl
 struct ImGuiIO;                     // Main configuration and I/O between your application and ImGui
 struct ImGuiInputTextCallbackData;  // Shared state of InputText() when using custom ImGuiInputTextCallback (rare/advanced use)
 struct ImGuiKeyData;                // Storage for ImGuiIO and IsKeyDown(), IsKeyPressed() etc functions.
-struct ImGuiListClipper;            // Helper to manually clip large list of items
 struct ImGuiOnceUponAFrame;         // Helper for running a block of code not more than once a frame
 struct ImGuiPayload;                // User data payload for drag and drop operations
 struct ImGuiPlatformImeData;        // Platform IME data for io.SetPlatformImeDataFn() function.
@@ -2359,7 +2358,7 @@ struct ImGuiListClipperRange
     }
 };
 
-struct ImGuiListClipper;
+class ImGuiListClipper;
 // Temporary clipper data, buffers shared/reused between instances
 struct ImGuiListClipperData
 {
@@ -2375,8 +2374,9 @@ struct ImGuiListClipperData
         Ranges.clear();
     }
 };
-struct ImGuiListClipper
+class ImGuiListClipper
 {
+public:
     int DisplayStart = 0;       // First item to display, updated by each call to Step()
     int DisplayEnd = 0;         // End of items to display (exclusive)
     int ItemsCount = -1;        // [Internal] Number of items
@@ -2392,8 +2392,15 @@ struct ImGuiListClipper
     void End();             // Automatically called on the last call of Step() that returns false.
     bool Step();            // Call until it returns false. The DisplayStart/DisplayEnd fields will be set and you can process/draw those items.
 
-    // Call ForceDisplayRangeByIndices() before first call to Step() if you need a range of items to be displayed regardless of visibility.
-    void ForceDisplayRangeByIndices(int item_min, int item_max); // item_max is exclusive e.g. use (42, 42+1) to make item 42 always visible BUT due to alignment/padding of certain items it is likely that an extra item may be included on either end of the display range.
+    // Call ForceDisplayRangeByIndices() before first call to Step() if you need
+    // a range of items to be displayed regardless of visibility.
+    // - item_max is exclusive e.g. use (42, 42+1) to make item 42 always visible
+    // BUT due to alignment/padding of certain items it is likely that an extra
+    // item may be included on either end of the display range.
+    void ForceDisplayRangeByIndices(int item_min, int item_max); 
+
+private:
+    bool StepInternal();
 };
 
 // Helpers macros to generate 32-bit encoded colors
