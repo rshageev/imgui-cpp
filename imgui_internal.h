@@ -324,7 +324,6 @@ const char*   ImStrchrRange(const char* str_begin, const char* str_end, char c);
 int           ImStrlenW(const ImWchar* str);
 const char*   ImStreolRange(const char* str, const char* str_end);                // End end-of-line
 const ImWchar*ImStrbolW(const ImWchar* buf_mid_line, const ImWchar* buf_begin);   // Find beginning-of-line
-const char*   ImStristr(const char* haystack, const char* haystack_end, const char* needle, const char* needle_end);
 void          ImStrTrimBlanks(char* str);
 const char*   ImStrSkipBlank(const char* str);
 

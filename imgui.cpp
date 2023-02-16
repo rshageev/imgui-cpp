@@ -817,28 +817,6 @@ const ImWchar* ImStrbolW(const ImWchar* buf_mid_line, const ImWchar* buf_begin) 
     return buf_mid_line;
 }
 
-const char* ImStristr(const char* haystack, const char* haystack_end, const char* needle, const char* needle_end)
-{
-    if (!needle_end)
-        needle_end = needle + strlen(needle);
-
-    const char un0 = (char)ImToUpper(*needle);
-    while ((!haystack_end && *haystack) || (haystack_end && haystack < haystack_end))
-    {
-        if (ImToUpper(*haystack) == un0)
-        {
-            const char* b = needle + 1;
-            for (const char* a = haystack + 1; b < needle_end; a++, b++)
-                if (ImToUpper(*a) != ImToUpper(*b))
-                    break;
-            if (b == needle_end)
-                return haystack;
-        }
-        haystack++;
-    }
-    return NULL;
-}
-
 // Trim str by offsetting contents when there's leading data + writing a \0 at the trailing position. We use this in situation where the cost is negligible.
 void ImStrTrimBlanks(char* buf)
 {
@@ -1530,75 +1508,65 @@ bool ImGuiTextFilter::Draw(const char* label, float width)
     return value_changed;
 }
 
-void ImGuiTextFilter::ImGuiTextRange::split(char separator, ImVector<ImGuiTextRange>* out) const
-{
-    out->resize(0);
-    const char* wb = b;
-    const char* we = wb;
-    while (we < e)
-    {
-        if (*we == separator)
-        {
-            out->push_back(ImGuiTextRange(wb, we));
-            wb = we + 1;
-        }
-        we++;
-    }
-    if (wb != we)
-        out->push_back(ImGuiTextRange(wb, we));
-}
-
 void ImGuiTextFilter::Build()
 {
-    Filters.resize(0);
-    ImGuiTextRange input_range(InputBuf, InputBuf + strlen(InputBuf));
-    input_range.split(',', &Filters);
-
     CountGrep = 0;
-    for (ImGuiTextRange& f : Filters)
+    Filters.clear();
+    std::string_view input_range{ InputBuf };
+
+    for (const auto filter : input_range | stdv::transform(ImToUpper) | stdv::split(','))
     {
-        while (f.b < f.e && ImCharIsBlankA(f.b[0]))
-            f.b++;
-        while (f.e > f.b && ImCharIsBlankA(f.e[-1]))
-            f.e--;
-        if (f.empty())
-            continue;
-        if (f.b[0] != '-')
-            CountGrep += 1;
+        std::string f{ filter.begin(), filter.end()};
+
+        // trim blank chars from start and the end
+        while (!f.empty() && ImCharIsBlankA(f.back())) {
+            f.pop_back();
+        }
+        while (!f.empty() && ImCharIsBlankA(f.front())) {
+            f.erase(f.begin());
+        }
+
+        if (!f.empty())
+        {
+            if (f[0] != '-') {
+                CountGrep += 1;
+            }
+            Filters.push_back(std::move(f));
+        }
     }
 }
 
-bool ImGuiTextFilter::PassFilter(const char* text, const char* text_end) const
+bool ImGuiTextFilter::PassFilter(const char* text_begin, const char* text_end) const
+{
+    std::string_view text_view;
+    if (text_begin) {
+        text_view = text_end ? std::string_view(text_begin, text_end) : std::string_view(text_begin);
+    }
+    return PassFilter(text_view);
+}
+
+bool ImGuiTextFilter::PassFilter(std::string_view text_view) const
 {
     if (Filters.empty())
         return true;
 
-    if (text == NULL)
-        text = "";
+    const auto text = text_view | stdv::transform(ImToUpper) | stdr::to<std::string>();
 
-    for (const ImGuiTextRange& f : Filters)
+    for (std::string_view f : Filters)
     {
-        if (f.empty())
-            continue;
-        if (f.b[0] == '-')
-        {
+        if (f[0] == '-') {
             // Subtract
-            if (ImStristr(text, text_end, f.b + 1, f.e) != NULL)
+            if (text.find(f.substr(1)) != std::string_view::npos)
                 return false;
-        }
-        else
-        {
+        } else {
             // Grep
-            if (ImStristr(text, text_end, f.b, f.e) != NULL)
+            if (text.find(f) != std::string_view::npos)
                 return true;
         }
     }
 
     // Implicit * grep
-    if (CountGrep == 0)
-        return true;
-
-    return false;
+    return (CountGrep == 0);
 }
 
 //-----------------------------------------------------------------------------
