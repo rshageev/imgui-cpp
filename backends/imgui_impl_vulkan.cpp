@@ -479,9 +479,8 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
         check_vk_result(err);
         err = vkMapMemory(v->Device, rb->IndexBufferMemory, 0, rb->IndexBufferSize, 0, (void**)(&idx_dst));
         check_vk_result(err);
-        for (int n = 0; n < draw_data->CmdListsCount; n++)
+        for (const ImDrawList* cmd_list : draw_data->CmdLists)
         {
-            const ImDrawList* cmd_list = draw_data->CmdLists[n];
             vtx_dst = std::ranges::copy(cmd_list->Vertices(), vtx_dst).out;
             idx_dst = std::ranges::copy(cmd_list->Indices(), idx_dst).out;
         }
@@ -509,9 +508,8 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
     // (Because we merged all buffers into a single one, we maintain our own offset into them)
     int global_vtx_offset = 0;
     int global_idx_offset = 0;
-    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    for (const ImDrawList* cmd_list : draw_data->CmdLists)
     {
-        const ImDrawList* cmd_list = draw_data->CmdLists[n];
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
             if (cmd.UserCallback != nullptr)

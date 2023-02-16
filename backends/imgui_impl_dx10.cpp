@@ -158,9 +158,8 @@ void ImGui_ImplDX10_RenderDrawData(ImDrawData* draw_data)
     ImDrawIdx* idx_dst = nullptr;
     bd->pVB->Map(D3D10_MAP_WRITE_DISCARD, 0, (void**)&vtx_dst);
     bd->pIB->Map(D3D10_MAP_WRITE_DISCARD, 0, (void**)&idx_dst);
-    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    for (const ImDrawList* cmd_list : draw_data->CmdLists)
     {
-        const ImDrawList* cmd_list = draw_data->CmdLists[n];
         vtx_dst = std::ranges::copy(cmd_list->Vertices(), vtx_dst).out;
         idx_dst = std::ranges::copy(cmd_list->Indices(), idx_dst).out;
     }
@@ -238,9 +237,8 @@ void ImGui_ImplDX10_RenderDrawData(ImDrawData* draw_data)
     int global_vtx_offset = 0;
     int global_idx_offset = 0;
     ImVec2 clip_off = draw_data->DisplayPos;
-    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    for (const ImDrawList* cmd_list : draw_data->CmdLists)
     {
-        const ImDrawList* cmd_list = draw_data->CmdLists[n];
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
             if (cmd.UserCallback)

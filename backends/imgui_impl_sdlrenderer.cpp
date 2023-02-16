@@ -140,9 +140,8 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
 
     // Render command lists
     ImGui_ImplSDLRenderer_SetupRenderState();
-    for (int n = 0; n < draw_data->CmdListsCount; n++)
+    for (const ImDrawList* cmd_list : draw_data->CmdLists)
     {
-        const ImDrawList* cmd_list = draw_data->CmdLists[n];
         auto vertices = cmd_list->Vertices();
         auto indices = cmd_list->Indices();
 

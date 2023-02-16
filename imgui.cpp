@@ -3506,8 +3506,7 @@ static void SetupViewportDrawData(ImGuiViewportP* viewport, std::vector<ImDrawLi
     ImGuiIO& io = ImGui::GetIO();
     ImDrawData& draw_data = viewport->DrawDataP;
     draw_data.Valid = true;
-    draw_data.CmdLists = draw_lists.empty() ? nullptr : draw_lists.data();
-    draw_data.CmdListsCount = (int)draw_lists.size();
+    draw_data.CmdLists = draw_lists;
     draw_data.TotalVtxCount = draw_data.TotalIdxCount = 0;
     draw_data.DisplayPos = viewport->Pos;
     draw_data.DisplaySize = viewport->Size;
