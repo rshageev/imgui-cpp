@@ -1895,9 +1895,13 @@ struct ImGuiContext
     ImFont InputTextPasswordFont;
     ImGuiID TempInputId = 0;                      // Temporary text input when CTRL+clicking on a slider, etc.
     ImGuiColorEditFlags ColorEditOptions = ImGuiColorEditFlags_DefaultOptions_;                   // Store user options for color edit widgets
-    float ColorEditLastHue = 0.0f;                // Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
-    float ColorEditLastSat = 0.0f;                // Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
-    ImU32 ColorEditLastColor = 0;                 // RGB value with alpha set to 0.
+
+    ImGuiID ColorEditCurrentID = 0;               // Set temporarily while inside of the parent-most ColorEdit4/ColorPicker4 (because they call each others).
+    ImGuiID ColorEditSavedID = 0;                 // ID we are saving/restoring HS for
+    float ColorEditSavedHue = 0.0f;               // Backup of last Hue associated to LastColor, so we can restore Hue in lossy RGB<>HSV round trips
+    float ColorEditSavedSat = 0.0f;               // Backup of last Saturation associated to LastColor, so we can restore Saturation in lossy RGB<>HSV round trips
+    ImU32 ColorEditSavedColor = 0;                // RGB value with alpha set to 0.
+
     ImVec4 ColorPickerRef;                        // Initial/reference color at the time of opening the color picker.
     ImGuiComboPreviewData ComboPreviewData;
     float SliderGrabClickOffset = 0.0f;
