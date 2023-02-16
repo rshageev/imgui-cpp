@@ -1654,14 +1654,26 @@ struct ImVector
     // Constructors, destructor
     ImVector() = default;
 
-    ImVector(const ImVector<T>& src) : ImVector(){ operator=(src); }
+    ImVector(const ImVector& src) : ImVector(){ operator=(src); }
 
-    ImVector<T>& operator=(const ImVector<T>& src) {
+    ImVector(ImVector&& src)
+        : Size(src.Size)
+        , Capacity(src.Capacity)
+        , Data(src.Data)
+    {
+        src.Size = src.Capacity = 0;
+        src.Data = nullptr;
+    }
+
+    ImVector<T>& operator=(const ImVector& src) {
         clear();
         resize(src.Size);
         if (src.Data)
             memcpy(Data, src.Data, (size_t)Size * sizeof(T));
         return *this;
+    }
+    ImVector& operator=(ImVector&& src) noexcept {
+        swap(src);
     }
 
     // Important: does not destruct anything
