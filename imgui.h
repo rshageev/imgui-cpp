@@ -2276,41 +2276,17 @@ struct ImGuiStorage
     struct ImGuiStoragePair
     {
         ImGuiID key;
-        union { int val_i; float val_f; void* val_p; };
-        ImGuiStoragePair(ImGuiID _key, int _val_i)      { key = _key; val_i = _val_i; }
-        ImGuiStoragePair(ImGuiID _key, float _val_f)    { key = _key; val_f = _val_f; }
-        ImGuiStoragePair(ImGuiID _key, void* _val_p)    { key = _key; val_p = _val_p; }
+        int val;
     };
 
-    ImVector<ImGuiStoragePair>      Data;
+    ImVector<ImGuiStoragePair> Data;
 
     // - Get***() functions find pair, never add/allocate. Pairs are sorted so a query is O(log N)
     // - Set***() functions find pair, insertion on demand if missing.
     // - Sorted insertion is costly, paid once. A typical frame shouldn't need to insert any new pair.
-    void                Clear() { Data.clear(); }
-    int       GetInt(ImGuiID key, int default_val = 0) const;
-    void      SetInt(ImGuiID key, int val);
-    bool      GetBool(ImGuiID key, bool default_val = false) const;
-    void      SetBool(ImGuiID key, bool val);
-    float     GetFloat(ImGuiID key, float default_val = 0.0f) const;
-    void      SetFloat(ImGuiID key, float val);
-    void*     GetVoidPtr(ImGuiID key) const; // default_val is NULL
-    void      SetVoidPtr(ImGuiID key, void* val);
-
-    // - Get***Ref() functions finds pair, insert on demand if missing, return pointer. Useful if you intend to do Get+Set.
-    // - References are only valid until a new value is added to the storage. Calling a Set***() function or a Get***Ref() function invalidates the pointer.
-    // - A typical use case where this is convenient for quick hacking (e.g. add storage during a live Edit&Continue session if you can't modify existing struct)
-    //      float* pvar = ImGui::GetFloatRef(key); ImGui::SliderFloat("var", pvar, 0, 100.0f); some_var += *pvar;
-    int*      GetIntRef(ImGuiID key, int default_val = 0);
-    bool*     GetBoolRef(ImGuiID key, bool default_val = false);
-    float*    GetFloatRef(ImGuiID key, float default_val = 0.0f);
-    void**    GetVoidPtrRef(ImGuiID key, void* default_val = NULL);
-
-    // Use on your own storage if you know only integer are being stored (open/close all tree nodes)
-    void      SetAllInt(int val);
-
-    // For quicker full rebuild of a storage (instead of an incremental one), you may add all your contents and then sort once.
-    void      BuildSortByKey();
+    void Clear() { Data.clear(); }
+    int GetInt(ImGuiID key, int default_val = 0) const;
+    void SetInt(ImGuiID key, int val);
 };
 
 // Helper: Manually clip large list of items.

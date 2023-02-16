@@ -1362,79 +1362,12 @@ static ImGuiStorage::ImGuiStoragePair* LowerBound(ImVector<ImGuiStorage::ImGuiSt
     return first;
 }
 
-// For quicker full rebuild of a storage (instead of an incremental one), you may add all your contents and then sort once.
-void ImGuiStorage::BuildSortByKey()
-{
-    struct StaticFunc
-    {
-        static int IMGUI_CDECL PairComparerByID(const void* lhs, const void* rhs)
-        {
-            // We can't just do a subtraction because qsort uses signed integers and subtracting our ID doesn't play well with that.
-            if (((const ImGuiStoragePair*)lhs)->key > ((const ImGuiStoragePair*)rhs)->key) return +1;
-            if (((const ImGuiStoragePair*)lhs)->key < ((const ImGuiStoragePair*)rhs)->key) return -1;
-            return 0;
-        }
-    };
-    ImQsort(Data.Data, (size_t)Data.Size, sizeof(ImGuiStoragePair), StaticFunc::PairComparerByID);
-}
-
 int ImGuiStorage::GetInt(ImGuiID key, int default_val) const
 {
     ImGuiStoragePair* it = LowerBound(const_cast<ImVector<ImGuiStoragePair>&>(Data), key);
     if (it == Data.end() || it->key != key)
         return default_val;
-    return it->val_i;
-}
-
-bool ImGuiStorage::GetBool(ImGuiID key, bool default_val) const
-{
-    return GetInt(key, default_val ? 1 : 0) != 0;
-}
-
-float ImGuiStorage::GetFloat(ImGuiID key, float default_val) const
-{
-    ImGuiStoragePair* it = LowerBound(const_cast<ImVector<ImGuiStoragePair>&>(Data), key);
-    if (it == Data.end() || it->key != key)
-        return default_val;
-    return it->val_f;
-}
-
-void* ImGuiStorage::GetVoidPtr(ImGuiID key) const
-{
-    ImGuiStoragePair* it = LowerBound(const_cast<ImVector<ImGuiStoragePair>&>(Data), key);
-    if (it == Data.end() || it->key != key)
-        return NULL;
-    return it->val_p;
-}
-
-// References are only valid until a new value is added to the storage. Calling a Set***() function or a Get***Ref() function invalidates the pointer.
-int* ImGuiStorage::GetIntRef(ImGuiID key, int default_val)
-{
-    ImGuiStoragePair* it = LowerBound(Data, key);
-    if (it == Data.end() || it->key != key)
-        it = Data.insert(it, ImGuiStoragePair(key, default_val));
-    return &it->val_i;
-}
-
-bool* ImGuiStorage::GetBoolRef(ImGuiID key, bool default_val)
-{
-    return (bool*)GetIntRef(key, default_val ? 1 : 0);
-}
-
-float* ImGuiStorage::GetFloatRef(ImGuiID key, float default_val)
-{
-    ImGuiStoragePair* it = LowerBound(Data, key);
-    if (it == Data.end() || it->key != key)
-        it = Data.insert(it, ImGuiStoragePair(key, default_val));
-    return &it->val_f;
-}
-
-void** ImGuiStorage::GetVoidPtrRef(ImGuiID key, void* default_val)
-{
-    ImGuiStoragePair* it = LowerBound(Data, key);
-    if (it == Data.end() || it->key != key)
-        it = Data.insert(it, ImGuiStoragePair(key, default_val));
-    return &it->val_p;
+    return it->val;
 }
 
 // FIXME-OPT: Need a way to reuse the result of lower_bound when doing GetInt()/SetInt() - not too bad because it only happens on explicit interaction (maximum one a frame)
@@ -1443,43 +1376,10 @@ void ImGuiStorage::SetInt(ImGuiID key, int val)
     ImGuiStoragePair* it = LowerBound(Data, key);
     if (it == Data.end() || it->key != key)
     {
-        Data.insert(it, ImGuiStoragePair(key, val));
+        Data.insert(it, ImGuiStoragePair{ key, val });
         return;
     }
-    it->val_i = val;
-}
-
-void ImGuiStorage::SetBool(ImGuiID key, bool val)
-{
-    SetInt(key, val ? 1 : 0);
-}
-
-void ImGuiStorage::SetFloat(ImGuiID key, float val)
-{
-    ImGuiStoragePair* it = LowerBound(Data, key);
-    if (it == Data.end() || it->key != key)
-    {
-        Data.insert(it, ImGuiStoragePair(key, val));
-        return;
-    }
-    it->val_f = val;
-}
-
-void ImGuiStorage::SetVoidPtr(ImGuiID key, void* val)
-{
-    ImGuiStoragePair* it = LowerBound(Data, key);
-    if (it == Data.end() || it->key != key)
-    {
-        Data.insert(it, ImGuiStoragePair(key, val));
-        return;
-    }
-    it->val_p = val;
-}
-
-void ImGuiStorage::SetAllInt(int v)
-{
-    for (int i = 0; i < Data.Size; i++)
-        Data[i].val_i = v;
+    it->val = val;
 }
 
 //-----------------------------------------------------------------------------
@@ -12880,7 +12780,7 @@ void ImGui::DebugNodeStorage(ImGuiStorage* storage, const char* label)
     for (int n = 0; n < storage->Data.Size; n++)
     {
         const ImGuiStorage::ImGuiStoragePair& p = storage->Data[n];
-        BulletText("Key 0x%08X Value { i: %d }", p.key, p.val_i); // Important: we currently don't store a type, real value may not be integer.
+        BulletText("Key 0x%08X Value { i: %d }", p.key, p.val);
     }
     TreePop();
 }
