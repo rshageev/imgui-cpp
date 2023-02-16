@@ -2590,40 +2590,6 @@ static void SetCurrentWindow(ImGuiWindow* window)
         g.FontSize = g.DrawListSharedData.FontSize = window->CalcFontSize();
 }
 
-void ImGui::GcCompactTransientMiscBuffers()
-{
-    ImGuiContext& g = *GImGui;
-    g.ItemFlagsStack.clear();
-    g.GroupStack.clear();
-    TableGcCompactSettings();
-}
-
-// Free up/compact internal window buffers, we can use this when a window becomes unused.
-// Not freed:
-// - ImGuiWindow, ImGuiWindowSettings, Name, StateStorage, ColumnsStorage (may hold useful data)
-// This should have no noticeable visual effect. When the window reappear however, expect new allocation/buffer growth/copy cost.
-void ImGui::GcCompactTransientWindowBuffers(ImGuiWindow* window)
-{
-    window->MemoryCompacted = true;
-    window->MemoryDrawListIdxCapacity = window->DrawList->IdxBuffer.Capacity;
-    window->MemoryDrawListVtxCapacity = window->DrawList->VtxBuffer.Capacity;
-    window->IDStack.clear();
-    window->DrawList->_ClearFreeMemory();
-    window->DC.ChildWindows.clear();
-    window->DC.ItemWidthStack.clear();
-    window->DC.TextWrapPosStack.clear();
-}
-
-void ImGui::GcAwakeTransientWindowBuffers(ImGuiWindow* window)
-{
-    // We stored capacity of the ImDrawList buffer to reduce growth-caused allocation/copy when awakening.
-    // The other buffers tends to amortize much faster.
-    window->MemoryCompacted = false;
-    window->DrawList->IdxBuffer.reserve(window->MemoryDrawListIdxCapacity);
-    window->DrawList->VtxBuffer.reserve(window->MemoryDrawListVtxCapacity);
-    window->MemoryDrawListIdxCapacity = window->MemoryDrawListVtxCapacity = 0;
-}
-
 void ImGui::SetActiveID(ImGuiID id, ImGuiWindow* window)
 {
     ImGuiContext& g = *GImGui;
@@ -3396,7 +3362,6 @@ void ImGui::NewFrame()
 
     // Mark all windows as not visible and compact unused memory.
     IM_ASSERT(g.WindowsFocusOrder.size() <= g.Windows.size());
-    const float memory_compact_start_time = (g.GcCompactAll || g.IO.ConfigMemoryCompactTimer < 0.0f) ? FLT_MAX : (float)g.Time - g.IO.ConfigMemoryCompactTimer;
     for (ImGuiWindow* window : g.Windows)
     {
         window->WasActive = window->Active;
@@ -3404,24 +3369,7 @@ void ImGui::NewFrame()
         window->WriteAccessed = false;
         window->BeginCountPreviousFrame = window->BeginCount;
         window->BeginCount = 0;
-
-        // Garbage collect transient buffers of recently unused windows
-        if (!window->WasActive && !window->MemoryCompacted && window->LastTimeActive < memory_compact_start_time)
-            GcCompactTransientWindowBuffers(window);
     }
-
-    // Garbage collect transient buffers of recently unused tables
-    for (int i = 0; i < g.TablesLastTimeActive.Size; i++)
-        if (g.TablesLastTimeActive[i] >= 0.0f && g.TablesLastTimeActive[i] < memory_compact_start_time)
-            TableGcCompactTransientBuffers(g.Tables.GetByIndex(i));
-
-    for (int i = 0; i < g.TablesTempData.Size; i++)
-        if (g.TablesTempData[i].LastTimeActive >= 0.0f && g.TablesTempData[i].LastTimeActive < memory_compact_start_time)
-            TableGcCompactTransientBuffers(&g.TablesTempData[i]);
-
-    if (g.GcCompactAll)
-        GcCompactTransientMiscBuffers();
-    g.GcCompactAll = false;
 
     // Closing the focused window restore focus to the first active root window in descending z-order
     if (g.NavWindow && !g.NavWindow->WasActive)
@@ -5052,10 +5000,6 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         window->IDStack.resize(1);
         window->DrawList->_ResetForNewFrame();
         window->DC.CurrentTableIdx = -1;
-
-        // Restore buffer capacity when woken from a compacted state, to avoid
-        if (window->MemoryCompacted)
-            GcAwakeTransientWindowBuffers(window);
 
         // Update stored window name when it changes (which can _only_ happen with the "###" operator, so the ID would stay unchanged).
         // The title bar always display the 'name' parameter, so we only update the string storage if it needs to be visible to the end-user elsewhere.
@@ -12001,7 +11945,6 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
     Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
     Text("%d visible windows, %d active allocations", io.MetricsRenderWindows, io.MetricsActiveAllocations);
-    //SameLine(); if (SmallButton("GC")) { g.GcCompactAll = true; }
 
     Separator();
 
@@ -12844,9 +12787,6 @@ void ImGui::DebugNodeWindow(ImGuiWindow* window, const char* label)
         GetForegroundDrawList(window)->AddRect(window->Pos, window->Pos + window->Size, IM_COL32(255, 255, 0, 255));
     if (!open)
         return;
-
-    if (window->MemoryCompacted)
-        TextDisabled("Note: some memory buffers have been compacted/freed.");
 
     ImGuiWindowFlags flags = window->Flags;
     DebugNodeDrawList(window, window->DrawList, "DrawList");

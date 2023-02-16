@@ -485,7 +485,6 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
         g.TablesLastTimeActive.resize(table_idx + 1, -1.0f);
     g.TablesLastTimeActive[table_idx] = (float)g.Time;
     temp_data->LastTimeActive = (float)g.Time;
-    table->MemoryCompacted = false;
 
     // Setup memory buffer (clear data if columns count changed)
     ImGuiTableColumn* old_columns_to_preserve = NULL;
@@ -3512,47 +3511,6 @@ void ImGui::TableRemove(ImGuiTable* table)
     g.Tables.Remove(table->ID, table);
     g.TablesLastTimeActive[table_idx] = -1.0f;
 }
-
-// Free up/compact internal Table buffers for when it gets unused
-void ImGui::TableGcCompactTransientBuffers(ImGuiTable* table)
-{
-    //IMGUI_DEBUG_PRINT("TableGcCompactTransientBuffers() id=0x%08X\n", table->ID);
-    ImGuiContext& g = *GImGui;
-    IM_ASSERT(table->MemoryCompacted == false);
-    table->SortSpecs.Specs = NULL;
-    table->SortSpecsMulti.clear();
-    table->IsSortSpecsDirty = true; // FIXME: shouldn't have to leak into user performing a sort
-    table->ColumnsNames.clear();
-    table->MemoryCompacted = true;
-    for (int n = 0; n < table->ColumnsCount; n++)
-        table->Columns[n].NameOffset = -1;
-    g.TablesLastTimeActive[g.Tables.GetIndex(table)] = -1.0f;
-}
-
-void ImGui::TableGcCompactTransientBuffers(ImGuiTableTempData* temp_data)
-{
-    temp_data->DrawSplitter.ClearFreeMemory();
-    temp_data->LastTimeActive = -1.0f;
-}
-
-// Compact and remove unused settings data (currently only used by TestEngine)
-void ImGui::TableGcCompactSettings()
-{
-    ImGuiContext& g = *GImGui;
-    int required_memory = 0;
-    for (ImGuiTableSettings* settings = g.SettingsTables.begin(); settings != NULL; settings = g.SettingsTables.next_chunk(settings))
-        if (settings->ID != 0)
-            required_memory += (int)TableSettingsCalcChunkSize(settings->ColumnsCount);
-    if (required_memory == g.SettingsTables.Buf.Size)
-        return;
-    ImChunkStream<ImGuiTableSettings> new_chunk_stream;
-    new_chunk_stream.Buf.reserve(required_memory);
-    for (ImGuiTableSettings* settings = g.SettingsTables.begin(); settings != NULL; settings = g.SettingsTables.next_chunk(settings))
-        if (settings->ID != 0)
-            memcpy(new_chunk_stream.alloc_chunk(TableSettingsCalcChunkSize(settings->ColumnsCount)), settings, TableSettingsCalcChunkSize(settings->ColumnsCount));
-    g.SettingsTables.swap(new_chunk_stream);
-}
-
 
 //-------------------------------------------------------------------------
 // [SECTION] Tables: Debugging

@@ -1710,7 +1710,6 @@ struct ImGuiContext
     bool WithinFrameScope = false;                   // Set by NewFrame(), cleared by EndFrame()
     bool WithinFrameScopeWithImplicitWindow = false; // Set by NewFrame(), cleared by EndFrame() when the implicit debug window has been pushed
     bool WithinEndChild = false;                     // Set within EndChild()
-    bool GcCompactAll = false;                       // Request full GC
 
     // Windows state
     std::vector<ImGuiWindow*> Windows;                            // Windows, sorted in display order, back to front
@@ -2133,10 +2132,6 @@ struct ImGuiWindow
     ImRect NavRectRel[ImGuiNavLayer_COUNT];         // Reference rectangle, in window relative space
     ImGuiID NavRootFocusScopeId = 0;                // Focus Scope ID at the time of Begin()
 
-    int MemoryDrawListIdxCapacity = 0; // Backup of last idx/vtx count, so when waking up the window we can preallocate and avoid iterative alloc/copy
-    int MemoryDrawListVtxCapacity = 0;
-    bool MemoryCompacted = false;      // Set when window extraneous data have been garbage collected
-
 public:
     ImGuiWindow(ImGuiContext* context, const char* name);
     ~ImGuiWindow();
@@ -2430,7 +2425,6 @@ struct ImGuiTable
     bool IsDefaultSizingPolicy = false;      // Set if user didn't explicitly set a sizing policy in BeginTable()
     bool HasScrollbarYCurr = false;          // Whether ANY instance of this table had a vertical scrollbar during the current frame.
     bool HasScrollbarYPrev = false;          // Whether ANY instance of this table had a vertical scrollbar during the previous.
-    bool MemoryCompacted = false;
     bool HostSkipItems = false;              // Backup of InnerWindow->SkipItem at the end of BeginTable(), because we will overwrite InnerWindow->SkipItem on a per-column basis
 
     ImGuiTable() = default;
@@ -2837,9 +2831,6 @@ namespace ImGui
     void          TableSetColumnWidthAutoSingle(ImGuiTable* table, int column_n);
     void          TableSetColumnWidthAutoAll(ImGuiTable* table);
     void          TableRemove(ImGuiTable* table);
-    void          TableGcCompactTransientBuffers(ImGuiTable* table);
-    void          TableGcCompactTransientBuffers(ImGuiTableTempData* table);
-    void          TableGcCompactSettings();
 
     // Tables: Settings
     void                  TableLoadSettings(ImGuiTable* table);
@@ -2970,11 +2961,6 @@ namespace ImGui
     // Shade functions (write over already created vertices)
     void          ShadeVertsLinearColorGradientKeepAlpha(ImDrawList* draw_list, int vert_start_idx, int vert_end_idx, ImVec2 gradient_p0, ImVec2 gradient_p1, ImU32 col0, ImU32 col1);
     void          ShadeVertsLinearUV(ImDrawList* draw_list, int vert_start_idx, int vert_end_idx, const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, bool clamp);
-
-    // Garbage collection
-    void          GcCompactTransientMiscBuffers();
-    void          GcCompactTransientWindowBuffers(ImGuiWindow* window);
-    void          GcAwakeTransientWindowBuffers(ImGuiWindow* window);
 
     // Debug Log
     void          DebugLog(const char* fmt, ...) IM_FMTARGS(1);
