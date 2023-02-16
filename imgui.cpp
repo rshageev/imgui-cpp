@@ -928,6 +928,30 @@ void ImFormatStringToTempBufferV(const char** out_buf, const char** out_buf_end,
     }
 }
 
+std::string ImFormatStringToStringV(const char* fmt, va_list args)
+{
+    std::string result;
+
+    int len = vsnprintf(nullptr, 0, fmt, args);
+    if (len <= 0) {
+        return result;
+    }
+
+    result.resize(len);
+
+    vsnprintf(result.data(), (size_t)result.size() + 1, fmt, args);
+    return result;
+}
+
+std::string ImFormatStringToString(const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    auto result = ImFormatStringToStringV(fmt, args);
+    va_end(args);
+    return result;
+}
+
 // CRC32 needs a 1KB lookup table (not cache friendly)
 // Although the code to generate the table is simple and shorter than the table itself, using a const table allows us to easily:
 // - avoid an unnecessary branch/memory tap, - keep the ImHashXXX functions usable by static constructors, - make it thread-safe.
@@ -1644,20 +1668,6 @@ void ImGuiTextBuffer::appendfv(const char* fmt, va_list args)
     Buf.resize(needed_sz);
     ImFormatStringV(&Buf[write_off - 1], (size_t)len + 1, fmt, args_copy);
     va_end(args_copy);
-}
-
-void ImGuiTextIndex::append(const char* base, int old_size, int new_size)
-{
-    IM_ASSERT(old_size >= 0 && new_size >= old_size && new_size >= EndOffset);
-    if (old_size == new_size)
-        return;
-    if (EndOffset == 0 || base[EndOffset - 1] == '\n')
-        LineOffsets.push_back(EndOffset);
-    const char* base_end = base + new_size;
-    for (const char* p = base + old_size; (p = (const char*)memchr(p, '\n', base_end - p)) != 0; )
-        if (++p < base_end) // Don't push a trailing offset on last \n
-            LineOffsets.push_back((int)(intptr_t)(p - base));
-    EndOffset = ImMax(EndOffset, new_size);
 }
 
 //-----------------------------------------------------------------------------
@@ -2600,8 +2610,7 @@ void ImGui::Shutdown()
         g.LogFile = NULL;
     }
     g.LogBuffer.clear();
-    g.DebugLogBuf.clear();
-    g.DebugLogIndex.clear();
+    g.DebugLog.clear();
 
     g.Initialized = false;
 }
@@ -13084,19 +13093,21 @@ void ImGui::DebugLog(const char* fmt, ...)
 void ImGui::DebugLogV(const char* fmt, va_list args)
 {
     ImGuiContext& g = *GImGui;
-    const int old_size = g.DebugLogBuf.size();
-    g.DebugLogBuf.appendf("[%05d] ", g.FrameCount);
-    g.DebugLogBuf.appendfv(fmt, args);
-    if (g.DebugLogFlags & ImGuiDebugLogFlags_OutputToTTY)
-        IMGUI_DEBUG_PRINTF("%s", g.DebugLogBuf.begin() + old_size);
-    g.DebugLogIndex.append(g.DebugLogBuf.c_str(), old_size, g.DebugLogBuf.size());
+
+    std::string logEntry = ImFormatStringToString("[%05d] ", g.FrameCount) + ImFormatStringToStringV(fmt, args);
+
+    if (g.DebugLogFlags & ImGuiDebugLogFlags_OutputToTTY) {
+        IMGUI_DEBUG_PRINTF("%s", logEntry.c_str());
+    }
+    g.DebugLog.push_back(std::move(logEntry));
 }
 
 void ImGui::ShowDebugLogWindow(bool* p_open)
 {
     ImGuiContext& g = *GImGui;
-    if (!(g.NextWindowData.Flags & ImGuiNextWindowDataFlags_HasSize))
+    if (!(g.NextWindowData.Flags & ImGuiNextWindowDataFlags_HasSize)) {
         SetNextWindowSize(ImVec2(0.0f, GetFontSize() * 12.0f), ImGuiCond_FirstUseEver);
+    }
     if (!Begin("Dear ImGui Debug Log", p_open) || GetCurrentWindow()->BeginCount > 1)
     {
         End();
@@ -13115,39 +13126,51 @@ void ImGui::ShowDebugLogWindow(bool* p_open)
 
     if (SmallButton("Clear"))
     {
-        g.DebugLogBuf.clear();
-        g.DebugLogIndex.clear();
+        g.DebugLog.clear();
     }
     SameLine();
     if (SmallButton("Copy"))
-        SetClipboardText(g.DebugLogBuf.c_str());
+    {
+        auto log = g.DebugLog | stdv::join | stdr::to<std::string>();
+        SetClipboardText(log.c_str());
+    }
     BeginChild("##log", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar);
 
     ImGuiListClipper clipper;
-    clipper.Begin(g.DebugLogIndex.size());
+    clipper.Begin(g.DebugLog.size());
     while (clipper.Step())
+    {
         for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
         {
-            const char* line_begin = g.DebugLogIndex.get_line_begin(g.DebugLogBuf.c_str(), line_no);
-            const char* line_end = g.DebugLogIndex.get_line_end(g.DebugLogBuf.c_str(), line_no);
-            TextUnformatted(line_begin, line_end);
+            const auto& line = g.DebugLog[line_no];
+            TextUnformatted(line.c_str());
             ImRect text_rect = g.LastItemData.Rect;
             if (IsItemHovered())
+            {
+                auto line_begin = line.data();
+                auto line_end = line.data() + line.size();
                 for (const char* p = line_begin; p < line_end - 10; p++)
                 {
                     ImGuiID id = 0;
                     if (p[0] != '0' || (p[1] != 'x' && p[1] != 'X') || sscanf(p + 2, "%X", &id) != 1)
                         continue;
+
                     ImVec2 p0 = CalcTextSize(line_begin, p);
                     ImVec2 p1 = CalcTextSize(p, p + 10);
                     g.LastItemData.Rect = ImRect(text_rect.Min + ImVec2(p0.x, 0.0f), text_rect.Min + ImVec2(p0.x + p1.x, p1.y));
-                    if (IsMouseHoveringRect(g.LastItemData.Rect.Min, g.LastItemData.Rect.Max, true))
+                    if (IsMouseHoveringRect(g.LastItemData.Rect.Min, g.LastItemData.Rect.Max, true)) {
                         DebugLocateItemOnHover(id);
+                    }
                     p += 10;
                 }
+            }
         }
-    if (GetScrollY() >= GetScrollMaxY())
+    }
+
+    if (GetScrollY() >= GetScrollMaxY()) {
         SetScrollHereY(1.0f);
+    }
+
     EndChild();
 
     End();

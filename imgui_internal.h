@@ -707,20 +707,6 @@ struct ImChunkStream
 
 };
 
-// Helper: ImGuiTextIndex<>
-// Maintain a line index for a text buffer. This is a strong candidate to be moved into the public API.
-struct ImGuiTextIndex
-{
-    ImVector<int>   LineOffsets;
-    int             EndOffset = 0;                          // Because we don't own text buffer we need to maintain EndOffset (may bake in LineOffsets?)
-
-    void            clear()                                 { LineOffsets.clear(); EndOffset = 0; }
-    int             size()                                  { return LineOffsets.Size; }
-    const char*     get_line_begin(const char* base, int n) { return base + LineOffsets[n]; }
-    const char*     get_line_end(const char* base, int n)   { return base + (n + 1 < LineOffsets.Size ? (LineOffsets[n + 1] - 1) : EndOffset); }
-    void            append(const char* base, int old_size, int new_size);
-};
-
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList support
 //-----------------------------------------------------------------------------
@@ -1972,8 +1958,7 @@ struct ImGuiContext
 
     // Debug Tools
     ImGuiDebugLogFlags DebugLogFlags = ImGuiDebugLogFlags_OutputToTTY;
-    ImGuiTextBuffer DebugLogBuf;
-    ImGuiTextIndex DebugLogIndex;
+    std::vector<std::string> DebugLog;
     ImU8 DebugLocateFrames = 0;          // For DebugLocateItemOnHover(). This is used together with DebugLocateId which is in a hot/cached spot above.
     bool DebugItemPickerActive = false;  // Item picker is active (started with DebugStartItemPicker())
     ImU8 DebugItemPickerMouseButton = ImGuiMouseButton_Left;
