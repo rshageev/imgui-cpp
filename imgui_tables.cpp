@@ -2441,8 +2441,9 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
     {
         // We skip channel 0 (Bg0/Bg1) and 1 (Bg2 frozen) from the shuffling since they won't move - see channels allocation in TableSetupDrawChannels().
         const int LEADING_DRAW_CHANNELS = 2;
-        g.DrawChannelsTempMergeBuffer.resize(splitter->_Count - LEADING_DRAW_CHANNELS); // Use shared temporary storage so the allocation gets amortized
-        ImDrawChannel* dst_tmp = g.DrawChannelsTempMergeBuffer.Data;
+        ImVector<ImDrawChannel> temp_merge_buffer;
+        temp_merge_buffer.resize(splitter->_Count - LEADING_DRAW_CHANNELS); // Use shared temporary storage so the allocation gets amortized
+        ImDrawChannel* dst_tmp = temp_merge_buffer.Data;
         for (int ch = LEADING_DRAW_CHANNELS; ch < splitter->_Count; ++ch) {
             remaining_mask[ch] = true;
         }
@@ -2509,8 +2510,8 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
             memcpy(dst_tmp++, channel, sizeof(ImDrawChannel));
             remaining_count--;
         }
-        IM_ASSERT(dst_tmp == g.DrawChannelsTempMergeBuffer.Data + g.DrawChannelsTempMergeBuffer.Size);
-        memcpy(splitter->_Channels.Data + LEADING_DRAW_CHANNELS, g.DrawChannelsTempMergeBuffer.Data, (splitter->_Count - LEADING_DRAW_CHANNELS) * sizeof(ImDrawChannel));
+        IM_ASSERT(dst_tmp == temp_merge_buffer.Data + temp_merge_buffer.Size);
+        memcpy(splitter->_Channels.Data + LEADING_DRAW_CHANNELS, temp_merge_buffer.Data, (splitter->_Count - LEADING_DRAW_CHANNELS) * sizeof(ImDrawChannel));
     }
 }
 

@@ -2459,7 +2459,6 @@ void ImGui::Shutdown()
 
     g.Tables.Clear();
     g.TablesTempData.clear_destruct();
-    g.DrawChannelsTempMergeBuffer.clear();
 
     g.ClipboardHandlerData.clear();
     g.MenusIdSubmittedThisFrame.clear();

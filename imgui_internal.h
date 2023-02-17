@@ -1852,7 +1852,6 @@ struct ImGuiContext
     ImVector<ImGuiTableTempData> TablesTempData; // Temporary table data (buffers reused/shared across instances, support nesting)
     ImPool<ImGuiTable> Tables;                   // Persistent table data
     ImVector<float> TablesLastTimeActive;        // Last used timestamp of each tables (SOA, for efficient GC)
-    ImVector<ImDrawChannel> DrawChannelsTempMergeBuffer;
 
     // Tab bars
     ImGuiTabBar* CurrentTabBar = nullptr;
