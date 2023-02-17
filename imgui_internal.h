@@ -518,29 +518,6 @@ struct ImRect
     ImVec4      ToVec4() const                      { return ImVec4(Min.x, Min.y, Max.x, Max.y); }
 };
 
-// Helper: ImBitArray
-#define         IM_BITARRAY_TESTBIT(_ARRAY, _N)                 ((_ARRAY[(_N) >> 5] & ((ImU32)1 << ((_N) & 31))) != 0) // Macro version of ImBitArrayTestBit(): ensure args have side-effect or are costly!
-#define         IM_BITARRAY_CLEARBIT(_ARRAY, _N)                ((_ARRAY[(_N) >> 5] &= ~((ImU32)1 << ((_N) & 31))))    // Macro version of ImBitArrayClearBit(): ensure args have side-effect or are costly!
-inline size_t   ImBitArrayGetStorageSizeInBytes(int bitcount)   { return (size_t)((bitcount + 31) >> 5) << 2; }
-inline void     ImBitArrayClearAllBits(ImU32* arr, int bitcount){ memset(arr, 0, ImBitArrayGetStorageSizeInBytes(bitcount)); }
-inline bool     ImBitArrayTestBit(const ImU32* arr, int n)      { ImU32 mask = (ImU32)1 << (n & 31); return (arr[n >> 5] & mask) != 0; }
-inline void     ImBitArrayClearBit(ImU32* arr, int n)           { ImU32 mask = (ImU32)1 << (n & 31); arr[n >> 5] &= ~mask; }
-inline void     ImBitArraySetBit(ImU32* arr, int n)             { ImU32 mask = (ImU32)1 << (n & 31); arr[n >> 5] |= mask; }
-inline void     ImBitArraySetBitRange(ImU32* arr, int n, int n2) // Works on range [n..n2)
-{
-    n2--;
-    while (n <= n2)
-    {
-        int a_mod = (n & 31);
-        int b_mod = (n2 > (n | 31) ? 31 : (n2 & 31)) + 1;
-        ImU32 mask = (ImU32)(((ImU64)1 << b_mod) - 1) & ~(ImU32)(((ImU64)1 << a_mod) - 1);
-        arr[n >> 5] |= mask;
-        n = (n + 32) & ~31;
-    }
-}
-
-typedef ImU32* ImBitArrayPtr; // Name for use in structs
-
 // Helper: ImSpanAllocator<>
 // Facilitate storing multiple chunks into a single large block (the "arena")
 // - Usage: call Reserve() N times, allocate GetArenaSizeInBytes() worth, pass it to SetArenaBasePtr(), call GetSpan() N times to retrieve the aligned ranges.
@@ -2330,12 +2307,12 @@ struct ImGuiTable
     ImGuiTableFlags Flags = ImGuiTableFlags_None;
     void* RawData = nullptr;                            // Single allocation to hold Columns[], DisplayOrderToIndex[] and RowCellData[]
     ImGuiTableTempData* TempData = nullptr;             // Transient data while table is active. Point within g.CurrentTableStack[]
-    std::span<ImGuiTableColumn> Columns;                   // Point within RawData[]
-    std::span<ImGuiTableColumnIdx> DisplayOrderToIndex;    // Point within RawData[]. Store display order of columns (when not reordered, the values are 0...Count-1)
-    std::span<ImGuiTableCellData> RowCellData;             // Point within RawData[]. Store cells background requests for current row.
-    ImBitArrayPtr EnabledMaskByDisplayOrder = nullptr;  // Column DisplayOrder -> IsEnabled map
-    ImBitArrayPtr EnabledMaskByIndex = nullptr;         // Column Index -> IsEnabled map (== not hidden by user/api) in a format adequate for iterating column without touching cold data
-    ImBitArrayPtr VisibleMaskByIndex = nullptr;         // Column Index -> IsVisibleX|IsVisibleY map (== not hidden by user/api && not hidden by scrolling/cliprect)
+    std::span<ImGuiTableColumn> Columns;                // Point within RawData[]
+    std::span<ImGuiTableColumnIdx> DisplayOrderToIndex; // Point within RawData[]. Store display order of columns (when not reordered, the values are 0...Count-1)
+    std::span<ImGuiTableCellData> RowCellData;          // Point within RawData[]. Store cells background requests for current row.
+    std::vector<bool> EnabledMaskByDisplayOrder;        // Column DisplayOrder -> IsEnabled map
+    std::vector<bool> EnabledMaskByIndex;               // Column Index -> IsEnabled map (== not hidden by user/api) in a format adequate for iterating column without touching cold data
+    std::vector<bool> VisibleMaskByIndex;               // Column Index -> IsVisibleX|IsVisibleY map (== not hidden by user/api && not hidden by scrolling/cliprect)
     ImGuiTableFlags SettingsLoadedFlags = ImGuiTableFlags_None; // Which data were loaded from the .ini file (e.g. when order is not altered we won't save order)
     int SettingsOffset = 0;       // Offset in g.SettingsTables
     int LastFrameActive = -1;

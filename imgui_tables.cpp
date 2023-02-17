@@ -583,22 +583,21 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
 void ImGui::TableBeginInitMemory(ImGuiTable* table, int columns_count)
 {
     // Allocate single buffer for our arrays
-    const int columns_bit_array_size = (int)ImBitArrayGetStorageSizeInBytes(columns_count);
-    ImSpanAllocator<6> span_allocator;
+    ImSpanAllocator<3> span_allocator;
     span_allocator.Reserve(0, columns_count * sizeof(ImGuiTableColumn));
     span_allocator.Reserve(1, columns_count * sizeof(ImGuiTableColumnIdx));
-    span_allocator.Reserve(2, columns_count * sizeof(ImGuiTableCellData), 4);
-    for (int n = 3; n < 6; n++)
-        span_allocator.Reserve(n, columns_bit_array_size);
+    span_allocator.Reserve(2, columns_count * sizeof(ImGuiTableCellData));
+
     table->RawData = IM_ALLOC(span_allocator.GetArenaSizeInBytes());
     memset(table->RawData, 0, span_allocator.GetArenaSizeInBytes());
     span_allocator.SetArenaBasePtr(table->RawData);
     table->Columns = span_allocator.GetSpan<ImGuiTableColumn>(0);
     table->DisplayOrderToIndex = span_allocator.GetSpan<ImGuiTableColumnIdx>(1);
     table->RowCellData = span_allocator.GetSpan<ImGuiTableCellData>(2);
-    table->EnabledMaskByDisplayOrder = (ImU32*)span_allocator.GetSpanPtrBegin(3);
-    table->EnabledMaskByIndex = (ImU32*)span_allocator.GetSpanPtrBegin(4);
-    table->VisibleMaskByIndex = (ImU32*)span_allocator.GetSpanPtrBegin(5);
+
+    table->EnabledMaskByDisplayOrder.resize(columns_count);
+    table->EnabledMaskByIndex.resize(columns_count);
+    table->VisibleMaskByIndex.resize(columns_count);
 }
 
 // Apply queued resizing/reordering/hiding requests
@@ -737,8 +736,8 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
     const ImGuiTableFlags table_sizing_policy = (table->Flags & ImGuiTableFlags_SizingMask_);
     table->IsDefaultDisplayOrder = true;
     table->ColumnsEnabledCount = 0;
-    ImBitArrayClearAllBits(table->EnabledMaskByIndex, table->ColumnsCount);
-    ImBitArrayClearAllBits(table->EnabledMaskByDisplayOrder, table->ColumnsCount);
+    stdr::fill(table->EnabledMaskByIndex, false);
+    stdr::fill(table->EnabledMaskByDisplayOrder, false);
     table->LeftMostEnabledColumn = -1;
     table->MinColumnWidth = ImMax(1.0f, g.Style.FramePadding.x * 1.0f); // g.Style.ColumnsMinSpacing; // FIXME-TABLE
 
@@ -803,8 +802,8 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
         else
             table->LeftMostEnabledColumn = (ImGuiTableColumnIdx)column_n;
         column->IndexWithinEnabledSet = table->ColumnsEnabledCount++;
-        ImBitArraySetBit(table->EnabledMaskByIndex, column_n);
-        ImBitArraySetBit(table->EnabledMaskByDisplayOrder, column->DisplayOrder);
+        table->EnabledMaskByIndex[column_n] = true;
+        table->EnabledMaskByDisplayOrder[column->DisplayOrder] = true;
         prev_visible_column_idx = column_n;
         IM_ASSERT(column->IndexWithinEnabledSet <= column->DisplayOrder);
 
@@ -852,7 +851,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
     table->LeftMostStretchedColumn = table->RightMostStretchedColumn = -1;
     for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
     {
-        if (!IM_BITARRAY_TESTBIT(table->EnabledMaskByIndex, column_n))
+        if (!table->EnabledMaskByIndex[column_n])
             continue;
         ImGuiTableColumn* column = &table->Columns[column_n];
 
@@ -916,7 +915,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
     table->ColumnsGivenWidth = width_spacings + (table->CellPaddingX * 2.0f) * table->ColumnsEnabledCount;
     for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
     {
-        if (!IM_BITARRAY_TESTBIT(table->EnabledMaskByIndex, column_n))
+        if (!table->EnabledMaskByIndex[column_n])
             continue;
         ImGuiTableColumn* column = &table->Columns[column_n];
 
@@ -943,7 +942,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
     if (width_remaining_for_stretched_columns >= 1.0f && !(table->Flags & ImGuiTableFlags_PreciseWidths))
         for (int order_n = table->ColumnsCount - 1; stretch_sum_weights > 0.0f && width_remaining_for_stretched_columns >= 1.0f && order_n >= 0; order_n--)
         {
-            if (!IM_BITARRAY_TESTBIT(table->EnabledMaskByDisplayOrder, order_n))
+            if (!table->EnabledMaskByDisplayOrder[order_n])
                 continue;
             ImGuiTableColumn* column = &table->Columns[table->DisplayOrderToIndex[order_n]];
             if (!(column->Flags & ImGuiTableColumnFlags_WidthStretch))
@@ -974,7 +973,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
     float offset_x = ((table->FreezeColumnsCount > 0) ? table->OuterRect.Min.x : work_rect.Min.x) + table->OuterPaddingX - table->CellSpacingX1;
     ImRect host_clip_rect = table->InnerClipRect;
     //host_clip_rect.Max.x += table->CellPaddingX + table->CellSpacingX2;
-    ImBitArrayClearAllBits(table->VisibleMaskByIndex, table->ColumnsCount);
+    stdr::fill(table->VisibleMaskByIndex, false);
     for (int order_n = 0; order_n < table->ColumnsCount; order_n++)
     {
         const int column_n = table->DisplayOrderToIndex[order_n];
@@ -991,7 +990,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
         // Clear status flags
         column->Flags &= ~ImGuiTableColumnFlags_StatusMask_;
 
-        if (!IM_BITARRAY_TESTBIT(table->EnabledMaskByDisplayOrder, order_n))
+        if (!table->EnabledMaskByDisplayOrder[order_n])
         {
             // Hidden column: clear a few fields and we are done with it for the remainder of the function.
             // We set a zero-width clip rect but set Min.y/Max.y properly to not interfere with the clipper.
@@ -1043,8 +1042,9 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
         column->IsVisibleX = (column->ClipRect.Max.x > column->ClipRect.Min.x);
         column->IsVisibleY = true; // (column->ClipRect.Max.y > column->ClipRect.Min.y);
         const bool is_visible = column->IsVisibleX; //&& column->IsVisibleY;
-        if (is_visible)
-            ImBitArraySetBit(table->VisibleMaskByIndex, column_n);
+        if (is_visible) {
+            table->VisibleMaskByIndex[column_n] = true;
+        }
 
         // Mark column as requesting output from user. Note that fixed + non-resizable sets are auto-fitting at all times and therefore always request output.
         column->IsRequestOutput = is_visible || column->AutoFitQueue != 0 || column->CannotSkipItemsQueue != 0;
@@ -1174,7 +1174,7 @@ void ImGui::TableUpdateBorders(ImGuiTable* table)
 
     for (int order_n = 0; order_n < table->ColumnsCount; order_n++)
     {
-        if (!IM_BITARRAY_TESTBIT(table->EnabledMaskByDisplayOrder, order_n))
+        if (!table->EnabledMaskByDisplayOrder[order_n])
             continue;
 
         const int column_n = table->DisplayOrderToIndex[order_n];
@@ -1310,7 +1310,7 @@ void    ImGui::EndTable()
     float auto_fit_width_for_stretched = 0.0f;
     float auto_fit_width_for_stretched_min = 0.0f;
     for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
-        if (IM_BITARRAY_TESTBIT(table->EnabledMaskByIndex, column_n))
+        if (table->EnabledMaskByIndex[column_n])
         {
             ImGuiTableColumn* column = &table->Columns[column_n];
             float column_width_request = ((column->Flags & ImGuiTableColumnFlags_WidthFixed) && !(column->Flags & ImGuiTableColumnFlags_NoResize)) ? column->WidthRequest : TableGetColumnWidthAuto(table, column);
@@ -1658,7 +1658,7 @@ void ImGui::TableSetBgColor(ImGuiTableBgTarget target, ImU32 color, int column_n
             return;
         if (column_n == -1)
             column_n = table->CurrentColumn;
-        if (!IM_BITARRAY_TESTBIT(table->VisibleMaskByIndex, column_n))
+        if (!table->VisibleMaskByIndex[column_n])
             return;
         if (table->RowCellDataCurrent < 0 || table->RowCellData[table->RowCellDataCurrent].Column != column_n)
             table->RowCellDataCurrent++;
@@ -2298,7 +2298,7 @@ void ImGui::TableSetupDrawChannels(ImGuiTable* table)
     const int freeze_row_multiplier = (table->FreezeRowsCount > 0) ? 2 : 1;
     const int channels_for_row = (table->Flags & ImGuiTableFlags_NoClip) ? 1 : table->ColumnsEnabledCount;
     const int channels_for_bg = 1 + 1 * freeze_row_multiplier;
-    const int channels_for_dummy = (table->ColumnsEnabledCount < table->ColumnsCount || (memcmp(table->VisibleMaskByIndex, table->EnabledMaskByIndex, ImBitArrayGetStorageSizeInBytes(table->ColumnsCount)) != 0)) ? +1 : 0;
+    const int channels_for_dummy = (table->ColumnsEnabledCount < table->ColumnsCount || (table->VisibleMaskByIndex != table->EnabledMaskByIndex)) ? 1 : 0;
     const int channels_total = channels_for_bg + (channels_for_row * freeze_row_multiplier) + channels_for_dummy;
     table->DrawSplitter->Split(table->InnerWindow->DrawList, channels_total);
     table->DummyDrawChannel = (ImGuiTableDrawChannelIdx)((channels_for_dummy > 0) ? channels_total - 1 : -1);
@@ -2372,26 +2372,24 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
     // Track which groups we are going to attempt to merge, and which channels goes into each group.
     struct MergeGroup
     {
-        ImRect          ClipRect;
-        int             ChannelsCount;
-        ImBitArrayPtr   ChannelsMask;
+        ImRect ClipRect;
+        int ChannelsCount;
+        std::vector<bool> ChannelsMask;
     };
     int merge_group_mask = 0x00;
     MergeGroup merge_groups[4] = {};
 
-    // Use a reusable temp buffer for the merge masks as they are dynamically sized.
     const int max_draw_channels = (4 + table->ColumnsCount * 2);
-    const int size_for_masks_bitarrays_one = (int)ImBitArrayGetStorageSizeInBytes(max_draw_channels);
-    g.TempBuffer.reserve(size_for_masks_bitarrays_one * 5);
-    memset(g.TempBuffer.Data, 0, size_for_masks_bitarrays_one * 5);
-    for (int n = 0; n < IM_ARRAYSIZE(merge_groups); n++)
-        merge_groups[n].ChannelsMask = (ImBitArrayPtr)(void*)(g.TempBuffer.Data + (size_for_masks_bitarrays_one * n));
-    ImBitArrayPtr remaining_mask = (ImBitArrayPtr)(void*)(g.TempBuffer.Data + (size_for_masks_bitarrays_one * 4));
+    for (auto& mg : merge_groups) {
+        mg.ChannelsMask.resize(max_draw_channels, false);
+    }
+
+    std::vector<bool> remaining_mask(max_draw_channels, false);
 
     // 1. Scan channels and take note of those which can be merged
     for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
     {
-        if (!IM_BITARRAY_TESTBIT(table->VisibleMaskByIndex, column_n))
+        if (!table->VisibleMaskByIndex[column_n])
             continue;
         ImGuiTableColumn* column = &table->Columns[column_n];
 
@@ -2427,7 +2425,7 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
             MergeGroup* merge_group = &merge_groups[merge_group_n];
             if (merge_group->ChannelsCount == 0)
                 merge_group->ClipRect = ImRect(+FLT_MAX, +FLT_MAX, -FLT_MAX, -FLT_MAX);
-            ImBitArraySetBit(merge_group->ChannelsMask, channel_no);
+            merge_group->ChannelsMask[channel_no] = true;
             merge_group->ChannelsCount++;
             merge_group->ClipRect.Add(src_channel->_CmdBuffer[0].Header.ClipRect);
             merge_group_mask |= (1 << merge_group_n);
@@ -2438,24 +2436,6 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
         column->DrawChannelCurrent = (ImGuiTableDrawChannelIdx)-1;
     }
 
-    // [DEBUG] Display merge groups
-#if 0
-    if (g.IO.KeyShift)
-        for (int merge_group_n = 0; merge_group_n < IM_ARRAYSIZE(merge_groups); merge_group_n++)
-        {
-            MergeGroup* merge_group = &merge_groups[merge_group_n];
-            if (merge_group->ChannelsCount == 0)
-                continue;
-            char buf[32];
-            ImFormatString(buf, 32, "MG%d:%d", merge_group_n, merge_group->ChannelsCount);
-            ImVec2 text_pos = merge_group->ClipRect.Min + ImVec2(4, 4);
-            ImVec2 text_size = CalcTextSize(buf, NULL);
-            GetForegroundDrawList()->AddRectFilled(text_pos, text_pos + text_size, IM_COL32(0, 0, 0, 255));
-            GetForegroundDrawList()->AddText(text_pos, IM_COL32(255, 255, 0, 255), buf, NULL);
-            GetForegroundDrawList()->AddRect(merge_group->ClipRect.Min, merge_group->ClipRect.Max, IM_COL32(255, 255, 0, 255));
-        }
-#endif
-
     // 2. Rewrite channel list in our preferred order
     if (merge_group_mask != 0)
     {
@@ -2463,8 +2443,10 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
         const int LEADING_DRAW_CHANNELS = 2;
         g.DrawChannelsTempMergeBuffer.resize(splitter->_Count - LEADING_DRAW_CHANNELS); // Use shared temporary storage so the allocation gets amortized
         ImDrawChannel* dst_tmp = g.DrawChannelsTempMergeBuffer.Data;
-        ImBitArraySetBitRange(remaining_mask, LEADING_DRAW_CHANNELS, splitter->_Count);
-        ImBitArrayClearBit(remaining_mask, table->Bg2DrawChannelUnfrozen);
+        for (int ch = LEADING_DRAW_CHANNELS; ch < splitter->_Count; ++ch) {
+            remaining_mask[ch] = true;
+        }
+        remaining_mask[table->Bg2DrawChannelUnfrozen] = false;
         IM_ASSERT(has_freeze_v == false || table->Bg2DrawChannelUnfrozen != TABLE_DRAW_CHANNEL_BG2_FROZEN);
         int remaining_count = splitter->_Count - (has_freeze_v ? LEADING_DRAW_CHANNELS + 1 : LEADING_DRAW_CHANNELS);
         //ImRect host_rect = (table->InnerWindow == table->OuterWindow) ? table->InnerClipRect : table->HostClipRect;
@@ -2491,20 +2473,19 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
                     merge_clip_rect.Max.x = ImMax(merge_clip_rect.Max.x, host_rect.Max.x);
                 if ((merge_group_n & 2) != 0 && (table->Flags & ImGuiTableFlags_NoHostExtendY) == 0)
                     merge_clip_rect.Max.y = ImMax(merge_clip_rect.Max.y, host_rect.Max.y);
-#if 0
-                GetOverlayDrawList()->AddRect(merge_group->ClipRect.Min, merge_group->ClipRect.Max, IM_COL32(255, 0, 0, 200), 0.0f, 0, 1.0f);
-                GetOverlayDrawList()->AddLine(merge_group->ClipRect.Min, merge_clip_rect.Min, IM_COL32(255, 100, 0, 200));
-                GetOverlayDrawList()->AddLine(merge_group->ClipRect.Max, merge_clip_rect.Max, IM_COL32(255, 100, 0, 200));
-#endif
+
                 remaining_count -= merge_group->ChannelsCount;
-                for (int n = 0; n < (size_for_masks_bitarrays_one >> 2); n++)
-                    remaining_mask[n] &= ~merge_group->ChannelsMask[n];
+
+                for (size_t n = 0; n < remaining_mask.size(); ++n) {
+                    remaining_mask[n] = remaining_mask[n] && !merge_group->ChannelsMask[n];
+                }
+
                 for (int n = 0; n < splitter->_Count && merge_channels_count != 0; n++)
                 {
                     // Copy + overwrite new clip rect
-                    if (!IM_BITARRAY_TESTBIT(merge_group->ChannelsMask, n))
+                    if (!merge_group->ChannelsMask[n])
                         continue;
-                    IM_BITARRAY_CLEARBIT(merge_group->ChannelsMask, n);
+                    merge_group->ChannelsMask[n] = false;
                     merge_channels_count--;
 
                     ImDrawChannel* channel = &splitter->_Channels[n];
@@ -2522,7 +2503,7 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
         // Append unmergeable channels that we didn't reorder at the end of the list
         for (int n = 0; n < splitter->_Count && remaining_count != 0; n++)
         {
-            if (!IM_BITARRAY_TESTBIT(remaining_mask, n))
+            if (!remaining_mask[n])
                 continue;
             ImDrawChannel* channel = &splitter->_Channels[n];
             memcpy(dst_tmp++, channel, sizeof(ImDrawChannel));
@@ -2554,7 +2535,7 @@ void ImGui::TableDrawBorders(ImGuiTable* table)
     {
         for (int order_n = 0; order_n < table->ColumnsCount; order_n++)
         {
-            if (!IM_BITARRAY_TESTBIT(table->EnabledMaskByDisplayOrder, order_n))
+            if (!table->EnabledMaskByDisplayOrder[order_n])
                 continue;
 
             const int column_n = table->DisplayOrderToIndex[order_n];
