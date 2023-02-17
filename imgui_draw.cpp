@@ -444,10 +444,10 @@ void ImDrawList::AddDrawCmd()
 // Note that this leaves the ImDrawList in a state unfit for further commands, as most code assume that CmdBuffer.Size > 0 && CmdBuffer.back().UserCallback == NULL
 void ImDrawList::_PopUnusedDrawCmd()
 {
-    while (CmdBuffer.Size > 0)
+    while (CmdBuffer.size() > 0)
     {
-        ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
-        if (curr_cmd->ElemCount != 0 || curr_cmd->UserCallback != NULL)
+        ImDrawCmd& curr_cmd = CmdBuffer.back();
+        if (curr_cmd.ElemCount != 0 || curr_cmd.UserCallback != NULL)
             return;// break;
         CmdBuffer.pop_back();
     }
@@ -456,12 +456,12 @@ void ImDrawList::_PopUnusedDrawCmd()
 void ImDrawList::AddCallback(ImDrawCallback callback, void* callback_data)
 {
     IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    ImDrawCmd* curr_cmd = &CmdBuffer.back();
     IM_ASSERT(curr_cmd->UserCallback == NULL);
     if (curr_cmd->ElemCount != 0)
     {
         AddDrawCmd();
-        curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+        curr_cmd = &CmdBuffer.back();
     }
     curr_cmd->UserCallback = callback;
     curr_cmd->UserCallbackData = callback_data;
@@ -476,8 +476,8 @@ static bool ImDrawCmd_AreSequentialIdxOffset(const ImDrawCmd* cmd0, const ImDraw
 // Try to merge two last draw commands
 void ImDrawList::_TryMergeDrawCmds()
 {
-    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
+    ImDrawCmd* curr_cmd = &CmdBuffer.back();
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (curr_cmd->Header == prev_cmd->Header
         && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
@@ -494,8 +494,8 @@ void ImDrawList::_TryMergeDrawCmds()
 void ImDrawList::_OnChangedClipRect()
 {
     // If current command is used with different settings we need to add a new command
-    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
+    ImDrawCmd* curr_cmd = &CmdBuffer.back();
     if (curr_cmd->ElemCount != 0 && curr_cmd->Header.ClipRect != _CmdHeader.ClipRect)
     {
         AddDrawCmd();
@@ -506,7 +506,7 @@ void ImDrawList::_OnChangedClipRect()
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (curr_cmd->ElemCount == 0
-        && CmdBuffer.Size > 1
+        && CmdBuffer.size() > 1
         && _CmdHeader == prev_cmd->Header
         && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
         && prev_cmd->UserCallback == NULL)
@@ -521,8 +521,8 @@ void ImDrawList::_OnChangedClipRect()
 void ImDrawList::_OnChangedTextureID()
 {
     // If current command is used with different settings we need to add a new command
-    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
+    ImDrawCmd* curr_cmd = &CmdBuffer.back();
     if (curr_cmd->ElemCount != 0 && curr_cmd->Header.TextureId != _CmdHeader.TextureId)
     {
         AddDrawCmd();
@@ -533,7 +533,7 @@ void ImDrawList::_OnChangedTextureID()
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (curr_cmd->ElemCount == 0
-        && CmdBuffer.Size > 1
+        && CmdBuffer.size() > 1
         && _CmdHeader == prev_cmd->Header
         && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
         && prev_cmd->UserCallback == NULL)
@@ -549,8 +549,8 @@ void ImDrawList::_OnChangedVtxOffset()
 {
     // We don't need to compare curr_cmd->VtxOffset != _CmdHeader.VtxOffset because we know it'll be different at the time we call this.
     _VtxCurrentIdx = 0;
-    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
+    ImDrawCmd* curr_cmd = &CmdBuffer.back();
     //IM_ASSERT(curr_cmd->VtxOffset != _CmdHeader.VtxOffset); // See #3349
     if (curr_cmd->ElemCount != 0)
     {
@@ -633,7 +633,7 @@ void ImDrawList::PrimReserve(int idx_count, int vtx_count)
         _OnChangedVtxOffset();
     }
 
-    ImDrawCmd* draw_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    ImDrawCmd* draw_cmd = &CmdBuffer.back();
     draw_cmd->ElemCount += idx_count;
 
     int vtx_buffer_old_size = VtxBuffer.Size;
@@ -650,7 +650,7 @@ void ImDrawList::PrimUnreserve(int idx_count, int vtx_count)
 {
     IM_ASSERT_PARANOID(idx_count >= 0 && vtx_count >= 0);
 
-    ImDrawCmd* draw_cmd = &CmdBuffer.Data[CmdBuffer.Size - 1];
+    ImDrawCmd* draw_cmd = &CmdBuffer.back();
     draw_cmd->ElemCount -= idx_count;
     VtxBuffer.shrink(VtxBuffer.Size - vtx_count);
     IdxBuffer.shrink(IdxBuffer.Size - idx_count);
@@ -1650,8 +1650,10 @@ void ImDrawListSplitter::ClearFreeMemory()
 {
     for (int i = 0; i < _Channels.Size; i++)
     {
-        if (i == _Current)
-            memset(&_Channels[i], 0, sizeof(_Channels[i]));  // Current channel is a copy of CmdBuffer/IdxBuffer, don't destruct again
+        if (i == _Current) {
+            // Current channel is a copy of CmdBuffer/IdxBuffer, don't destruct again
+            memset(&_Channels[i], 0, sizeof(_Channels[i]));
+        }
         _Channels[i]._CmdBuffer.clear();
         _Channels[i]._IdxBuffer.clear();
     }
@@ -1707,10 +1709,13 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
     for (int i = 1; i < _Count; i++)
     {
         ImDrawChannel& ch = _Channels[i];
-        if (ch._CmdBuffer.Size > 0 && ch._CmdBuffer.back().ElemCount == 0 && ch._CmdBuffer.back().UserCallback == NULL) // Equivalent of PopUnusedDrawCmd()
-            ch._CmdBuffer.pop_back();
 
-        if (ch._CmdBuffer.Size > 0 && last_cmd != NULL)
+        // Equivalent of PopUnusedDrawCmd()
+        if (ch._CmdBuffer.size() > 0 && ch._CmdBuffer.back().ElemCount == 0 && ch._CmdBuffer.back().UserCallback == NULL) {
+            ch._CmdBuffer.pop_back();
+        }
+
+        if (ch._CmdBuffer.size() > 0 && last_cmd != NULL)
         {
             // Do not include ImDrawCmd_AreSequentialIdxOffset() in the compare as we rebuild IdxOffset values ourselves.
             // Manipulating IdxOffset (e.g. by reordering draw commands like done by RenderDimmedBackgroundBehindWindow()) is not supported within a splitter.
@@ -1722,11 +1727,12 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
                 // Merge previous channel last draw command with current channel first draw command if matching.
                 last_cmd->ElemCount += next_cmd->ElemCount;
                 idx_offset += next_cmd->ElemCount;
-                ch._CmdBuffer.erase(ch._CmdBuffer.Data); // FIXME-OPT: Improve for multiple merges.
+                ch._CmdBuffer.erase(ch._CmdBuffer.begin()); // FIXME-OPT: Improve for multiple merges.
             }
         }
-        if (ch._CmdBuffer.Size > 0)
+        if (ch._CmdBuffer.size() > 0) {
             last_cmd = &ch._CmdBuffer.back();
+        }
         new_cmd_buffer_count += ch._CmdBuffer.Size;
         new_idx_buffer_count += ch._IdxBuffer.Size;
         for (auto& cmd : ch._CmdBuffer) {
@@ -1734,17 +1740,23 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
             idx_offset += cmd.ElemCount;
         }
     }
-    draw_list->CmdBuffer.resize(draw_list->CmdBuffer.Size + new_cmd_buffer_count);
-    draw_list->IdxBuffer.resize(draw_list->IdxBuffer.Size + new_idx_buffer_count);
+    draw_list->CmdBuffer.resize(draw_list->CmdBuffer.size() + new_cmd_buffer_count);
+    draw_list->IdxBuffer.resize(draw_list->IdxBuffer.size() + new_idx_buffer_count);
 
     // Write commands and indices in order (they are fairly small structures, we don't copy vertices only indices)
-    ImDrawCmd* cmd_write = draw_list->CmdBuffer.Data + draw_list->CmdBuffer.Size - new_cmd_buffer_count;
-    ImDrawIdx* idx_write = draw_list->IdxBuffer.Data + draw_list->IdxBuffer.Size - new_idx_buffer_count;
+    ImDrawCmd* cmd_write = draw_list->CmdBuffer.data() + draw_list->CmdBuffer.size() - new_cmd_buffer_count;
+    ImDrawIdx* idx_write = draw_list->IdxBuffer.data() + draw_list->IdxBuffer.size() - new_idx_buffer_count;
     for (int i = 1; i < _Count; i++)
     {
         ImDrawChannel& ch = _Channels[i];
-        if (int sz = ch._CmdBuffer.Size) { memcpy(cmd_write, ch._CmdBuffer.Data, sz * sizeof(ImDrawCmd)); cmd_write += sz; }
-        if (int sz = ch._IdxBuffer.Size) { memcpy(idx_write, ch._IdxBuffer.Data, sz * sizeof(ImDrawIdx)); idx_write += sz; }
+        if (int sz = ch._CmdBuffer.size()) {
+            memcpy(cmd_write, ch._CmdBuffer.data(), sz * sizeof(ImDrawCmd));
+            cmd_write += sz;
+        }
+        if (int sz = ch._IdxBuffer.size()) {
+            memcpy(idx_write, ch._IdxBuffer.data(), sz * sizeof(ImDrawIdx));
+            idx_write += sz;
+        }
     }
     draw_list->_IdxWritePtr = idx_write;
 
@@ -1781,7 +1793,7 @@ void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
     draw_list->_IdxWritePtr = draw_list->IdxBuffer.Data + draw_list->IdxBuffer.Size;
 
     // If current command is used with different settings we need to add a new command
-    ImDrawCmd* curr_cmd = (draw_list->CmdBuffer.Size == 0) ? NULL : &draw_list->CmdBuffer.Data[draw_list->CmdBuffer.Size - 1];
+    ImDrawCmd* curr_cmd = (draw_list->CmdBuffer.size() == 0) ? NULL : &draw_list->CmdBuffer.back();
     if (curr_cmd == NULL) {
         draw_list->AddDrawCmd();
     } else if (curr_cmd->ElemCount == 0) {
@@ -3655,7 +3667,7 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
     // Give back unused vertices (clipped ones, blanks) ~ this is essentially a PrimUnreserve() action.
     draw_list->VtxBuffer.Size = (int)(vtx_write - draw_list->VtxBuffer.Data); // Same as calling shrink()
     draw_list->IdxBuffer.Size = (int)(idx_write - draw_list->IdxBuffer.Data);
-    draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 1].ElemCount -= (idx_expected_size - draw_list->IdxBuffer.Size);
+    draw_list->CmdBuffer.back().ElemCount -= (idx_expected_size - draw_list->IdxBuffer.Size);
     draw_list->_VtxWritePtr = vtx_write;
     draw_list->_IdxWritePtr = idx_write;
     draw_list->_VtxCurrentIdx = vtx_index;

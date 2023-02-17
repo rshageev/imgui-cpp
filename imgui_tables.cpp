@@ -2400,10 +2400,16 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
 
             // Don't attempt to merge if there are multiple draw calls within the column
             ImDrawChannel* src_channel = &splitter->_Channels[channel_no];
-            if (src_channel->_CmdBuffer.Size > 0 && src_channel->_CmdBuffer.back().ElemCount == 0 && src_channel->_CmdBuffer.back().UserCallback == NULL) // Equivalent of PopUnusedDrawCmd()
+            // Equivalent of PopUnusedDrawCmd()
+            if (src_channel->_CmdBuffer.size() > 0
+                && src_channel->_CmdBuffer.back().ElemCount == 0
+                && src_channel->_CmdBuffer.back().UserCallback == nullptr)
+            {
                 src_channel->_CmdBuffer.pop_back();
-            if (src_channel->_CmdBuffer.Size != 1)
+            }
+            if (src_channel->_CmdBuffer.size() != 1) {
                 continue;
+            }
 
             // Find out the width of this merge group and check if it will fit in our column
             // (note that we assume that rendering didn't stray on the left direction. we should need a CursorMinPos to detect it)
@@ -2490,7 +2496,7 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
                     merge_channels_count--;
 
                     ImDrawChannel* channel = &splitter->_Channels[n];
-                    IM_ASSERT(channel->_CmdBuffer.Size == 1 && merge_clip_rect.Contains(ImRect(channel->_CmdBuffer[0].Header.ClipRect)));
+                    IM_ASSERT(channel->_CmdBuffer.size() == 1 && merge_clip_rect.Contains(ImRect(channel->_CmdBuffer[0].Header.ClipRect)));
                     channel->_CmdBuffer[0].Header.ClipRect = merge_clip_rect.ToVec4();
                     memcpy(dst_tmp++, channel, sizeof(ImDrawChannel));
                 }

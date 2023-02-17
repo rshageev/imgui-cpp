@@ -1803,12 +1803,15 @@ void ImGui::EndComboPreview()
 
     // FIXME: Using CursorMaxPos approximation instead of correct AABB which we will store in ImDrawCmd in the future
     ImDrawList* draw_list = window->DrawList;
-    if (window->DC.CursorMaxPos.x < preview_data->PreviewRect.Max.x && window->DC.CursorMaxPos.y < preview_data->PreviewRect.Max.y)
-        if (draw_list->CmdBuffer.Size > 1) // Unlikely case that the PushClipRect() didn't create a command
+    if (window->DC.CursorMaxPos.x < preview_data->PreviewRect.Max.x
+        && window->DC.CursorMaxPos.y < preview_data->PreviewRect.Max.y)
+    {
+        if (draw_list->CmdBuffer.size() > 1) // Unlikely case that the PushClipRect() didn't create a command
         {
-            draw_list->_CmdHeader.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 1].Header.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.Size - 2].Header.ClipRect;
+            draw_list->_CmdHeader.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.size() - 1].Header.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.size() - 2].Header.ClipRect;
             draw_list->_TryMergeDrawCmds();
         }
+    }
     PopClipRect();
     window->DC.CursorPos = preview_data->BackupCursorPos;
     window->DC.CursorMaxPos = ImMax(window->DC.CursorMaxPos, preview_data->BackupCursorMaxPos);

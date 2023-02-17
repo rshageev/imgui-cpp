@@ -5332,7 +5332,7 @@ static void ShowDemoWindowTables()
         }
 
         const ImDrawList* parent_draw_list = ImGui::GetWindowDrawList();
-        const int parent_draw_list_draw_cmd_count = parent_draw_list->CmdBuffer.Size;
+        const int parent_draw_list_draw_cmd_count = parent_draw_list->CmdBuffer.size();
         ImVec2 table_scroll_cur, table_scroll_max; // For debug display
         const ImDrawList* table_draw_list = NULL;  // "
 
@@ -5473,7 +5473,7 @@ static void ShowDemoWindowTables()
         if (show_debug_details && table_draw_list)
         {
             ImGui::SameLine(0.0f, 0.0f);
-            const int table_draw_list_draw_cmd_count = table_draw_list->CmdBuffer.Size;
+            const int table_draw_list_draw_cmd_count = table_draw_list->CmdBuffer.size();
             if (table_draw_list == parent_draw_list)
                 ImGui::Text(": DrawCmd: +%d (in same window)",
                     table_draw_list_draw_cmd_count - parent_draw_list_draw_cmd_count);

@@ -3432,10 +3432,16 @@ static void AddWindowToSortBuffer(std::vector<ImGuiWindow*>& out_sorted_windows,
 
 static void AddDrawListToDrawData(std::vector<ImDrawList*>& out_list, ImDrawList* draw_list)
 {
-    if (draw_list->CmdBuffer.Size == 0)
+    if (draw_list->CmdBuffer.empty()) {
         return;
-    if (draw_list->CmdBuffer.Size == 1 && draw_list->CmdBuffer[0].ElemCount == 0 && draw_list->CmdBuffer[0].UserCallback == NULL)
+    }
+
+    if (draw_list->CmdBuffer.size() == 1
+        && draw_list->CmdBuffer[0].ElemCount == 0
+        && draw_list->CmdBuffer[0].UserCallback == nullptr)
+    {
         return;
+    }
 
     // Draw list sanity check. Detect mismatch between PrimReserve() calls and incrementing _VtxCurrentIdx, _VtxWritePtr etc.
     // May trigger for you if you are using PrimXXX functions incorrectly.
@@ -3552,8 +3558,9 @@ static void ImGui::RenderDimmedBackgroundBehindWindow(ImGuiWindow* window, ImU32
         // and draw list have been trimmed already, hence the explicit recreation of a draw command if missing.
         // FIXME: This is creating complication, might be simpler if we could inject a drawlist in drawdata at a given position and not attempt to manipulate ImDrawCmd order.
         ImDrawList* draw_list = window->RootWindow->DrawList;
-        if (draw_list->CmdBuffer.Size == 0)
+        if (draw_list->CmdBuffer.empty()) {
             draw_list->AddDrawCmd();
+        }
         draw_list->PushClipRect(viewport_rect.Min - ImVec2(1, 1), viewport_rect.Max + ImVec2(1, 1), false); // Ensure ImDrawCmd are not merged
         draw_list->AddRectFilled(viewport_rect.Min, viewport_rect.Max, col);
         ImDrawCmd cmd = draw_list->CmdBuffer.back();
@@ -3617,8 +3624,9 @@ static void ImGui::RenderDimmedBackgrounds()
         bb.Expand(distance);
         if (bb.GetWidth() >= viewport->Size.x && bb.GetHeight() >= viewport->Size.y)
             bb.Expand(-distance - 1.0f); // If a window fits the entire viewport, adjust its highlight inward
-        if (window->DrawList->CmdBuffer.Size == 0)
+        if (window->DrawList->CmdBuffer.empty()) {
             window->DrawList->AddDrawCmd();
+        }
         window->DrawList->PushClipRect(viewport->Pos, viewport->Pos + viewport->Size);
         window->DrawList->AddRect(bb.Min, bb.Max, GetColorU32(ImGuiCol_NavWindowingHighlight, g.NavWindowingHighlightAlpha), window->WindowRounding, 0, 3.0f);
         window->DrawList->PopClipRect();
@@ -5311,7 +5319,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         // DRAWING
 
         // Setup draw list and outer clipping rectangle
-        IM_ASSERT(window->DrawList->CmdBuffer.Size == 1 && window->DrawList->CmdBuffer[0].ElemCount == 0);
+        IM_ASSERT(window->DrawList->CmdBuffer.size() == 1 && window->DrawList->CmdBuffer[0].ElemCount == 0);
         window->DrawList->PushTextureID(g.Font->ContainerAtlas->TexID);
         PushClipRect(host_rect.Min, host_rect.Max, false);
 
@@ -5327,11 +5335,13 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
                 ImGuiWindow* previous_child = parent_window->DC.ChildWindows.size() >= 2 ? parent_window->DC.ChildWindows[parent_window->DC.ChildWindows.size() - 2] : NULL;
                 bool previous_child_overlapping = previous_child ? previous_child->Rect().Overlaps(window->Rect()) : false;
                 bool parent_is_empty = parent_window->DrawList->VtxBuffer.Size > 0;
-                if (window->DrawList->CmdBuffer.back().ElemCount == 0 && parent_is_empty && !previous_child_overlapping)
+                if (window->DrawList->CmdBuffer.back().ElemCount == 0 && parent_is_empty && !previous_child_overlapping) {
                     render_decorations_in_parent = true;
+                }
             }
-            if (render_decorations_in_parent)
+            if (render_decorations_in_parent) {
                 window->DrawList = parent_window->DrawList;
+            }
 
             // Handle title bar, scrollbar, resize grips and resize borders
             const ImGuiWindow* window_to_highlight = g.NavWindowingTarget ? g.NavWindowingTarget : g.NavWindow;
@@ -12468,9 +12478,13 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
 {
     ImGuiContext& g = *GImGui;
     ImGuiMetricsConfig* cfg = &g.DebugMetricsConfig;
-    int cmd_count = draw_list->CmdBuffer.Size;
-    if (cmd_count > 0 && draw_list->CmdBuffer.back().ElemCount == 0 && draw_list->CmdBuffer.back().UserCallback == NULL)
+    int cmd_count = draw_list->CmdBuffer.size();
+    if (cmd_count > 0
+        && draw_list->CmdBuffer.back().ElemCount == 0
+        && draw_list->CmdBuffer.back().UserCallback == nullptr)
+    {
         cmd_count--;
+    }
     bool node_open = TreeNode(draw_list, "%s: '%s' %d vtx, %d indices, %d cmds", label, draw_list->_OwnerName ? draw_list->_OwnerName : "", draw_list->VtxBuffer.Size, draw_list->IdxBuffer.Size, cmd_count);
     if (draw_list == GetWindowDrawList())
     {

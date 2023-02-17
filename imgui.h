@@ -1708,6 +1708,7 @@ struct ImVector
 
     bool empty() const { return Size == 0; }
     int size() const { return Size; }
+    T* data() { return Data; }
     int size_in_bytes() const { return Size * (int)sizeof(T); }
     int capacity() const { return Capacity; }
     T& operator[](int i) { IM_ASSERT(i >= 0 && i < Size); return Data[i]; }
