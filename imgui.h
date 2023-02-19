@@ -2112,7 +2112,7 @@ struct ImGuiIO
     ImS8 BackendUsingLegacyKeyArrays = -1;       // -1: unknown, 0: using AddKeyEvent(), 1: using legacy io.KeysDown[]
     bool BackendUsingLegacyNavInputArray = true; // 0: using AddKeyAnalogEvent(), 1: writing to legacy io.NavInputs[] directly
     ImWchar16 InputQueueSurrogate = 0;           // For AddInputCharacterUTF16()
-    ImVector<ImWchar> InputQueueCharacters;      // Queue of _characters_ input (obtained by platform backend). Fill using AddInputCharacter() helper.
+    std::vector<ImWchar> InputQueueCharacters;      // Queue of _characters_ input (obtained by platform backend). Fill using AddInputCharacter() helper.
 
     ImGuiIO();
 };

@@ -437,7 +437,7 @@ void ImGuiIO::AddInputCharactersUTF8(const char* utf8_chars)
 // FIXME: Perhaps we could clear queued events as well?
 void ImGuiIO::ClearInputCharacters()
 {
-    InputQueueCharacters.resize(0);
+    InputQueueCharacters.clear();
 }
 
 // FIXME: Perhaps we could clear queued events as well?
@@ -3712,7 +3712,7 @@ void ImGui::EndFrame()
     // Clear Input data for next frame
     g.IO.AppFocusLost = false;
     g.IO.MouseWheel = g.IO.MouseWheelH = 0.0f;
-    g.IO.InputQueueCharacters.resize(0);
+    g.IO.InputQueueCharacters.clear();
 
     CallContextHooks(&g, ImGuiContextHookType_EndFramePost);
 }
@@ -10467,8 +10467,9 @@ static void ImGui::NavUpdateWindowing()
         // We cancel toggling nav layer when any text has been typed (generally while holding Alt). (See #370)
         // We cancel toggling nav layer when other modifiers are pressed. (See #4439)
         // We cancel toggling nav layer if an owner has claimed the key.
-        if (io.InputQueueCharacters.Size > 0 || io.KeyCtrl || io.KeyShift || io.KeySuper || TestKeyOwner(ImGuiMod_Alt, ImGuiKeyOwner_None) == false)
+        if (io.InputQueueCharacters.size() > 0 || io.KeyCtrl || io.KeyShift || io.KeySuper || TestKeyOwner(ImGuiMod_Alt, ImGuiKeyOwner_None) == false) {
             g.NavWindowingToggleLayer = false;
+        }
 
         // Apply layer toggle on release
         // Important: as before version <18314 we lacked an explicit IO event for focus gain/loss, we also compare mouse validity to detect old backends clearing mouse pos on focus loss.

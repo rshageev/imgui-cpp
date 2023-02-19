@@ -4277,21 +4277,23 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
 
         // Process regular text input (before we check for Return because using some IME will effectively send a Return?)
         // We ignore CTRL inputs, but need to allow ALT+CTRL as some keyboards (e.g. German) use AltGR (which _is_ Alt+Ctrl) to input certain characters.
-        if (io.InputQueueCharacters.Size > 0)
+        if (io.InputQueueCharacters.size() > 0)
         {
             if (!ignore_char_inputs && !is_readonly && !input_requested_by_nav)
-                for (int n = 0; n < io.InputQueueCharacters.Size; n++)
+            {
+                for (ImWchar ch : io.InputQueueCharacters)
                 {
                     // Insert character if they pass filtering
-                    unsigned int c = (unsigned int)io.InputQueueCharacters[n];
+                    auto c = static_cast<unsigned int>(ch);
                     if (c == '\t') // Skip Tab, see above.
                         continue;
                     if (InputTextFilterCharacter(&c, flags, callback, callback_user_data, ImGuiInputSource_Keyboard))
                         state->OnKeyPressed((int)c);
                 }
+            }
 
             // Consume characters
-            io.InputQueueCharacters.resize(0);
+            io.InputQueueCharacters.clear();
         }
     }
 
