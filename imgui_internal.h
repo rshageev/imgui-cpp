@@ -1501,7 +1501,7 @@ struct ImGuiOldColumns
 struct ImGuiViewportP : public ImGuiViewport
 {
     int DrawListsLastFrame[2] = { -1, -1 };  // Last frame number the background (0) and foreground (1) draw lists were used
-    ImDrawList* DrawLists[2] = { nullptr, nullptr }; // Convenience background (0) and foreground (1) draw lists. We use them to draw software mouser cursor when io.MouseDrawCursor is set and to draw most debug overlays.
+    std::unique_ptr<ImDrawList> DrawLists[2]; // Convenience background (0) and foreground (1) draw lists. We use them to draw software mouser cursor when io.MouseDrawCursor is set and to draw most debug overlays.
     ImDrawData DrawDataP;
     ImDrawDataBuilder DrawDataBuilder;
 
@@ -1510,12 +1510,7 @@ struct ImGuiViewportP : public ImGuiViewport
     ImVec2 BuildWorkOffsetMin;     // Work Area: Offset being built during current frame. Generally >= 0.0f.
     ImVec2 BuildWorkOffsetMax;     // Work Area: Offset being built during current frame. Generally <= 0.0f.
 
-    ImGuiViewportP() = default;
-    ~ImGuiViewportP() {
-        if (DrawLists[0]) IM_DELETE(DrawLists[0]);
-        if (DrawLists[1]) IM_DELETE(DrawLists[1]);
-    }
-
+ 
     // Calculate work rect pos/size given a set of offset (we have 1 pair of offset for rect locked from last frame data, and 1 pair for currently building rect)
     ImVec2 CalcWorkRectPos(const ImVec2& off_min) const {
         return ImVec2(Pos.x + off_min.x, Pos.y + off_min.y);
