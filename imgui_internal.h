@@ -1857,7 +1857,7 @@ struct ImGuiContext
     ImGuiTabBar* CurrentTabBar = nullptr;
     ImPool<ImGuiTabBar> TabBars;
     ImVector<ImGuiPtrOrIndex> CurrentTabBarStack; // pointers or indices into TabBars
-    ImVector<ImGuiShrinkWidthItem> ShrinkWidthBuffer;
+    std::vector<ImGuiShrinkWidthItem> ShrinkWidthBuffer;
 
     // Hover Delay system
     ImGuiID HoverDelayId = 0;
@@ -2596,7 +2596,7 @@ namespace ImGui
     void PushMultiItemsWidths(int components, float width_full);
     bool IsItemToggledSelection(); // Was the last item selection toggled? (after Selectable(), TreeNode() etc. We only returns toggle _event_ in order to handle clipping correctly)
     ImVec2 GetContentRegionMaxAbs();
-    void ShrinkWidths(ImGuiShrinkWidthItem* items, int count, float width_excess);
+    void ShrinkWidths(std::span<ImGuiShrinkWidthItem> items, float width_excess);
 
     // Parameter stacks (shared)
     void PushItemFlag(ImGuiItemFlags option, bool enabled);

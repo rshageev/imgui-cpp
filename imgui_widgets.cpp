@@ -728,7 +728,6 @@ bool ImGui::SmallButton(const char* label)
 // Then you can keep 'str_id' empty or the same for all your buttons (instead of creating a string based on a non-string id)
 bool ImGui::InvisibleButton(const char* str_id, const ImVec2& size_arg, ImGuiButtonFlags flags)
 {
-    ImGuiContext& g = *GImGui;
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
         return false;
@@ -1550,56 +1549,68 @@ bool ImGui::SplitterBehavior(const ImRect& bb, ImGuiID id, ImGuiAxis axis, float
     return held;
 }
 
-static int IMGUI_CDECL ShrinkWidthItemComparer(const void* lhs, const void* rhs)
+static bool ShrinkWidthItemCmp(const ImGuiShrinkWidthItem& lhs, const ImGuiShrinkWidthItem& rhs)
 {
-    const ImGuiShrinkWidthItem* a = (const ImGuiShrinkWidthItem*)lhs;
-    const ImGuiShrinkWidthItem* b = (const ImGuiShrinkWidthItem*)rhs;
-    if (int d = (int)(b->Width - a->Width))
-        return d;
-    return (b->Index - a->Index);
+    if (lhs.Width != rhs.Width) {
+        return lhs.Width > rhs.Width;
+    }
+    return lhs.Index > lhs.Index;
 }
 
 // Shrink excess width from a set of item, by removing width from the larger items first.
 // Set items Width to -1.0f to disable shrinking this item.
-void ImGui::ShrinkWidths(ImGuiShrinkWidthItem* items, int count, float width_excess)
+void ImGui::ShrinkWidths(std::span<ImGuiShrinkWidthItem> items, float width_excess)
 {
-    if (count == 1)
+    if (items.size() == 1)
     {
-        if (items[0].Width >= 0.0f)
-            items[0].Width = ImMax(items[0].Width - width_excess, 1.0f);
+        if (items[0].Width >= 0.0f) {
+            items[0].Width = std::max(items[0].Width - width_excess, 1.0f);
+        }
         return;
     }
-    ImQsort(items, (size_t)count, sizeof(ImGuiShrinkWidthItem), ShrinkWidthItemComparer);
+
+    stdr::sort(items, ShrinkWidthItemCmp);
+
     int count_same_width = 1;
-    while (width_excess > 0.0f && count_same_width < count)
+    while (width_excess > 0.0f && count_same_width < items.size())
     {
-        while (count_same_width < count && items[0].Width <= items[count_same_width].Width)
+        while (count_same_width < items.size() && items[0].Width <= items[count_same_width].Width) {
             count_same_width++;
-        float max_width_to_remove_per_item = (count_same_width < count && items[count_same_width].Width >= 0.0f) ? (items[0].Width - items[count_same_width].Width) : (items[0].Width - 1.0f);
-        if (max_width_to_remove_per_item <= 0.0f)
+        }
+
+        float max_width_to_remove_per_item;
+        if (count_same_width < items.size() && items[count_same_width].Width >= 0.0f) {
+            max_width_to_remove_per_item = (items[0].Width - items[count_same_width].Width);
+        } else {
+            max_width_to_remove_per_item = (items[0].Width - 1.0f);
+        }
+        if (max_width_to_remove_per_item <= 0.0f) {
             break;
-        float width_to_remove_per_item = ImMin(width_excess / count_same_width, max_width_to_remove_per_item);
-        for (int item_n = 0; item_n < count_same_width; item_n++)
+        }
+
+        float width_to_remove_per_item = std::min(width_excess / count_same_width, max_width_to_remove_per_item);
+        for (int item_n = 0; item_n < count_same_width; item_n++) {
             items[item_n].Width -= width_to_remove_per_item;
+        }
         width_excess -= width_to_remove_per_item * count_same_width;
     }
 
     // Round width and redistribute remainder
     // Ensure that e.g. the right-most tab of a shrunk tab-bar always reaches exactly at the same distance from the right-most edge of the tab bar separator.
     width_excess = 0.0f;
-    for (int n = 0; n < count; n++)
+    for (auto& item : items)
     {
-        float width_rounded = ImFloor(items[n].Width);
-        width_excess += items[n].Width - width_rounded;
-        items[n].Width = width_rounded;
+        float width_rounded = std::floor(item.Width);
+        width_excess += item.Width - width_rounded;
+        item.Width = width_rounded;
     }
-    while (width_excess > 0.0f)
-        for (int n = 0; n < count && width_excess > 0.0f; n++)
-        {
-            float width_to_add = ImMin(items[n].InitialWidth - items[n].Width, 1.0f);
-            items[n].Width += width_to_add;
-            width_excess -= width_to_add;
-        }
+
+    for (size_t n = 0; n < items.size() && width_excess > 0.0f; n++)
+    {
+        float width_to_add = std::min(items[n].InitialWidth - items[n].Width, 1.0f);
+        items[n].Width += width_to_add;
+        width_excess -= width_to_add;
+    }
 }
 
 //-------------------------------------------------------------------------
@@ -7329,7 +7340,7 @@ bool ImGui::MenuItem(const char* label, const char* shortcut, bool* p_selected, 
 
 struct ImGuiTabBarSection
 {
-    int TabCount = 0;     // Number of tabs in this section.
+    size_t TabCount = 0;     // Number of tabs in this section.
     float Width = 0.0f;   // Sum of width of tabs in this section (after shrinking down)
     float Spacing = 0.0f; // Horizontal spacing at the end of the section.
 };
@@ -7340,7 +7351,7 @@ namespace ImGui
     static ImU32            TabBarCalcTabID(ImGuiTabBar* tab_bar, const char* label, ImGuiWindow* docked_window);
     static float            TabBarCalcMaxTabWidth();
     static float            TabBarScrollClamp(ImGuiTabBar* tab_bar, float scrolling);
-    static void             TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, ImGuiTabBarSection* sections);
+    static void             TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, const std::array<ImGuiTabBarSection, 3>& sections);
     static ImGuiTabItem*    TabBarScrollingButtons(ImGuiTabBar* tab_bar);
     static ImGuiTabItem*    TabBarTabListPopupButton(ImGuiTabBar* tab_bar);
 }
@@ -7499,7 +7510,7 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
     // Detect if we need to sort out tab list (e.g. in rare case where a tab changed section)
     size_t tab_dst_n = 0;
     bool need_sort_by_section = false;
-    ImGuiTabBarSection sections[3]; // Layout sections: Leading, Central, Trailing
+    std::array<ImGuiTabBarSection, 3> sections; // Layout sections: Leading, Central, Trailing
     for (size_t tab_src_n = 0; tab_src_n < tab_bar->Tabs.size(); tab_src_n++)
     {
         ImGuiTabItem* tab = &tab_bar->Tabs[tab_src_n];
@@ -7542,8 +7553,14 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
     }
 
     // Calculate spacing between sections
-    sections[0].Spacing = sections[0].TabCount > 0 && (sections[1].TabCount + sections[2].TabCount) > 0 ? g.Style.ItemInnerSpacing.x : 0.0f;
-    sections[1].Spacing = sections[1].TabCount > 0 && sections[2].TabCount > 0 ? g.Style.ItemInnerSpacing.x : 0.0f;
+    sections[0].Spacing = 0.0f;
+    if (sections[0].TabCount > 0 && (sections[1].TabCount + sections[2].TabCount) > 0) {
+        sections[0].Spacing = g.Style.ItemInnerSpacing.x;
+    }
+    sections[1].Spacing = 0.0f;
+    if (sections[1].TabCount > 0 && sections[2].TabCount > 0) {
+        sections[1].Spacing = g.Style.ItemInnerSpacing.x;
+    }
 
     // Setup next selected tab
     ImGuiID scroll_to_tab_id = 0;
@@ -7571,7 +7588,7 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
 
     // Leading/Trailing tabs will be shrink only if central one aren't visible anymore, so layout the shrink data as: leading, trailing, central
     // (whereas our tabs are stored as: leading, central, trailing)
-    int shrink_buffer_indexes[3] = { 0, sections[0].TabCount + sections[2].TabCount, sections[0].TabCount };
+    size_t shrink_buffer_indexes[3] = { 0, sections[0].TabCount + sections[2].TabCount, sections[0].TabCount };
     g.ShrinkWidthBuffer.resize(tab_bar->Tabs.size());
 
     // Compute ideal tabs widths + store them into shrink buffer
@@ -7604,26 +7621,31 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
 
         // Store data so we can build an array sorted by width if we need to shrink tabs down
         IM_MSVC_WARNING_SUPPRESS(6385);
-        ImGuiShrinkWidthItem* shrink_width_item = &g.ShrinkWidthBuffer[shrink_buffer_indexes[section_n]++];
-        shrink_width_item->Index = tab_n;
-        shrink_width_item->Width = shrink_width_item->InitialWidth = tab->ContentWidth;
-        tab->Width = ImMax(tab->ContentWidth, 1.0f);
+        ImGuiShrinkWidthItem& shrink_width_item = g.ShrinkWidthBuffer[shrink_buffer_indexes[section_n]++];
+        shrink_width_item.Index = tab_n;
+        shrink_width_item.Width = shrink_width_item.InitialWidth = tab->ContentWidth;
+        tab->Width = std::max(tab->ContentWidth, 1.0f);
     }
 
     // Compute total ideal width (used for e.g. auto-resizing a window)
     tab_bar->WidthAllTabsIdeal = 0.0f;
-    for (int section_n = 0; section_n < 3; section_n++)
-        tab_bar->WidthAllTabsIdeal += sections[section_n].Width + sections[section_n].Spacing;
+    for (const auto& section : sections) {
+        tab_bar->WidthAllTabsIdeal += section.Width + section.Spacing;
+    }
 
     // Horizontal scrolling buttons
     // (note that TabBarScrollButtons() will alter BarRect.Max.x)
-    if ((tab_bar->WidthAllTabsIdeal > tab_bar->BarRect.GetWidth() && tab_bar->Tabs.size() > 1) && !(tab_bar->Flags & ImGuiTabBarFlags_NoTabListScrollingButtons) && (tab_bar->Flags & ImGuiTabBarFlags_FittingPolicyScroll))
+    if ((tab_bar->WidthAllTabsIdeal > tab_bar->BarRect.GetWidth() && tab_bar->Tabs.size() > 1)
+        && !(tab_bar->Flags & ImGuiTabBarFlags_NoTabListScrollingButtons)
+        && (tab_bar->Flags & ImGuiTabBarFlags_FittingPolicyScroll))
+    {
         if (ImGuiTabItem* scroll_and_select_tab = TabBarScrollingButtons(tab_bar))
         {
             scroll_to_tab_id = scroll_and_select_tab->ID;
             if ((scroll_and_select_tab->Flags & ImGuiTabItemFlags_Button) == 0)
                 tab_bar->SelectedTabId = scroll_to_tab_id;
         }
+    }
 
     // Shrink widths if full tabs don't fit in their allocated space
     float section_0_w = sections[0].Width + sections[0].Spacing;
@@ -7639,19 +7661,30 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
     // With ImGuiTabBarFlags_FittingPolicyScroll policy, we will only shrink leading/trailing if the central section is not visible anymore
     if (width_excess >= 1.0f && ((tab_bar->Flags & ImGuiTabBarFlags_FittingPolicyResizeDown) || !central_section_is_visible))
     {
-        int shrink_data_count = (central_section_is_visible ? sections[1].TabCount : sections[0].TabCount + sections[2].TabCount);
-        int shrink_data_offset = (central_section_is_visible ? sections[0].TabCount + sections[2].TabCount : 0);
-        ShrinkWidths(g.ShrinkWidthBuffer.Data + shrink_data_offset, shrink_data_count, width_excess);
+        std::span<ImGuiShrinkWidthItem> shrink_data;
+        if (central_section_is_visible) {
+            shrink_data = {
+                g.ShrinkWidthBuffer.data() + sections[0].TabCount + sections[2].TabCount,
+                sections[1].TabCount
+            };
+        } else {
+            shrink_data = {
+                g.ShrinkWidthBuffer.data(),
+                sections[0].TabCount + sections[2].TabCount
+            };
+        }
+
+        ShrinkWidths(shrink_data, width_excess);
 
         // Apply shrunk values into tabs and sections
-        for (int tab_n = shrink_data_offset; tab_n < shrink_data_offset + shrink_data_count; tab_n++)
+        for (const auto& item : shrink_data)
         {
-            ImGuiTabItem* tab = &tab_bar->Tabs[g.ShrinkWidthBuffer[tab_n].Index];
-            float shrinked_width = IM_FLOOR(g.ShrinkWidthBuffer[tab_n].Width);
+            ImGuiTabItem* tab = &tab_bar->Tabs[item.Index];
+            float shrinked_width = std::floor(item.Width);
             if (shrinked_width < 0.0f)
                 continue;
 
-            shrinked_width = ImMax(1.0f, shrinked_width);
+            shrinked_width = std::max(1.0f, shrinked_width);
             int section_n = TabItemGetSectionIdx(tab);
             sections[section_n].Width -= (tab->Width - shrinked_width);
             tab->Width = shrinked_width;
@@ -7659,25 +7692,26 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
     }
 
     // Layout all active tabs
-    int section_tab_index = 0;
+    size_t section_tab_index = 0;
     float tab_offset = 0.0f;
     tab_bar->WidthAllTabs = 0.0f;
-    for (int section_n = 0; section_n < 3; section_n++)
+    for (size_t section_n = 0; section_n < 3; section_n++)
     {
-        ImGuiTabBarSection* section = &sections[section_n];
-        if (section_n == 2)
-            tab_offset = ImMin(ImMax(0.0f, tab_bar->BarRect.GetWidth() - section->Width), tab_offset);
+        const auto& section = sections[section_n];
+        if (section_n == 2) {
+            tab_offset = std::min(std::max(0.0f, tab_bar->BarRect.GetWidth() - section.Width), tab_offset);
+        }
 
-        for (int tab_n = 0; tab_n < section->TabCount; tab_n++)
+        for (size_t tab_n = 0; tab_n < section.TabCount; tab_n++)
         {
             ImGuiTabItem* tab = &tab_bar->Tabs[section_tab_index + tab_n];
             tab->Offset = tab_offset;
             tab->NameOffset = -1;
-            tab_offset += tab->Width + (tab_n < section->TabCount - 1 ? g.Style.ItemInnerSpacing.x : 0.0f);
+            tab_offset += tab->Width + (tab_n < section.TabCount - 1 ? g.Style.ItemInnerSpacing.x : 0.0f);
         }
-        tab_bar->WidthAllTabs += ImMax(section->Width + section->Spacing, 0.0f);
-        tab_offset += section->Spacing;
-        section_tab_index += section->TabCount;
+        tab_bar->WidthAllTabs += std::max(section.Width + section.Spacing, 0.0f);
+        tab_offset += section.Spacing;
+        section_tab_index += section.TabCount;
     }
 
     // Clear name buffers
@@ -7694,8 +7728,9 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
     tab_bar->VisibleTabWasSubmitted = false;
 
     // Update scrolling
-    if (scroll_to_tab_id != 0)
+    if (scroll_to_tab_id != 0) {
         TabBarScrollToTab(tab_bar, scroll_to_tab_id, sections);
+    }
     tab_bar->ScrollingAnim = TabBarScrollClamp(tab_bar, tab_bar->ScrollingAnim);
     tab_bar->ScrollingTarget = TabBarScrollClamp(tab_bar, tab_bar->ScrollingTarget);
     if (tab_bar->ScrollingAnim != tab_bar->ScrollingTarget)
@@ -7803,7 +7838,7 @@ static float ImGui::TabBarScrollClamp(ImGuiTabBar* tab_bar, float scrolling)
 }
 
 // Note: we may scroll to tab that are not selected! e.g. using keyboard arrow keys
-static void ImGui::TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, ImGuiTabBarSection* sections)
+static void ImGui::TabBarScrollToTab(ImGuiTabBar* tab_bar, ImGuiID tab_id, const std::array<ImGuiTabBarSection, 3>& sections)
 {
     auto tab = stdr::find(tab_bar->Tabs, tab_id, &ImGuiTabItem::ID);
     if (tab == std::end(tab_bar->Tabs))
@@ -7955,7 +7990,8 @@ static ImGuiTabItem* ImGui::TabBarScrollingButtons(ImGuiTabBar* tab_bar)
             while (tab_to_scroll_to == NULL)
             {
                 // If we are at the end of the list, still scroll to make our tab visible
-                tab_to_scroll_to = &tab_bar->Tabs[(target_order >= 0 && target_order < tab_bar->Tabs.size()) ? target_order : selected_order];
+                const int tab_scroll_to_idx = (target_order >= 0 && target_order < tab_bar->Tabs.size()) ? target_order : selected_order;
+                tab_to_scroll_to = &tab_bar->Tabs[tab_scroll_to_idx];
 
                 // Cross through buttons
                 // (even if first/last item is a button, return it so we can update the scroll)

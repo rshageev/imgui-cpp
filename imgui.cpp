@@ -8714,10 +8714,13 @@ void ImGui::OpenPopupEx(ImGuiID id, ImGuiPopupFlags popup_flags)
     }
     else
     {
-        // Gently handle the user mistakenly calling OpenPopup() every frame. It is a programming mistake! However, if we were to run the regular code path, the ui
-        // would become completely unusable because the popup will always be in hidden-while-calculating-size state _while_ claiming focus. Which would be a very confusing
-        // situation for the programmer. Instead, we silently allow the popup to proceed, it will keep reappearing and the programming error will be more obvious to understand.
-        if (g.OpenPopupStack[current_stack_size].PopupId == id && g.OpenPopupStack[current_stack_size].OpenFrameCount == g.FrameCount - 1)
+        // Gently handle the user mistakenly calling OpenPopup() every frame. It is a programming mistake!
+        // However, if we were to run the regular code path, the ui would become completely unusable because
+        // the popup will always be in hidden-while-calculating-size state _while_ claiming focus. Which would
+        // be a very confusing situation for the programmer. Instead, we silently allow the popup to proceed,
+        // it will keep reappearing and the programming error will be more obvious to understand.
+        if (g.OpenPopupStack[current_stack_size].PopupId == id
+            && g.OpenPopupStack[current_stack_size].OpenFrameCount == g.FrameCount - 1)
         {
             g.OpenPopupStack[current_stack_size].OpenFrameCount = popup_ref.OpenFrameCount;
         }

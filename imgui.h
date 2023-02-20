@@ -48,6 +48,7 @@ Index of this file:
 #include <memory>
 #include <span>
 #include <string>
+#include <cmath>
 
 // Helper Macros
 #ifndef IM_ASSERT
