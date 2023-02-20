@@ -8744,7 +8744,7 @@ void ImGui::ClosePopupsOverWindow(ImGuiWindow* ref_window, bool restore_focus_to
         return;
 
     // Don't close our own child popup windows.
-    int popup_count_to_keep = 0;
+    size_t popup_count_to_keep = 0;
     if (ref_window)
     {
         // Find the highest popup which is a descendant of the reference window (generally reference window = NavWindow)
@@ -8787,12 +8787,13 @@ void ImGui::ClosePopupsExceptModals()
 {
     ImGuiContext& g = *GImGui;
 
-    int popup_count_to_keep;
+    size_t popup_count_to_keep;
     for (popup_count_to_keep = g.OpenPopupStack.size(); popup_count_to_keep > 0; popup_count_to_keep--)
     {
         ImGuiWindow* window = g.OpenPopupStack[popup_count_to_keep - 1].Window;
-        if (!window || window->Flags & ImGuiWindowFlags_Modal)
+        if (!window || window->Flags & ImGuiWindowFlags_Modal) {
             break;
+        }
     }
 
     // This test is not required but it allows to set a convenient breakpoint on the statement below
@@ -8801,7 +8802,7 @@ void ImGui::ClosePopupsExceptModals()
     }
 }
 
-void ImGui::ClosePopupToLevel(int remaining, bool restore_focus_to_window_under_popup)
+void ImGui::ClosePopupToLevel(size_t remaining, bool restore_focus_to_window_under_popup)
 {
     ImGuiContext& g = *GImGui;
     IMGUI_DEBUG_LOG_POPUP("[popup] ClosePopupToLevel(%d), restore_focus_to_window_under_popup=%d\n", remaining, restore_focus_to_window_under_popup);
@@ -8822,8 +8823,9 @@ void ImGui::ClosePopupToLevel(int remaining, bool restore_focus_to_window_under_
         }
         else
         {
-            if (g.NavLayer == ImGuiNavLayer_Main && focus_window)
+            if (g.NavLayer == ImGuiNavLayer_Main && focus_window) {
                 focus_window = NavRestoreLastChildNavWindow(focus_window);
+            }
             FocusWindow(focus_window);
         }
     }
@@ -8833,8 +8835,13 @@ void ImGui::ClosePopupToLevel(int remaining, bool restore_focus_to_window_under_
 void ImGui::CloseCurrentPopup()
 {
     ImGuiContext& g = *GImGui;
-    int popup_idx = g.BeginPopupStack.size() - 1;
-    if (popup_idx < 0 || popup_idx >= g.OpenPopupStack.size()
+
+    if (g.BeginPopupStack.empty()) {
+        return;
+    }
+
+    size_t popup_idx = g.BeginPopupStack.size() - 1;
+    if (popup_idx >= g.OpenPopupStack.size()
         || g.BeginPopupStack[popup_idx].PopupId != g.OpenPopupStack[popup_idx].PopupId)
     {
         return;
@@ -8846,11 +8853,14 @@ void ImGui::CloseCurrentPopup()
         ImGuiWindow* popup_window = g.OpenPopupStack[popup_idx].Window;
         ImGuiWindow* parent_popup_window = g.OpenPopupStack[popup_idx - 1].Window;
         bool close_parent = false;
-        if (popup_window && (popup_window->Flags & ImGuiWindowFlags_ChildMenu))
-            if (parent_popup_window && !(parent_popup_window->Flags & ImGuiWindowFlags_MenuBar))
+        if (popup_window && (popup_window->Flags & ImGuiWindowFlags_ChildMenu)) {
+            if (parent_popup_window && !(parent_popup_window->Flags & ImGuiWindowFlags_MenuBar)) {
                 close_parent = true;
-        if (!close_parent)
+            }
+        }
+        if (!close_parent) {
             break;
+        }
         popup_idx--;
     }
     IMGUI_DEBUG_LOG_POPUP("[popup] CloseCurrentPopup %d -> %d\n", g.BeginPopupStack.size() - 1, popup_idx);

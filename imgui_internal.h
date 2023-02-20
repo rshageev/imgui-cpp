@@ -2606,7 +2606,7 @@ namespace ImGui
     // Popups, Modals, Tooltips
     bool BeginChildEx(const char* name, ImGuiID id, const ImVec2& size_arg, bool border, ImGuiWindowFlags flags);
     void OpenPopupEx(ImGuiID id, ImGuiPopupFlags popup_flags = ImGuiPopupFlags_None);
-    void ClosePopupToLevel(int remaining, bool restore_focus_to_window_under_popup);
+    void ClosePopupToLevel(size_t remaining, bool restore_focus_to_window_under_popup);
     void ClosePopupsOverWindow(ImGuiWindow* ref_window, bool restore_focus_to_window_under_popup);
     void ClosePopupsExceptModals();
     bool IsPopupOpen(ImGuiID id, ImGuiPopupFlags popup_flags);
