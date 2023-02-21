@@ -2570,17 +2570,17 @@ struct ImDrawList
     ImDrawListFlags Flags = ImDrawListFlags_None; // Flags, you may poke into these to adjust anti-aliasing settings per-primitive.
 
     // [Internal, used while building lists]
-    unsigned int _VtxCurrentIdx = 0;        // [Internal] generally == VtxBuffer.Size unless we are past 64K vertices, in which case this gets reset to 0.
-    ImDrawListSharedData* _Data = nullptr;  // Pointer to shared draw data (you can use ImGui::GetDrawListSharedData() to get the one from current ImGui context)
-    const char* _OwnerName = nullptr;       // Pointer to owner window's name for debugging
-    ImDrawVert* _VtxWritePtr = nullptr;     // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawIdx* _IdxWritePtr = nullptr;      // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    std::vector<ImVec4> _ClipRectStack;        // [Internal]
-    std::vector<ImTextureID> _TextureIdStack;  // [Internal]
-    ImVector<ImVec2> _Path;                 // [Internal] current path building
-    ImDrawCmdHeader _CmdHeader;             // [Internal] template of active commands. Fields should match those of CmdBuffer.back().
-    ImDrawListSplitter _Splitter;           // [Internal] for channels api (note: prefer using your own persistent instance of ImDrawListSplitter!)
-    float _FringeScale = 0.0f;              // [Internal] anti-alias fringe is scaled by this value, this helps to keep things sharp while zooming at vertex buffer content
+    unsigned int _VtxCurrentIdx = 0;          // [Internal] generally == VtxBuffer.Size unless we are past 64K vertices, in which case this gets reset to 0.
+    ImDrawListSharedData* _Data = nullptr;    // Pointer to shared draw data (you can use ImGui::GetDrawListSharedData() to get the one from current ImGui context)
+    const char* _OwnerName = nullptr;         // Pointer to owner window's name for debugging
+    ImDrawVert* _VtxWritePtr = nullptr;       // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    ImDrawIdx* _IdxWritePtr = nullptr;        // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
+    std::vector<ImVec4> _ClipRectStack;       // [Internal]
+    std::vector<ImTextureID> _TextureIdStack; // [Internal]
+    std::vector<ImVec2> _Path;                // [Internal] current path building
+    ImDrawCmdHeader _CmdHeader;               // [Internal] template of active commands. Fields should match those of CmdBuffer.back().
+    ImDrawListSplitter _Splitter;             // [Internal] for channels api (note: prefer using your own persistent instance of ImDrawListSplitter!)
+    float _FringeScale = 0.0f;                // [Internal] anti-alias fringe is scaled by this value, this helps to keep things sharp while zooming at vertex buffer content
 
     // If you want to create ImDrawList instances, pass them ImGui::GetDrawListSharedData() or create and use your own ImDrawListSharedData (so you can use ImDrawList without ImGui)
     ImDrawList(ImDrawListSharedData* shared_data) : _Data(shared_data) {}
@@ -2630,8 +2630,8 @@ struct ImDrawList
     void AddNgonFilled(const ImVec2& center, float radius, ImU32 col, int num_segments);
     void AddText(const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end = NULL);
     void AddText(const ImFont* font, float font_size, const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end = NULL, float wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = NULL);
-    void AddPolyline(const ImVec2* points, int num_points, ImU32 col, ImDrawFlags flags, float thickness);
-    void AddConvexPolyFilled(const ImVec2* points, int num_points, ImU32 col);
+    void AddPolyline(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);
+    void AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col);
     void AddBezierCubic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col, float thickness, int num_segments = 0); // Cubic Bezier (4 control points)
     void AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImU32 col, float thickness, int num_segments = 0);               // Quadratic Bezier (3 control points)
 
@@ -2645,11 +2645,25 @@ struct ImDrawList
 
     // Stateful path API, add points then finish with PathFillConvex() or PathStroke()
     // - Filled shapes must always use clockwise winding order. The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
-    inline void PathClear()                                                 { _Path.Size = 0; }
-    inline void PathLineTo(const ImVec2& pos)                               { _Path.push_back(pos); }
-    inline void PathLineToMergeDuplicate(const ImVec2& pos)                 { if (_Path.Size == 0 || memcmp(&_Path.Data[_Path.Size - 1], &pos, 8) != 0) _Path.push_back(pos); }
-    inline void PathFillConvex(ImU32 col)                                   { AddConvexPolyFilled(_Path.Data, _Path.Size, col); _Path.Size = 0; }
-    inline void PathStroke(ImU32 col, ImDrawFlags flags = 0, float thickness = 1.0f) { AddPolyline(_Path.Data, _Path.Size, col, flags, thickness); _Path.Size = 0; }
+    void PathClear() {
+        _Path.clear();
+    }
+    void PathLineTo(const ImVec2& pos) {
+        _Path.push_back(pos);
+    }
+    void PathLineToMergeDuplicate(const ImVec2& pos) {
+        if (_Path.empty() || _Path.back() != pos) {
+            _Path.push_back(pos);
+        }
+    }
+    void PathFillConvex(ImU32 col) {
+        AddConvexPolyFilled(_Path, col);
+        _Path.clear();
+    }
+    void PathStroke(ImU32 col, ImDrawFlags flags = 0, float thickness = 1.0f) {
+        AddPolyline(_Path, col, flags, thickness);
+        _Path.clear();
+    }
     void PathArcTo(const ImVec2& center, float radius, float a_min, float a_max, int num_segments = 0);
     void PathArcToFast(const ImVec2& center, float radius, int a_min_of_12, int a_max_of_12);                // Use precomputed angles for a 12 steps circle
     void PathBezierCubicCurveTo(const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, int num_segments = 0); // Cubic Bezier (4 control points)
@@ -2680,21 +2694,19 @@ struct ImDrawList
     void PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImU32 col);
     void PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col);
 
-    inline void PrimWriteVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col) {
-        _VtxWritePtr->pos = pos;
-        _VtxWritePtr->uv = uv;
-        _VtxWritePtr->col = col;
+    void PrimWriteVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col) {
+        *_VtxWritePtr = { pos, uv, col };
         _VtxWritePtr++;
         _VtxCurrentIdx++;
     }
 
-    inline void PrimWriteIdx(ImDrawIdx idx) {
+    void PrimWriteIdx(ImDrawIdx idx) {
         *_IdxWritePtr = idx;
         _IdxWritePtr++;
     }
 
     // Write vertex with unique index
-    inline void PrimVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col) {
+    void PrimVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col) {
         PrimWriteIdx((ImDrawIdx)_VtxCurrentIdx);
         PrimWriteVtx(pos, uv, col);
     } 

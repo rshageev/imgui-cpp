@@ -701,17 +701,21 @@ void ImDrawList::PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, c
     _IdxWritePtr += 6;
 }
 
-// On AddPolyline() and AddConvexPolyFilled() we intentionally avoid using ImVec2 and superfluous function calls to optimize debug/non-inlined builds.
-// - Those macros expects l-values and need to be used as their own statement.
-// - Those macros are intentionally not surrounded by the 'do {} while (0)' idiom because even that translates to runtime with debug compilers.
-#define IM_NORMALIZE2F_OVER_ZERO(VX,VY)     { float d2 = VX*VX + VY*VY; if (d2 > 0.0f) { float inv_len = ImRsqrt(d2); VX *= inv_len; VY *= inv_len; } } (void)0
-#define IM_FIXNORMAL2F_MAX_INVLEN2          100.0f // 500.0f (see #4053, #3366)
-#define IM_FIXNORMAL2F(VX,VY)               { float d2 = VX*VX + VY*VY; if (d2 > 0.000001f) { float inv_len2 = 1.0f / d2; if (inv_len2 > IM_FIXNORMAL2F_MAX_INVLEN2) inv_len2 = IM_FIXNORMAL2F_MAX_INVLEN2; VX *= inv_len2; VY *= inv_len2; } } (void)0
-
+void ImFixNormal2f(float& vx, float& vy)
+{
+    float d2 = vx * vx + vy * vy;
+    if (d2 > 0.000001f) {
+        float inv_len2 = std::min(1.0f / d2, 100.0f);
+        vx *= inv_len2;
+        vy *= inv_len2;
+    }
+}
 // TODO: Thickness anti-aliased lines cap are missing their AA fringe.
 // We avoid using the ImVec2 math operators here to reduce cost to a minimum for debug/non-inlined builds.
-void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32 col, ImDrawFlags flags, float thickness)
+void ImDrawList::AddPolyline(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
 {
+    const int points_count = static_cast<int>(points.size());
+
     if (points_count < 2 || (col & IM_COL32_A_MASK) == 0)
         return;
 
@@ -727,7 +731,7 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
         const ImU32 col_trans = col & ~IM_COL32_A_MASK;
 
         // Thicknesses <1.0 should behave like thickness 1.0
-        thickness = ImMax(thickness, 1.0f);
+        thickness = std::max(thickness, 1.0f);
         const int integer_thickness = (int)thickness;
         const float fractional_thickness = thickness - integer_thickness;
 
@@ -749,12 +753,10 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
         // Calculate normals (tangents) for each line segment
         for (int i1 = 0; i1 < count; i1++)
         {
-            const int i2 = (i1 + 1) == points_count ? 0 : i1 + 1;
-            float dx = points[i2].x - points[i1].x;
-            float dy = points[i2].y - points[i1].y;
-            IM_NORMALIZE2F_OVER_ZERO(dx, dy);
-            temp_normals[i1].x = dy;
-            temp_normals[i1].y = -dx;
+            const int i2 = (i1 + 1) % points_count;
+            ImVec2 d = Normalized(points[i2] - points[i1]);
+            temp_normals[i1] = { d.y, -d.x };
+
         }
         if (!closed) {
             temp_normals[points_count - 1] = temp_normals[points_count - 2];
@@ -792,33 +794,44 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
                 const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + (use_texture ? 2 : 3)); // Vertex index for end of segment
 
                 // Average normals
-                float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
-                float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
-                IM_FIXNORMAL2F(dm_x, dm_y);
-                dm_x *= half_draw_size; // dm_x, dm_y are offset to the outer edge of the AA area
-                dm_y *= half_draw_size;
+                ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+                ImFixNormal2f(dm.x, dm.y);
+                dm *= half_draw_size; // dm is offset to the outer edge of the AA area
 
                 // Add temporary vertexes for the outer edges
-                ImVec2* out_vtx = &temp_points[i2 * 2];
-                out_vtx[0].x = points[i2].x + dm_x;
-                out_vtx[0].y = points[i2].y + dm_y;
-                out_vtx[1].x = points[i2].x - dm_x;
-                out_vtx[1].y = points[i2].y - dm_y;
+                temp_points[i2 * 2 + 0] = points[i2] + dm;
+                temp_points[i2 * 2 + 1] = points[i2] - dm;
 
                 if (use_texture)
                 {
                     // Add indices for two triangles
-                    _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0); _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0); _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 1); // Right tri
-                    _IdxWritePtr[3] = (ImDrawIdx)(idx2 + 1); _IdxWritePtr[4] = (ImDrawIdx)(idx1 + 1); _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Left tri
+                    _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
+                    _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
+                    _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 1); // Right tri
+                    
+                    _IdxWritePtr[3] = (ImDrawIdx)(idx2 + 1);
+                    _IdxWritePtr[4] = (ImDrawIdx)(idx1 + 1);
+                    _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Left tri
                     _IdxWritePtr += 6;
                 }
                 else
                 {
                     // Add indexes for four triangles
-                    _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0); _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0); _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2); // Right tri 1
-                    _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2); _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2); _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Right tri 2
-                    _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1); _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1); _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0); // Left tri 1
-                    _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0); _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0); _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1); // Left tri 2
+                    _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
+                    _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
+                    _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2); // Right tri 1
+
+                    _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2);
+                    _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2);
+                    _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Right tri 2
+
+                    _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1);
+                    _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1);
+                    _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0); // Left tri 1
+
+                    _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0);
+                    _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
+                    _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1); // Left tri 2
                     _IdxWritePtr += 12;
                 }
 
@@ -830,20 +843,12 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             {
                 // If we're using textures we only need to emit the left/right edge vertices
                 ImVec4 tex_uvs = _Data->TexUvLines[integer_thickness];
-                /*if (fractional_thickness != 0.0f) // Currently always zero when use_texture==false!
-                {
-                    const ImVec4 tex_uvs_1 = _Data->TexUvLines[integer_thickness + 1];
-                    tex_uvs.x = tex_uvs.x + (tex_uvs_1.x - tex_uvs.x) * fractional_thickness; // inlined ImLerp()
-                    tex_uvs.y = tex_uvs.y + (tex_uvs_1.y - tex_uvs.y) * fractional_thickness;
-                    tex_uvs.z = tex_uvs.z + (tex_uvs_1.z - tex_uvs.z) * fractional_thickness;
-                    tex_uvs.w = tex_uvs.w + (tex_uvs_1.w - tex_uvs.w) * fractional_thickness;
-                }*/
                 ImVec2 tex_uv0(tex_uvs.x, tex_uvs.y);
                 ImVec2 tex_uv1(tex_uvs.z, tex_uvs.w);
                 for (int i = 0; i < points_count; i++)
                 {
-                    _VtxWritePtr[0].pos = temp_points[i * 2 + 0]; _VtxWritePtr[0].uv = tex_uv0; _VtxWritePtr[0].col = col; // Left-side outer edge
-                    _VtxWritePtr[1].pos = temp_points[i * 2 + 1]; _VtxWritePtr[1].uv = tex_uv1; _VtxWritePtr[1].col = col; // Right-side outer edge
+                    _VtxWritePtr[0] = { temp_points[i * 2 + 0], tex_uv0, col }; // Left-side outer edge
+                    _VtxWritePtr[1] = { temp_points[i * 2 + 1], tex_uv1, col }; // Right-side outer edge
                     _VtxWritePtr += 2;
                 }
             }
@@ -851,10 +856,10 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             {
                 // If we're not using a texture, we need the center vertex as well
                 for (int i = 0; i < points_count; i++)
-                {
-                    _VtxWritePtr[0].pos = points[i];              _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col;       // Center of line
-                    _VtxWritePtr[1].pos = temp_points[i * 2 + 0]; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col_trans; // Left-side outer edge
-                    _VtxWritePtr[2].pos = temp_points[i * 2 + 1]; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col_trans; // Right-side outer edge
+                {   
+                    _VtxWritePtr[0] = { points[i], opaque_uv, col };                    // Center of line 
+                    _VtxWritePtr[1] = { temp_points[i * 2 + 0], opaque_uv, col_trans }; // Left-side outer edge
+                    _VtxWritePtr[2] = { temp_points[i * 2 + 1], opaque_uv, col_trans }; // Right-side outer edge
                     _VtxWritePtr += 3;
                 }
             }
@@ -888,32 +893,37 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
                 const unsigned int idx2 = (i1 + 1) == points_count ? _VtxCurrentIdx : (idx1 + 4); // Vertex index for end of segment
 
                 // Average normals
-                float dm_x = (temp_normals[i1].x + temp_normals[i2].x) * 0.5f;
-                float dm_y = (temp_normals[i1].y + temp_normals[i2].y) * 0.5f;
-                IM_FIXNORMAL2F(dm_x, dm_y);
-                float dm_out_x = dm_x * (half_inner_thickness + AA_SIZE);
-                float dm_out_y = dm_y * (half_inner_thickness + AA_SIZE);
-                float dm_in_x = dm_x * half_inner_thickness;
-                float dm_in_y = dm_y * half_inner_thickness;
+                ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+                ImFixNormal2f(dm.x, dm.y);
+                const ImVec2 dm_out = dm * (half_inner_thickness + AA_SIZE);
+                const ImVec2 dm_in = dm * half_inner_thickness;
 
                 // Add temporary vertices
                 ImVec2* out_vtx = &temp_points[i2 * 4];
-                out_vtx[0].x = points[i2].x + dm_out_x;
-                out_vtx[0].y = points[i2].y + dm_out_y;
-                out_vtx[1].x = points[i2].x + dm_in_x;
-                out_vtx[1].y = points[i2].y + dm_in_y;
-                out_vtx[2].x = points[i2].x - dm_in_x;
-                out_vtx[2].y = points[i2].y - dm_in_y;
-                out_vtx[3].x = points[i2].x - dm_out_x;
-                out_vtx[3].y = points[i2].y - dm_out_y;
+                out_vtx[0] = points[i2] + dm_out;
+                out_vtx[1] = points[i2] + dm_in;
+                out_vtx[2] = points[i2] - dm_in;
+                out_vtx[3] = points[i2] - dm_out;
 
                 // Add indexes
-                _IdxWritePtr[0]  = (ImDrawIdx)(idx2 + 1); _IdxWritePtr[1]  = (ImDrawIdx)(idx1 + 1); _IdxWritePtr[2]  = (ImDrawIdx)(idx1 + 2);
-                _IdxWritePtr[3]  = (ImDrawIdx)(idx1 + 2); _IdxWritePtr[4]  = (ImDrawIdx)(idx2 + 2); _IdxWritePtr[5]  = (ImDrawIdx)(idx2 + 1);
-                _IdxWritePtr[6]  = (ImDrawIdx)(idx2 + 1); _IdxWritePtr[7]  = (ImDrawIdx)(idx1 + 1); _IdxWritePtr[8]  = (ImDrawIdx)(idx1 + 0);
-                _IdxWritePtr[9]  = (ImDrawIdx)(idx1 + 0); _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0); _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1);
-                _IdxWritePtr[12] = (ImDrawIdx)(idx2 + 2); _IdxWritePtr[13] = (ImDrawIdx)(idx1 + 2); _IdxWritePtr[14] = (ImDrawIdx)(idx1 + 3);
-                _IdxWritePtr[15] = (ImDrawIdx)(idx1 + 3); _IdxWritePtr[16] = (ImDrawIdx)(idx2 + 3); _IdxWritePtr[17] = (ImDrawIdx)(idx2 + 2);
+                _IdxWritePtr[0]  = (ImDrawIdx)(idx2 + 1);
+                _IdxWritePtr[1]  = (ImDrawIdx)(idx1 + 1);
+                _IdxWritePtr[2]  = (ImDrawIdx)(idx1 + 2);
+                _IdxWritePtr[3]  = (ImDrawIdx)(idx1 + 2);
+                _IdxWritePtr[4]  = (ImDrawIdx)(idx2 + 2);
+                _IdxWritePtr[5]  = (ImDrawIdx)(idx2 + 1);
+                _IdxWritePtr[6]  = (ImDrawIdx)(idx2 + 1);
+                _IdxWritePtr[7]  = (ImDrawIdx)(idx1 + 1);
+                _IdxWritePtr[8]  = (ImDrawIdx)(idx1 + 0);
+                _IdxWritePtr[9]  = (ImDrawIdx)(idx1 + 0);
+                _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
+                _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1);
+                _IdxWritePtr[12] = (ImDrawIdx)(idx2 + 2);
+                _IdxWritePtr[13] = (ImDrawIdx)(idx1 + 2);
+                _IdxWritePtr[14] = (ImDrawIdx)(idx1 + 3);
+                _IdxWritePtr[15] = (ImDrawIdx)(idx1 + 3);
+                _IdxWritePtr[16] = (ImDrawIdx)(idx2 + 3);
+                _IdxWritePtr[17] = (ImDrawIdx)(idx2 + 2);
                 _IdxWritePtr += 18;
 
                 idx1 = idx2;
@@ -922,10 +932,10 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             // Add vertices
             for (int i = 0; i < points_count; i++)
             {
-                _VtxWritePtr[0].pos = temp_points[i * 4 + 0]; _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col_trans;
-                _VtxWritePtr[1].pos = temp_points[i * 4 + 1]; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col;
-                _VtxWritePtr[2].pos = temp_points[i * 4 + 2]; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col;
-                _VtxWritePtr[3].pos = temp_points[i * 4 + 3]; _VtxWritePtr[3].uv = opaque_uv; _VtxWritePtr[3].col = col_trans;
+                _VtxWritePtr[0] = { temp_points[i * 4 + 0], opaque_uv, col_trans };
+                _VtxWritePtr[1] = { temp_points[i * 4 + 1], opaque_uv, col };
+                _VtxWritePtr[2] = { temp_points[i * 4 + 2], opaque_uv, col };
+                _VtxWritePtr[3] = { temp_points[i * 4 + 3], opaque_uv, col_trans };
                 _VtxWritePtr += 4;
             }
         }
@@ -944,20 +954,32 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
             const ImVec2& p1 = points[i1];
             const ImVec2& p2 = points[i2];
 
-            float dx = p2.x - p1.x;
-            float dy = p2.y - p1.y;
-            IM_NORMALIZE2F_OVER_ZERO(dx, dy);
-            dx *= (thickness * 0.5f);
-            dy *= (thickness * 0.5f);
+            ImVec2 d = Normalized(p2 - p1) * (thickness * 0.5f);
 
-            _VtxWritePtr[0].pos.x = p1.x + dy; _VtxWritePtr[0].pos.y = p1.y - dx; _VtxWritePtr[0].uv = opaque_uv; _VtxWritePtr[0].col = col;
-            _VtxWritePtr[1].pos.x = p2.x + dy; _VtxWritePtr[1].pos.y = p2.y - dx; _VtxWritePtr[1].uv = opaque_uv; _VtxWritePtr[1].col = col;
-            _VtxWritePtr[2].pos.x = p2.x - dy; _VtxWritePtr[2].pos.y = p2.y + dx; _VtxWritePtr[2].uv = opaque_uv; _VtxWritePtr[2].col = col;
-            _VtxWritePtr[3].pos.x = p1.x - dy; _VtxWritePtr[3].pos.y = p1.y + dx; _VtxWritePtr[3].uv = opaque_uv; _VtxWritePtr[3].col = col;
+            _VtxWritePtr[0].pos.x = p1.x + d.y;
+            _VtxWritePtr[0].pos.y = p1.y - d.x;
+            _VtxWritePtr[0].uv = opaque_uv;
+            _VtxWritePtr[0].col = col;
+            _VtxWritePtr[1].pos.x = p2.x + d.y;
+            _VtxWritePtr[1].pos.y = p2.y - d.x;
+            _VtxWritePtr[1].uv = opaque_uv;
+            _VtxWritePtr[1].col = col;
+            _VtxWritePtr[2].pos.x = p2.x - d.y;
+            _VtxWritePtr[2].pos.y = p2.y + d.x;
+            _VtxWritePtr[2].uv = opaque_uv;
+            _VtxWritePtr[2].col = col;
+            _VtxWritePtr[3].pos.x = p1.x - d.y;
+            _VtxWritePtr[3].pos.y = p1.y + d.x;
+            _VtxWritePtr[3].uv = opaque_uv;
+            _VtxWritePtr[3].col = col;
             _VtxWritePtr += 4;
 
-            _IdxWritePtr[0] = (ImDrawIdx)(_VtxCurrentIdx); _IdxWritePtr[1] = (ImDrawIdx)(_VtxCurrentIdx + 1); _IdxWritePtr[2] = (ImDrawIdx)(_VtxCurrentIdx + 2);
-            _IdxWritePtr[3] = (ImDrawIdx)(_VtxCurrentIdx); _IdxWritePtr[4] = (ImDrawIdx)(_VtxCurrentIdx + 2); _IdxWritePtr[5] = (ImDrawIdx)(_VtxCurrentIdx + 3);
+            _IdxWritePtr[0] = (ImDrawIdx)(_VtxCurrentIdx);
+            _IdxWritePtr[1] = (ImDrawIdx)(_VtxCurrentIdx + 1);
+            _IdxWritePtr[2] = (ImDrawIdx)(_VtxCurrentIdx + 2);
+            _IdxWritePtr[3] = (ImDrawIdx)(_VtxCurrentIdx);
+            _IdxWritePtr[4] = (ImDrawIdx)(_VtxCurrentIdx + 2);
+            _IdxWritePtr[5] = (ImDrawIdx)(_VtxCurrentIdx + 3);
             _IdxWritePtr += 6;
             _VtxCurrentIdx += 4;
         }
@@ -966,8 +988,10 @@ void ImDrawList::AddPolyline(const ImVec2* points, const int points_count, ImU32
 
 // - We intentionally avoid using ImVec2 and its math operators here to reduce cost to a minimum for debug/non-inlined builds.
 // - Filled shapes must always use clockwise winding order. The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
-void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_count, ImU32 col)
+void ImDrawList::AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col)
 {
+    const int points_count = static_cast<int>(points.size());
+
     if (points_count < 3 || (col & IM_COL32_A_MASK) == 0)
         return;
 
@@ -978,7 +1002,7 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
         // Anti-aliased Fill
         const float AA_SIZE = _FringeScale;
         const ImU32 col_trans = col & ~IM_COL32_A_MASK;
-        const int idx_count = (points_count - 2)*3 + points_count * 6;
+        const int idx_count = (points_count - 2) * 3 + points_count * 6;
         const int vtx_count = (points_count * 2);
         PrimReserve(idx_count, vtx_count);
 
@@ -987,7 +1011,9 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
         unsigned int vtx_outer_idx = _VtxCurrentIdx + 1;
         for (int i = 2; i < points_count; i++)
         {
-            _IdxWritePtr[0] = (ImDrawIdx)(vtx_inner_idx); _IdxWritePtr[1] = (ImDrawIdx)(vtx_inner_idx + ((i - 1) << 1)); _IdxWritePtr[2] = (ImDrawIdx)(vtx_inner_idx + (i << 1));
+            _IdxWritePtr[0] = (ImDrawIdx)(vtx_inner_idx);
+            _IdxWritePtr[1] = (ImDrawIdx)(vtx_inner_idx + ((i - 1) << 1));
+            _IdxWritePtr[2] = (ImDrawIdx)(vtx_inner_idx + (i << 1));
             _IdxWritePtr += 3;
         }
 
@@ -995,34 +1021,30 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
         std::vector<ImVec2> temp_normals(points_count);
         for (int i0 = points_count - 1, i1 = 0; i1 < points_count; i0 = i1++)
         {
-            const ImVec2& p0 = points[i0];
-            const ImVec2& p1 = points[i1];
-            float dx = p1.x - p0.x;
-            float dy = p1.y - p0.y;
-            IM_NORMALIZE2F_OVER_ZERO(dx, dy);
-            temp_normals[i0].x = dy;
-            temp_normals[i0].y = -dx;
+            ImVec2 dp = Normalized(points[i1] - points[i0]);
+            temp_normals[i0] = { dp.y, -dp.x };
         }
 
         for (int i0 = points_count - 1, i1 = 0; i1 < points_count; i0 = i1++)
         {
             // Average normals
-            const ImVec2& n0 = temp_normals[i0];
-            const ImVec2& n1 = temp_normals[i1];
-            float dm_x = (n0.x + n1.x) * 0.5f;
-            float dm_y = (n0.y + n1.y) * 0.5f;
-            IM_FIXNORMAL2F(dm_x, dm_y);
-            dm_x *= AA_SIZE * 0.5f;
-            dm_y *= AA_SIZE * 0.5f;
+            ImVec2 dm = (temp_normals[i0] + temp_normals[i1]) * 0.5f;
+            ImFixNormal2f(dm.x, dm.y);
+            dm.x *= AA_SIZE * 0.5f;
+            dm.y *= AA_SIZE * 0.5f;
 
             // Add vertices
-            _VtxWritePtr[0].pos.x = (points[i1].x - dm_x); _VtxWritePtr[0].pos.y = (points[i1].y - dm_y); _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;        // Inner
-            _VtxWritePtr[1].pos.x = (points[i1].x + dm_x); _VtxWritePtr[1].pos.y = (points[i1].y + dm_y); _VtxWritePtr[1].uv = uv; _VtxWritePtr[1].col = col_trans;  // Outer
+            _VtxWritePtr[0] = { points[i1] - dm, uv, col };       // Inner     
+            _VtxWritePtr[1] = { points[i1] + dm, uv, col_trans }; // Outer
             _VtxWritePtr += 2;
 
             // Add indexes for fringes
-            _IdxWritePtr[0] = (ImDrawIdx)(vtx_inner_idx + (i1 << 1)); _IdxWritePtr[1] = (ImDrawIdx)(vtx_inner_idx + (i0 << 1)); _IdxWritePtr[2] = (ImDrawIdx)(vtx_outer_idx + (i0 << 1));
-            _IdxWritePtr[3] = (ImDrawIdx)(vtx_outer_idx + (i0 << 1)); _IdxWritePtr[4] = (ImDrawIdx)(vtx_outer_idx + (i1 << 1)); _IdxWritePtr[5] = (ImDrawIdx)(vtx_inner_idx + (i1 << 1));
+            _IdxWritePtr[0] = (ImDrawIdx)(vtx_inner_idx + (i1 << 1));
+            _IdxWritePtr[1] = (ImDrawIdx)(vtx_inner_idx + (i0 << 1));
+            _IdxWritePtr[2] = (ImDrawIdx)(vtx_outer_idx + (i0 << 1));
+            _IdxWritePtr[3] = (ImDrawIdx)(vtx_outer_idx + (i0 << 1));
+            _IdxWritePtr[4] = (ImDrawIdx)(vtx_outer_idx + (i1 << 1));
+            _IdxWritePtr[5] = (ImDrawIdx)(vtx_inner_idx + (i1 << 1));
             _IdxWritePtr += 6;
         }
         _VtxCurrentIdx += (ImDrawIdx)vtx_count;
@@ -1035,12 +1057,14 @@ void ImDrawList::AddConvexPolyFilled(const ImVec2* points, const int points_coun
         PrimReserve(idx_count, vtx_count);
         for (int i = 0; i < vtx_count; i++)
         {
-            _VtxWritePtr[0].pos = points[i]; _VtxWritePtr[0].uv = uv; _VtxWritePtr[0].col = col;
+            _VtxWritePtr[0] = { points[i], uv, col };
             _VtxWritePtr++;
         }
         for (int i = 2; i < points_count; i++)
         {
-            _IdxWritePtr[0] = (ImDrawIdx)(_VtxCurrentIdx); _IdxWritePtr[1] = (ImDrawIdx)(_VtxCurrentIdx + i - 1); _IdxWritePtr[2] = (ImDrawIdx)(_VtxCurrentIdx + i);
+            _IdxWritePtr[0] = (ImDrawIdx)(_VtxCurrentIdx);
+            _IdxWritePtr[1] = (ImDrawIdx)(_VtxCurrentIdx + i - 1);
+            _IdxWritePtr[2] = (ImDrawIdx)(_VtxCurrentIdx + i);
             _IdxWritePtr += 3;
         }
         _VtxCurrentIdx += (ImDrawIdx)vtx_count;
@@ -1079,20 +1103,19 @@ void ImDrawList::_PathArcToFastEx(const ImVec2& center, float radius, int a_min_
 
             // When we have overstep to avoid awkwardly looking one long line and one tiny one at the end,
             // distribute first step range evenly between them by reducing first step size.
-            if (sample_range > 0)
+            if (sample_range > 0) {
                 a_step -= (a_step - overstep) / 2;
+            }
         }
     }
-
-    _Path.resize(_Path.Size + samples);
-    ImVec2* out_ptr = _Path.Data + (_Path.Size - samples);
 
     int sample_index = a_min_sample;
     if (sample_index < 0 || sample_index >= IM_DRAWLIST_ARCFAST_SAMPLE_MAX)
     {
         sample_index = sample_index % IM_DRAWLIST_ARCFAST_SAMPLE_MAX;
-        if (sample_index < 0)
+        if (sample_index < 0) {
             sample_index += IM_DRAWLIST_ARCFAST_SAMPLE_MAX;
+        }
     }
 
     if (a_max_sample >= a_min_sample)
@@ -1104,9 +1127,7 @@ void ImDrawList::_PathArcToFastEx(const ImVec2& center, float radius, int a_min_
                 sample_index -= IM_DRAWLIST_ARCFAST_SAMPLE_MAX;
 
             const ImVec2 s = _Data->ArcFastVtx[sample_index];
-            out_ptr->x = center.x + s.x * radius;
-            out_ptr->y = center.y + s.y * radius;
-            out_ptr++;
+            _Path.push_back(center + s * radius);
         }
     }
     else
@@ -1118,9 +1139,7 @@ void ImDrawList::_PathArcToFastEx(const ImVec2& center, float radius, int a_min_
                 sample_index += IM_DRAWLIST_ARCFAST_SAMPLE_MAX;
 
             const ImVec2 s = _Data->ArcFastVtx[sample_index];
-            out_ptr->x = center.x + s.x * radius;
-            out_ptr->y = center.y + s.y * radius;
-            out_ptr++;
+            _Path.push_back(center + s * radius);
         }
     }
 
@@ -1131,12 +1150,8 @@ void ImDrawList::_PathArcToFastEx(const ImVec2& center, float radius, int a_min_
             normalized_max_sample += IM_DRAWLIST_ARCFAST_SAMPLE_MAX;
 
         const ImVec2 s = _Data->ArcFastVtx[normalized_max_sample];
-        out_ptr->x = center.x + s.x * radius;
-        out_ptr->y = center.y + s.y * radius;
-        out_ptr++;
+        _Path.push_back(center + s * radius);
     }
-
-    IM_ASSERT_PARANOID(_Path.Data + _Path.Size == out_ptr);
 }
 
 void ImDrawList::_PathArcToN(const ImVec2& center, float radius, float a_min, float a_max, int num_segments)
@@ -1149,11 +1164,10 @@ void ImDrawList::_PathArcToN(const ImVec2& center, float radius, float a_min, fl
 
     // Note that we are adding a point at both a_min and a_max.
     // If you are trying to draw a full closed circle you don't want the overlapping points!
-    _Path.reserve(_Path.Size + (num_segments + 1));
     for (int i = 0; i <= num_segments; i++)
     {
         const float a = a_min + ((float)i / (float)num_segments) * (a_max - a_min);
-        _Path.push_back(ImVec2(center.x + ImCos(a) * radius, center.y + ImSin(a) * radius));
+        _Path.push_back(ImVec2(center.x + std::cos(a) * radius, center.y + std::sin(a) * radius));
     }
 }
 
@@ -1201,17 +1215,19 @@ void ImDrawList::PathArcTo(const ImVec2& center, float radius, float a_min, floa
         const bool a_emit_start = ImAbs(a_min_segment_angle - a_min) >= 1e-5f;
         const bool a_emit_end = ImAbs(a_max - a_max_segment_angle) >= 1e-5f;
 
-        _Path.reserve(_Path.Size + (a_mid_samples + 1 + (a_emit_start ? 1 : 0) + (a_emit_end ? 1 : 0)));
-        if (a_emit_start)
-            _Path.push_back(ImVec2(center.x + ImCos(a_min) * radius, center.y + ImSin(a_min) * radius));
-        if (a_mid_samples > 0)
+        if (a_emit_start) {
+            _Path.push_back(ImVec2(center.x + std::cos(a_min) * radius, center.y + std::sin(a_min) * radius));
+        }
+        if (a_mid_samples > 0) {
             _PathArcToFastEx(center, radius, a_min_sample, a_max_sample, 0);
-        if (a_emit_end)
-            _Path.push_back(ImVec2(center.x + ImCos(a_max) * radius, center.y + ImSin(a_max) * radius));
+        }
+        if (a_emit_end) {
+            _Path.push_back(ImVec2(center.x + std::cos(a_max) * radius, center.y + std::sin(a_max) * radius));
+        }
     }
     else
     {
-        const float arc_length = ImAbs(a_max - a_min);
+        const float arc_length = std::abs(a_max - a_min);
         const int circle_segment_count = _CalcCircleAutoSegmentCount(radius);
         const int arc_segment_count = ImMax((int)ImCeil(circle_segment_count * arc_length / (IM_PI * 2.0f)), (int)(2.0f * IM_PI / arc_length));
         _PathArcToN(center, radius, a_min, a_max, arc_segment_count);
@@ -1238,7 +1254,7 @@ ImVec2 ImBezierQuadraticCalc(const ImVec2& p1, const ImVec2& p2, const ImVec2& p
 }
 
 // Closely mimics ImBezierCubicClosestPointCasteljau() in imgui.cpp
-static void PathBezierCubicCurveToCasteljau(ImVector<ImVec2>* path, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float tess_tol, int level)
+static void PathBezierCubicCurveToCasteljau(std::vector<ImVec2>& path, float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4, float tess_tol, int level)
 {
     float dx = x4 - x1;
     float dy = y4 - y1;
@@ -1248,34 +1264,44 @@ static void PathBezierCubicCurveToCasteljau(ImVector<ImVec2>* path, float x1, fl
     d3 = (d3 >= 0) ? d3 : -d3;
     if ((d2 + d3) * (d2 + d3) < tess_tol * (dx * dx + dy * dy))
     {
-        path->push_back(ImVec2(x4, y4));
+        path.push_back(ImVec2(x4, y4));
     }
     else if (level < 10)
     {
-        float x12 = (x1 + x2) * 0.5f, y12 = (y1 + y2) * 0.5f;
-        float x23 = (x2 + x3) * 0.5f, y23 = (y2 + y3) * 0.5f;
-        float x34 = (x3 + x4) * 0.5f, y34 = (y3 + y4) * 0.5f;
-        float x123 = (x12 + x23) * 0.5f, y123 = (y12 + y23) * 0.5f;
-        float x234 = (x23 + x34) * 0.5f, y234 = (y23 + y34) * 0.5f;
-        float x1234 = (x123 + x234) * 0.5f, y1234 = (y123 + y234) * 0.5f;
+        float x12 = (x1 + x2) * 0.5f;
+        float y12 = (y1 + y2) * 0.5f;
+        float x23 = (x2 + x3) * 0.5f;
+        float y23 = (y2 + y3) * 0.5f;
+        float x34 = (x3 + x4) * 0.5f;
+        float y34 = (y3 + y4) * 0.5f;
+        float x123 = (x12 + x23) * 0.5f;
+        float y123 = (y12 + y23) * 0.5f;
+        float x234 = (x23 + x34) * 0.5f;
+        float y234 = (y23 + y34) * 0.5f;
+        float x1234 = (x123 + x234) * 0.5f;
+        float y1234 = (y123 + y234) * 0.5f;
         PathBezierCubicCurveToCasteljau(path, x1, y1, x12, y12, x123, y123, x1234, y1234, tess_tol, level + 1);
         PathBezierCubicCurveToCasteljau(path, x1234, y1234, x234, y234, x34, y34, x4, y4, tess_tol, level + 1);
     }
 }
 
-static void PathBezierQuadraticCurveToCasteljau(ImVector<ImVec2>* path, float x1, float y1, float x2, float y2, float x3, float y3, float tess_tol, int level)
+static void PathBezierQuadraticCurveToCasteljau(std::vector<ImVec2>& path, float x1, float y1, float x2, float y2, float x3, float y3, float tess_tol, int level)
 {
-    float dx = x3 - x1, dy = y3 - y1;
+    float dx = x3 - x1;
+    float dy = y3 - y1;
     float det = (x2 - x3) * dy - (y2 - y3) * dx;
     if (det * det * 4.0f < tess_tol * (dx * dx + dy * dy))
     {
-        path->push_back(ImVec2(x3, y3));
+        path.push_back(ImVec2(x3, y3));
     }
     else if (level < 10)
     {
-        float x12 = (x1 + x2) * 0.5f, y12 = (y1 + y2) * 0.5f;
-        float x23 = (x2 + x3) * 0.5f, y23 = (y2 + y3) * 0.5f;
-        float x123 = (x12 + x23) * 0.5f, y123 = (y12 + y23) * 0.5f;
+        float x12 = (x1 + x2) * 0.5f;
+        float y12 = (y1 + y2) * 0.5f;
+        float x23 = (x2 + x3) * 0.5f;
+        float y23 = (y2 + y3) * 0.5f;
+        float x123 = (x12 + x23) * 0.5f;
+        float y123 = (y12 + y23) * 0.5f;
         PathBezierQuadraticCurveToCasteljau(path, x1, y1, x12, y12, x123, y123, tess_tol, level + 1);
         PathBezierQuadraticCurveToCasteljau(path, x123, y123, x23, y23, x3, y3, tess_tol, level + 1);
     }
@@ -1287,13 +1313,14 @@ void ImDrawList::PathBezierCubicCurveTo(const ImVec2& p2, const ImVec2& p3, cons
     if (num_segments == 0)
     {
         IM_ASSERT(_Data->CurveTessellationTol > 0.0f);
-        PathBezierCubicCurveToCasteljau(&_Path, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, _Data->CurveTessellationTol, 0); // Auto-tessellated
+        PathBezierCubicCurveToCasteljau(_Path, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, _Data->CurveTessellationTol, 0); // Auto-tessellated
     }
     else
     {
         float t_step = 1.0f / (float)num_segments;
-        for (int i_step = 1; i_step <= num_segments; i_step++)
+        for (int i_step = 1; i_step <= num_segments; i_step++) {
             _Path.push_back(ImBezierCubicCalc(p1, p2, p3, p4, t_step * i_step));
+        }
     }
 }
 
@@ -1303,13 +1330,14 @@ void ImDrawList::PathBezierQuadraticCurveTo(const ImVec2& p2, const ImVec2& p3, 
     if (num_segments == 0)
     {
         IM_ASSERT(_Data->CurveTessellationTol > 0.0f);
-        PathBezierQuadraticCurveToCasteljau(&_Path, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, _Data->CurveTessellationTol, 0);// Auto-tessellated
+        PathBezierQuadraticCurveToCasteljau(_Path, p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, _Data->CurveTessellationTol, 0);// Auto-tessellated
     }
     else
     {
         float t_step = 1.0f / (float)num_segments;
-        for (int i_step = 1; i_step <= num_segments; i_step++)
+        for (int i_step = 1; i_step <= num_segments; i_step++) {
             _Path.push_back(ImBezierQuadraticCalc(p1, p2, p3, t_step * i_step));
+        }
     }
 }
 
@@ -1399,8 +1427,14 @@ void ImDrawList::AddRectFilledMultiColor(const ImVec2& p_min, const ImVec2& p_ma
 
     const ImVec2 uv = _Data->TexUvWhitePixel;
     PrimReserve(6, 4);
-    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx)); PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 1)); PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 2));
-    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx)); PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 2)); PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 3));
+
+    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx));
+    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 1));
+    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 2));
+    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx));
+    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 2));
+    PrimWriteIdx((ImDrawIdx)(_VtxCurrentIdx + 3));
+
     PrimWriteVtx(p_min, uv, col_upr_left);
     PrimWriteVtx(ImVec2(p_max.x, p_min.y), uv, col_upr_right);
     PrimWriteVtx(p_max, uv, col_bot_right);
@@ -1462,7 +1496,7 @@ void ImDrawList::AddCircle(const ImVec2& center, float radius, ImU32 col, int nu
     {
         // Use arc with automatic segment count
         _PathArcToFastEx(center, radius - 0.5f, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, 0);
-        _Path.Size--;
+        _Path.pop_back();
     }
     else
     {
@@ -1486,7 +1520,7 @@ void ImDrawList::AddCircleFilled(const ImVec2& center, float radius, ImU32 col, 
     {
         // Use arc with automatic segment count
         _PathArcToFastEx(center, radius, 0, IM_DRAWLIST_ARCFAST_SAMPLE_MAX, 0);
-        _Path.Size--;
+        _Path.pop_back();
     }
     else
     {
