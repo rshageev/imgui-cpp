@@ -2681,15 +2681,14 @@ struct ImDrawList
     // - FIXME-OBSOLETE: This API shouldn't have been in ImDrawList in the first place!
     //   Prefer using your own persistent instance of ImDrawListSplitter as you can stack them.
     //   Using the ImDrawList::ChannelsXXXX you cannot stack a split over another.
-    inline void ChannelsSplit(int count)    { _Splitter.Split(this, count); }
-    inline void ChannelsMerge()             { _Splitter.Merge(this); }
-    inline void ChannelsSetCurrent(int n)   { _Splitter.SetCurrentChannel(this, n); }
+    void ChannelsSplit(int count)  { _Splitter.Split(this, count); }
+    void ChannelsMerge()           { _Splitter.Merge(this); }
+    void ChannelsSetCurrent(int n) { _Splitter.SetCurrentChannel(this, n); }
 
     // Advanced: Primitives allocations
     // - We render triangles (three vertices)
     // - All primitives needs to be reserved via PrimReserve() beforehand.
     void PrimReserve(int idx_count, int vtx_count);
-    void PrimUnreserve(int idx_count, int vtx_count);
     void PrimRect(const ImVec2& a, const ImVec2& b, ImU32 col);      // Axis aligned rectangle (composed of two triangles)
     void PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImU32 col);
     void PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col);
@@ -2703,6 +2702,13 @@ struct ImDrawList
     void PrimWriteIdx(ImDrawIdx idx) {
         *_IdxWritePtr = idx;
         _IdxWritePtr++;
+    }
+
+    template<class Indices>
+    void PrimWriteIndices(const Indices& indices, ImDrawIdx base_idx) {
+        for (auto idx : indices) {
+            PrimWriteIdx(base_idx + idx);
+        }
     }
 
     // Write vertex with unique index
