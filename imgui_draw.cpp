@@ -662,18 +662,16 @@ void ImDrawList::PrimRectUV(const ImVec2& a, const ImVec2& c, const ImVec2& uv_a
 
 void ImDrawList::PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col)
 {
-    PrimReserve(6, 4);
+    const ImDrawVert vertices[] = {
+        { a, uv_a, col },
+        { b, uv_b, col },
+        { c, uv_c, col },
+        { d, uv_d, col },
+    };
 
     static constexpr ImDrawIdx indices[] = { 0, 1, 2, 0, 2, 3 };
-    PrimWriteIndices(indices, _VtxCurrentIdx);
 
-    _VtxWritePtr[0] = { a, uv_a, col };
-    _VtxWritePtr[1] = { b, uv_b, col };
-    _VtxWritePtr[2] = { c, uv_c, col };
-    _VtxWritePtr[3] = { d, uv_d, col };
-
-    _VtxWritePtr += 4;
-    _VtxCurrentIdx += 4;
+    AddGeometry(vertices, indices);
 }
 
 void ImFixNormal2f(float& vx, float& vy)
@@ -685,25 +683,289 @@ void ImFixNormal2f(float& vx, float& vy)
         vy *= inv_len2;
     }
 }
-// TODO: Thickness anti-aliased lines cap are missing their AA fringe.
-// We avoid using the ImVec2 math operators here to reduce cost to a minimum for debug/non-inlined builds.
-void ImDrawList::AddPolyline(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
-{
-    const int points_count = static_cast<int>(points.size());
 
-    if (points_count < 2 || (col & IM_COL32_A_MASK) == 0)
-        return;
+void ImDrawList::AddPolyline_NonAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
+{
+    assert(points.size() >= 2);
 
     const bool closed = (flags & ImDrawFlags_Closed) != 0;
     const ImVec2 opaque_uv = _Data->TexUvWhitePixel;
+
+    const auto seg_count = closed ? points.size() : points.size() - 1; // The number of line segments we need to draw
+
+    for (size_t i1 = 0; i1 < seg_count; i1++)
+    {
+        const size_t i2 = (i1 + 1) % points.size();
+        const ImVec2& p1 = points[i1];
+        const ImVec2& p2 = points[i2];
+
+        ImVec2 d = Normalized(p2 - p1) * (thickness * 0.5f);
+
+        const ImDrawVert vertices[] = {
+            { { p1.x + d.y, p1.y - d.x }, opaque_uv, col },
+            { { p2.x + d.y, p2.y - d.x }, opaque_uv, col },
+            { { p2.x - d.y, p2.y + d.x }, opaque_uv, col },
+            { { p1.x - d.y, p1.y + d.x }, opaque_uv, col },
+        };
+
+        static constexpr ImDrawIdx indices[] = { 0, 1, 2, 0, 2, 3 };
+
+        AddGeometry(vertices, indices);
+    }
+}
+
+std::vector<ImVec2> GeneratePolylineNormals(std::span<ImVec2> points, bool closed)
+{
+    assert(points.size() >= 2);
+
+    std::vector<ImVec2> normals(points.size());
+
+    const size_t count = closed ? points.size() : points.size() - 1;
+
+    for (size_t i1 = 0; i1 < count; i1++)
+    {
+        const size_t i2 = (i1 + 1) % points.size();
+        ImVec2 d = Normalized(points[i2] - points[i1]);
+        normals[i1] = { d.y, -d.x };
+    }
+    if (!closed) {
+        normals[points.size() - 1] = normals[points.size() - 2];
+    }
+
+    return normals;
+}
+
+// TODO: Thickness anti-aliased lines cap are missing their AA fringe.
+void ImDrawList::AddPolyline_ThickAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
+{
+    const int points_count = static_cast<int>(points.size());
+    const bool closed = (flags & ImDrawFlags_Closed) != 0;
+    const ImVec2 opaque_uv = _Data->TexUvWhitePixel;
     const int count = closed ? points_count : points_count - 1; // The number of line segments we need to draw
-    const bool thick_line = (thickness > _FringeScale);
+    const float AA_SIZE = _FringeScale;
+    const ImU32 col_trans = col & ~IM_COL32_A_MASK;
+
+    const int idx_count = count * 18;
+    const int vtx_count = points_count * 4;
+    PrimReserve(idx_count, vtx_count);
+
+    const auto temp_normals = GeneratePolylineNormals(points, closed);
+    std::vector<std::array<ImVec2, 4>> temp_points(points_count);
+
+    const float half_inner_thickness = (thickness - AA_SIZE) * 0.5f;
+
+    auto gen_add_points = [half_inner_thickness, AA_SIZE](ImVec2 base_pt, ImVec2 normal) {
+        return std::to_array({
+            base_pt + normal * (half_inner_thickness + AA_SIZE),
+            base_pt + normal * (half_inner_thickness),
+            base_pt - normal * (half_inner_thickness),
+            base_pt - normal * (half_inner_thickness + AA_SIZE),
+        });
+    };
+
+    // If line is not closed, the first and last points need to be generated differently as there are no normals to blend
+    if (!closed)
+    {
+        const int points_last = points_count - 1;
+        temp_points.front() = gen_add_points(points.front(), temp_normals.front());
+        temp_points.back() = gen_add_points(points.back(), temp_normals.back());
+    }
+
+    unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+    for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
+    {
+        const int i2 = (i1 + 1) == points_count ? 0 : (i1 + 1); // i2 is the second point of the line segment
+        const unsigned int idx2 = (i1 + 1) == points_count ? _VtxCurrentIdx : (idx1 + 4); // Vertex index for end of segment
+
+        // Average normals
+        ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+        ImFixNormal2f(dm.x, dm.y);
+
+        // Add temporary vertices
+        temp_points[i2] = gen_add_points(points[i2], dm);
+
+        // Add indexes
+        _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 1);
+        _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 1);
+        _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2);
+        _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2);
+        _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2);
+        _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 1);
+
+        _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1);
+        _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1);
+        _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0);
+        _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0);
+        _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
+        _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1);
+
+        _IdxWritePtr[12] = (ImDrawIdx)(idx2 + 2);
+        _IdxWritePtr[13] = (ImDrawIdx)(idx1 + 2);
+        _IdxWritePtr[14] = (ImDrawIdx)(idx1 + 3);
+        _IdxWritePtr[15] = (ImDrawIdx)(idx1 + 3);
+        _IdxWritePtr[16] = (ImDrawIdx)(idx2 + 3);
+        _IdxWritePtr[17] = (ImDrawIdx)(idx2 + 2);
+
+        _IdxWritePtr += 18;
+
+        idx1 = idx2;
+    }
+
+    // Add vertices
+    for (int i = 0; i < points_count; i++)
+    {
+        _VtxWritePtr[0] = { temp_points[i][0], opaque_uv, col_trans };
+        _VtxWritePtr[1] = { temp_points[i][1], opaque_uv, col };
+        _VtxWritePtr[2] = { temp_points[i][2], opaque_uv, col };
+        _VtxWritePtr[3] = { temp_points[i][3], opaque_uv, col_trans };
+        _VtxWritePtr += 4;
+    }
+    _VtxCurrentIdx += (ImDrawIdx)vtx_count;
+}
+
+void ImDrawList::AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
+{
+    const int points_count = static_cast<int>(points.size());
+    const bool closed = (flags & ImDrawFlags_Closed) != 0;
+    const ImVec2 opaque_uv = _Data->TexUvWhitePixel;
+    const int seg_count = closed ? points_count : points_count - 1; // The number of line segments we need to draw
+
+    PrimReserve(seg_count * 6, points_count * 2);
+
+    const auto temp_normals = GeneratePolylineNormals(points, closed);
+    std::vector<std::pair<ImVec2, ImVec2>> temp_points(points_count);
+
+
+    auto gen_add_points = [half_draw_size = (thickness * 0.5f) + 1.0f](ImVec2 base_pt, ImVec2 normal) {
+        return std::pair<ImVec2, ImVec2>{
+            base_pt + normal * half_draw_size,
+            base_pt - normal * half_draw_size,
+        };
+    };
+
+    // If line is not closed, the first and last points need to be generated differently as there are no normals to blend
+    if (!closed)
+    {
+        temp_points.front() = gen_add_points(points.front(), temp_normals.front());
+        temp_points.back() = gen_add_points(points.back(), temp_normals.back());
+    }
+
+    unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+    for (int i1 = 0; i1 < seg_count; i1++) // i1 is the first point of the line segment
+    {
+        const int i2 = (i1 + 1) % points_count; // i2 is the second point of the line segment
+        const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + 2); // Vertex index for end of segment
+
+        // Average normals
+        ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+        ImFixNormal2f(dm.x, dm.y);
+
+        // Add temporary vertexes for the outer edges
+        temp_points[i2] = gen_add_points(points[i2], dm);
+
+        // Add indices for two triangles
+        _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
+        _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
+        _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 1); // Right tri
+
+        _IdxWritePtr[3] = (ImDrawIdx)(idx2 + 1);
+        _IdxWritePtr[4] = (ImDrawIdx)(idx1 + 1);
+        _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Left tri
+        _IdxWritePtr += 6;
+
+        idx1 = idx2;
+    }
+
+    ImVec4 tex_uvs = _Data->TexUvLines[static_cast<int>(thickness)];
+    ImVec2 tex_uv0(tex_uvs.x, tex_uvs.y);
+    ImVec2 tex_uv1(tex_uvs.z, tex_uvs.w);
+    for (int i = 0; i < points_count; i++)
+    {
+        _VtxWritePtr[0] = { temp_points[i].first, tex_uv0, col }; // Left-side outer edge
+        _VtxWritePtr[1] = { temp_points[i].second, tex_uv1, col }; // Right-side outer edge
+        _VtxWritePtr += 2;
+        _VtxCurrentIdx += 2;
+    }
+}
+
+void ImDrawList::AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
+{
+    const int points_count = static_cast<int>(points.size());
+    const bool closed = (flags & ImDrawFlags_Closed) != 0;
+    const ImVec2 opaque_uv = _Data->TexUvWhitePixel;
+    const ImU32 col_trans = col & ~IM_COL32_A_MASK;
+    const int count = closed ? points_count : points_count - 1; // The number of line segments we need to draw
+    const float AA_SIZE = _FringeScale;
+
+    PrimReserve(count * 12, points_count * 3);
+
+    const auto temp_normals = GeneratePolylineNormals(points, closed);
+    std::vector<std::pair<ImVec2, ImVec2>> temp_points(points_count);
+
+    // If line is not closed, the first and last points need to be generated differently as there are no normals to blend
+    if (!closed)
+    {
+        temp_points.front().first = points.front() + temp_normals.back() * AA_SIZE;
+        temp_points.front().second = points.front() - temp_normals.back() * AA_SIZE;
+        temp_points.back().first = points.back() + temp_normals.back() * AA_SIZE;
+        temp_points.back().second = points.back() - temp_normals.back() * AA_SIZE;
+    }
+
+    unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+    for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
+    {
+        const int i2 = (i1 + 1) == points_count ? 0 : i1 + 1; // i2 is the second point of the line segment
+        const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + 3); // Vertex index for end of segment
+
+        // Average normals
+        ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
+        ImFixNormal2f(dm.x, dm.y);
+        dm *= AA_SIZE; // dm is offset to the outer edge of the AA area
+
+        // Add temporary vertexes for the outer edges
+        temp_points[i2].first = points[i2] + dm;
+        temp_points[i2].second = points[i2] - dm;
+
+        // Add indexes for four triangles
+        _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
+        _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
+        _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2); // Right tri 1
+
+        _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2);
+        _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2);
+        _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Right tri 2
+
+        _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1);
+        _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1);
+        _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0); // Left tri 1
+
+        _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0);
+        _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
+        _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1); // Left tri 2
+        _IdxWritePtr += 12;
+
+        idx1 = idx2;
+    }
+
+    for (int i = 0; i < points_count; i++)
+    {
+        _VtxWritePtr[0] = { points[i], opaque_uv, col };                    // Center of line 
+        _VtxWritePtr[1] = { temp_points[i].first, opaque_uv, col_trans }; // Left-side outer edge
+        _VtxWritePtr[2] = { temp_points[i].second, opaque_uv, col_trans }; // Right-side outer edge
+        _VtxWritePtr += 3;
+        _VtxCurrentIdx += 3;
+    }
+}
+
+
+void ImDrawList::AddPolyline(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
+{
+    if (points.size() < 2 || (col & IM_COL32_A_MASK) == 0)
+        return;
 
     if (Flags & ImDrawListFlags_AntiAliasedLines)
-    {
-        // Anti-aliased stroke
-        const float AA_SIZE = _FringeScale;
-        const ImU32 col_trans = col & ~IM_COL32_A_MASK;
+    {       
+        const bool thick_line = (thickness > _FringeScale);
 
         // Thicknesses <1.0 should behave like thickness 1.0
         thickness = std::max(thickness, 1.0f);
@@ -713,251 +975,31 @@ void ImDrawList::AddPolyline(std::span<ImVec2> points, ImU32 col, ImDrawFlags fl
         // Do we want to draw this line using a texture?
         // - For now, only draw integer-width lines using textures to avoid issues with the way scaling occurs, could be improved.
         // - If AA_SIZE is not 1.0f we cannot use the texture path.
-        const bool use_texture = (Flags & ImDrawListFlags_AntiAliasedLinesUseTex) && (integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX) && (fractional_thickness <= 0.00001f) && (AA_SIZE == 1.0f);
+        const bool use_texture = (Flags & ImDrawListFlags_AntiAliasedLinesUseTex)
+            && (integer_thickness < IM_DRAWLIST_TEX_LINES_WIDTH_MAX)
+            && (fractional_thickness <= 0.00001f)
+            && (_FringeScale == 1.0f);
 
-        // We should never hit this, because NewFrame() doesn't set ImDrawListFlags_AntiAliasedLinesUseTex unless ImFontAtlasFlags_NoBakedLines is off
-        IM_ASSERT_PARANOID(!use_texture || !(_Data->Font->ContainerAtlas->Flags & ImFontAtlasFlags_NoBakedLines));
 
-        const int idx_count = use_texture ? (count * 6) : (thick_line ? count * 18 : count * 12);
-        const int vtx_count = use_texture ? (points_count * 2) : (thick_line ? points_count * 4 : points_count * 3);
-        PrimReserve(idx_count, vtx_count);
-
-        std::vector<ImVec2> temp_normals(points_count);
-        std::vector<ImVec2> temp_points(points_count * ((use_texture || !thick_line) ? 2 : 4));
-
-        // Calculate normals (tangents) for each line segment
-        for (int i1 = 0; i1 < count; i1++)
+        if (use_texture)
         {
-            const int i2 = (i1 + 1) % points_count;
-            ImVec2 d = Normalized(points[i2] - points[i1]);
-            temp_normals[i1] = { d.y, -d.x };
-
+            AddPolyline_TexAA(points, col, flags, thickness);
         }
-        if (!closed) {
-            temp_normals[points_count - 1] = temp_normals[points_count - 2];
-        }
-
-        // If we are drawing a one-pixel-wide line without a texture, or a textured line of any width, we only need 2 or 3 vertices per point
-        if (use_texture || !thick_line)
+        else if (thick_line)
         {
-            // [PATH 1] Texture-based lines (thick or non-thick)
-            // [PATH 2] Non texture-based lines (non-thick)
-
-            // The width of the geometry we need to draw - this is essentially <thickness> pixels for the line itself, plus "one pixel" for AA.
-            // - In the texture-based path, we don't use AA_SIZE here because the +1 is tied to the generated texture
-            //   (see ImFontAtlasBuildRenderLinesTexData() function), and so alternate values won't work without changes to that code.
-            // - In the non texture-based paths, we would allow AA_SIZE to potentially be != 1.0f with a patch (e.g. fringe_scale patch to
-            //   allow scaling geometry while preserving one-screen-pixel AA fringe).
-            const float half_draw_size = use_texture ? ((thickness * 0.5f) + 1) : AA_SIZE;
-
-            // If line is not closed, the first and last points need to be generated differently as there are no normals to blend
-            if (!closed)
-            {
-                temp_points[0] = points[0] + temp_normals[0] * half_draw_size;
-                temp_points[1] = points[0] - temp_normals[0] * half_draw_size;
-                temp_points[(points_count-1)*2+0] = points[points_count-1] + temp_normals[points_count-1] * half_draw_size;
-                temp_points[(points_count-1)*2+1] = points[points_count-1] - temp_normals[points_count-1] * half_draw_size;
-            }
-
-            // Generate the indices to form a number of triangles for each line segment, and the vertices for the line edges
-            // This takes points n and n+1 and writes into n+1, with the first point in a closed line being generated from the final one (as n+1 wraps)
-            // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
-            unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
-            for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
-            {
-                const int i2 = (i1 + 1) == points_count ? 0 : i1 + 1; // i2 is the second point of the line segment
-                const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + (use_texture ? 2 : 3)); // Vertex index for end of segment
-
-                // Average normals
-                ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
-                ImFixNormal2f(dm.x, dm.y);
-                dm *= half_draw_size; // dm is offset to the outer edge of the AA area
-
-                // Add temporary vertexes for the outer edges
-                temp_points[i2 * 2 + 0] = points[i2] + dm;
-                temp_points[i2 * 2 + 1] = points[i2] - dm;
-
-                if (use_texture)
-                {
-                    // Add indices for two triangles
-                    _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
-                    _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
-                    _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 1); // Right tri
-                    
-                    _IdxWritePtr[3] = (ImDrawIdx)(idx2 + 1);
-                    _IdxWritePtr[4] = (ImDrawIdx)(idx1 + 1);
-                    _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Left tri
-                    _IdxWritePtr += 6;
-                }
-                else
-                {
-                    // Add indexes for four triangles
-                    _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
-                    _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
-                    _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2); // Right tri 1
-
-                    _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2);
-                    _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2);
-                    _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Right tri 2
-
-                    _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1);
-                    _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1);
-                    _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0); // Left tri 1
-
-                    _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0);
-                    _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
-                    _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1); // Left tri 2
-                    _IdxWritePtr += 12;
-                }
-
-                idx1 = idx2;
-            }
-
-            // Add vertexes for each point on the line
-            if (use_texture)
-            {
-                // If we're using textures we only need to emit the left/right edge vertices
-                ImVec4 tex_uvs = _Data->TexUvLines[integer_thickness];
-                ImVec2 tex_uv0(tex_uvs.x, tex_uvs.y);
-                ImVec2 tex_uv1(tex_uvs.z, tex_uvs.w);
-                for (int i = 0; i < points_count; i++)
-                {
-                    _VtxWritePtr[0] = { temp_points[i * 2 + 0], tex_uv0, col }; // Left-side outer edge
-                    _VtxWritePtr[1] = { temp_points[i * 2 + 1], tex_uv1, col }; // Right-side outer edge
-                    _VtxWritePtr += 2;
-                }
-            }
-            else
-            {
-                // If we're not using a texture, we need the center vertex as well
-                for (int i = 0; i < points_count; i++)
-                {   
-                    _VtxWritePtr[0] = { points[i], opaque_uv, col };                    // Center of line 
-                    _VtxWritePtr[1] = { temp_points[i * 2 + 0], opaque_uv, col_trans }; // Left-side outer edge
-                    _VtxWritePtr[2] = { temp_points[i * 2 + 1], opaque_uv, col_trans }; // Right-side outer edge
-                    _VtxWritePtr += 3;
-                }
-            }
+            AddPolyline_ThickAA(points, col, flags, thickness);         
         }
         else
         {
-            // [PATH 2] Non texture-based lines (thick): we need to draw the solid line core and thus require four vertices per point
-            const float half_inner_thickness = (thickness - AA_SIZE) * 0.5f;
-
-            // If line is not closed, the first and last points need to be generated differently as there are no normals to blend
-            if (!closed)
-            {
-                const int points_last = points_count - 1;
-                temp_points[0] = points[0] + temp_normals[0] * (half_inner_thickness + AA_SIZE);
-                temp_points[1] = points[0] + temp_normals[0] * (half_inner_thickness);
-                temp_points[2] = points[0] - temp_normals[0] * (half_inner_thickness);
-                temp_points[3] = points[0] - temp_normals[0] * (half_inner_thickness + AA_SIZE);
-                temp_points[points_last * 4 + 0] = points[points_last] + temp_normals[points_last] * (half_inner_thickness + AA_SIZE);
-                temp_points[points_last * 4 + 1] = points[points_last] + temp_normals[points_last] * (half_inner_thickness);
-                temp_points[points_last * 4 + 2] = points[points_last] - temp_normals[points_last] * (half_inner_thickness);
-                temp_points[points_last * 4 + 3] = points[points_last] - temp_normals[points_last] * (half_inner_thickness + AA_SIZE);
-            }
-
-            // Generate the indices to form a number of triangles for each line segment, and the vertices for the line edges
-            // This takes points n and n+1 and writes into n+1, with the first point in a closed line being generated from the final one (as n+1 wraps)
-            // FIXME-OPT: Merge the different loops, possibly remove the temporary buffer.
-            unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
-            for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
-            {
-                const int i2 = (i1 + 1) == points_count ? 0 : (i1 + 1); // i2 is the second point of the line segment
-                const unsigned int idx2 = (i1 + 1) == points_count ? _VtxCurrentIdx : (idx1 + 4); // Vertex index for end of segment
-
-                // Average normals
-                ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
-                ImFixNormal2f(dm.x, dm.y);
-                const ImVec2 dm_out = dm * (half_inner_thickness + AA_SIZE);
-                const ImVec2 dm_in = dm * half_inner_thickness;
-
-                // Add temporary vertices
-                ImVec2* out_vtx = &temp_points[i2 * 4];
-                out_vtx[0] = points[i2] + dm_out;
-                out_vtx[1] = points[i2] + dm_in;
-                out_vtx[2] = points[i2] - dm_in;
-                out_vtx[3] = points[i2] - dm_out;
-
-                // Add indexes
-                _IdxWritePtr[0]  = (ImDrawIdx)(idx2 + 1);
-                _IdxWritePtr[1]  = (ImDrawIdx)(idx1 + 1);
-                _IdxWritePtr[2]  = (ImDrawIdx)(idx1 + 2);
-                _IdxWritePtr[3]  = (ImDrawIdx)(idx1 + 2);
-                _IdxWritePtr[4]  = (ImDrawIdx)(idx2 + 2);
-                _IdxWritePtr[5]  = (ImDrawIdx)(idx2 + 1);
-                _IdxWritePtr[6]  = (ImDrawIdx)(idx2 + 1);
-                _IdxWritePtr[7]  = (ImDrawIdx)(idx1 + 1);
-                _IdxWritePtr[8]  = (ImDrawIdx)(idx1 + 0);
-                _IdxWritePtr[9]  = (ImDrawIdx)(idx1 + 0);
-                _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
-                _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1);
-                _IdxWritePtr[12] = (ImDrawIdx)(idx2 + 2);
-                _IdxWritePtr[13] = (ImDrawIdx)(idx1 + 2);
-                _IdxWritePtr[14] = (ImDrawIdx)(idx1 + 3);
-                _IdxWritePtr[15] = (ImDrawIdx)(idx1 + 3);
-                _IdxWritePtr[16] = (ImDrawIdx)(idx2 + 3);
-                _IdxWritePtr[17] = (ImDrawIdx)(idx2 + 2);
-                _IdxWritePtr += 18;
-
-                idx1 = idx2;
-            }
-
-            // Add vertices
-            for (int i = 0; i < points_count; i++)
-            {
-                _VtxWritePtr[0] = { temp_points[i * 4 + 0], opaque_uv, col_trans };
-                _VtxWritePtr[1] = { temp_points[i * 4 + 1], opaque_uv, col };
-                _VtxWritePtr[2] = { temp_points[i * 4 + 2], opaque_uv, col };
-                _VtxWritePtr[3] = { temp_points[i * 4 + 3], opaque_uv, col_trans };
-                _VtxWritePtr += 4;
-            }
-        }
-        _VtxCurrentIdx += (ImDrawIdx)vtx_count;
+            AddPolyline_ThinAA(points, col, flags, thickness);
+        }     
     }
     else
     {
-        // [PATH 4] Non texture-based, Non anti-aliased lines
-        const int idx_count = count * 6;
-        const int vtx_count = count * 4;    // FIXME-OPT: Not sharing edges
-        PrimReserve(idx_count, vtx_count);
-
-        for (int i1 = 0; i1 < count; i1++)
-        {
-            const int i2 = (i1 + 1) == points_count ? 0 : i1 + 1;
-            const ImVec2& p1 = points[i1];
-            const ImVec2& p2 = points[i2];
-
-            ImVec2 d = Normalized(p2 - p1) * (thickness * 0.5f);
-
-            _VtxWritePtr[0].pos.x = p1.x + d.y;
-            _VtxWritePtr[0].pos.y = p1.y - d.x;
-            _VtxWritePtr[0].uv = opaque_uv;
-            _VtxWritePtr[0].col = col;
-            _VtxWritePtr[1].pos.x = p2.x + d.y;
-            _VtxWritePtr[1].pos.y = p2.y - d.x;
-            _VtxWritePtr[1].uv = opaque_uv;
-            _VtxWritePtr[1].col = col;
-            _VtxWritePtr[2].pos.x = p2.x - d.y;
-            _VtxWritePtr[2].pos.y = p2.y + d.x;
-            _VtxWritePtr[2].uv = opaque_uv;
-            _VtxWritePtr[2].col = col;
-            _VtxWritePtr[3].pos.x = p1.x - d.y;
-            _VtxWritePtr[3].pos.y = p1.y + d.x;
-            _VtxWritePtr[3].uv = opaque_uv;
-            _VtxWritePtr[3].col = col;
-            _VtxWritePtr += 4;
-
-            static constexpr ImDrawIdx indices[] = { 0, 1, 2, 0, 2, 3 };
-            PrimWriteIndices(indices, _VtxCurrentIdx);
- 
-            _VtxCurrentIdx += 4;
-        }
+        AddPolyline_NonAA(points, col, flags, thickness);
     }
 }
 
-// - We intentionally avoid using ImVec2 and its math operators here to reduce cost to a minimum for debug/non-inlined builds.
 // - Filled shapes must always use clockwise winding order. The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
 void ImDrawList::AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col)
 {
@@ -1023,22 +1065,21 @@ void ImDrawList::AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col)
     else
     {
         // Non Anti-aliased Fill
-        const int idx_count = (points_count - 2) * 3;
-        const int vtx_count = points_count;
-        PrimReserve(idx_count, vtx_count);
-        for (int i = 0; i < vtx_count; i++)
-        {
-            _VtxWritePtr[0] = { points[i], uv, col };
-            _VtxWritePtr++;
-        }
-        for (int i = 2; i < points_count; i++)
-        {
-            _IdxWritePtr[0] = (ImDrawIdx)(_VtxCurrentIdx);
-            _IdxWritePtr[1] = (ImDrawIdx)(_VtxCurrentIdx + i - 1);
-            _IdxWritePtr[2] = (ImDrawIdx)(_VtxCurrentIdx + i);
-            _IdxWritePtr += 3;
-        }
-        _VtxCurrentIdx += (ImDrawIdx)vtx_count;
+
+        auto seg_to_indices = [](size_t segment) {
+            return std::to_array<size_t>({ 0, segment - 1, segment });
+        };
+        auto indices = stdv::iota(2u, points.size())
+            | stdv::transform(seg_to_indices)
+            | stdv::join
+            | stdr::to<std::vector>();
+
+        auto pos_to_vert = [uv, col](const ImVec2& pos) -> ImDrawVert {
+            return { pos, uv, col };
+        };
+        auto vertices = points | stdv::transform(pos_to_vert);
+
+        AddGeometry(vertices, indices);
     }
 }
 
@@ -1396,15 +1437,17 @@ void ImDrawList::AddRectFilledMultiColor(const ImVec2& p_min, const ImVec2& p_ma
         return;
 
     const ImVec2 uv = _Data->TexUvWhitePixel;
-    PrimReserve(6, 4);
 
     static constexpr ImDrawIdx indices[] = { 0, 1, 2, 0, 2, 3 };
-    PrimWriteIndices(indices, _VtxCurrentIdx);
 
-    PrimWriteVtx(p_min, uv, col_upr_left);
-    PrimWriteVtx(ImVec2(p_max.x, p_min.y), uv, col_upr_right);
-    PrimWriteVtx(p_max, uv, col_bot_right);
-    PrimWriteVtx(ImVec2(p_min.x, p_max.y), uv, col_bot_left);
+    const ImDrawVert vertices[] = {
+        { p_min,              uv, col_upr_left },
+        { {p_max.x, p_min.y}, uv, col_upr_right },
+        { p_max,              uv, col_bot_right },
+        { {p_min.x, p_max.y}, uv, col_bot_left },
+    };
+
+    AddGeometry(vertices, indices);
 }
 
 void ImDrawList::AddQuad(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col, float thickness)

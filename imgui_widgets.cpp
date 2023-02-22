@@ -5557,13 +5557,19 @@ bool ImGui::ColorPicker4(const char* label, float col[4], ImGuiColorEditFlags fl
         ImVec2 trb = wheel_center + ImRotate(triangle_pb, cos_hue_angle, sin_hue_angle);
         ImVec2 trc = wheel_center + ImRotate(triangle_pc, cos_hue_angle, sin_hue_angle);
         ImVec2 uv_white = GetFontTexUvWhitePixel();
-        draw_list->PrimReserve(6, 6);
-        draw_list->PrimVtx(tra, uv_white, hue_color32);
-        draw_list->PrimVtx(trb, uv_white, hue_color32);
-        draw_list->PrimVtx(trc, uv_white, col_white);
-        draw_list->PrimVtx(tra, uv_white, 0);
-        draw_list->PrimVtx(trb, uv_white, col_black);
-        draw_list->PrimVtx(trc, uv_white, 0);
+
+        const ImDrawVert vertices[] = {
+            // colored gradient triangle
+            {tra, uv_white, hue_color32},
+            {trb, uv_white, hue_color32},
+            {trc, uv_white, col_white},
+            // black to transparent gradient triangle
+            {tra, uv_white, 0},
+            {trb, uv_white, col_black},
+            {trc, uv_white, 0},
+        };
+        draw_list->AddGeometry(vertices);     
+
         draw_list->AddTriangle(tra, trb, trc, col_midgrey, 1.5f);
         sv_cursor_pos = ImLerp(ImLerp(trc, tra, ImSaturate(S)), trb, ImSaturate(1 - V));
     }

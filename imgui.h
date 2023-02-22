@@ -49,6 +49,7 @@ Index of this file:
 #include <span>
 #include <string>
 #include <cmath>
+#include <ranges>
 
 // Helper Macros
 #ifndef IM_ASSERT
@@ -2693,29 +2694,32 @@ struct ImDrawList
     void PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImU32 col);
     void PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col);
 
-    void PrimWriteVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col) {
-        *_VtxWritePtr = { pos, uv, col };
-        _VtxWritePtr++;
-        _VtxCurrentIdx++;
+    template<class Vs, class Is>
+    void AddGeometry(const Vs& vertices, const Is& indices)
+    {
+        const auto vert_count = std::ranges::size(vertices);
+        const auto idx_count = std::ranges::size(indices);
+        PrimReserve((int)idx_count, (int)vert_count);
+        for (auto i : indices) {
+            *_IdxWritePtr++ = i + _VtxCurrentIdx;
+        }
+        for (const auto& v : vertices) {
+            *_VtxWritePtr++ = v;
+        }
+        _VtxCurrentIdx += vert_count;
     }
 
-    void PrimWriteIdx(ImDrawIdx idx) {
-        *_IdxWritePtr = idx;
-        _IdxWritePtr++;
-    }
-
-    template<class Indices>
-    void PrimWriteIndices(const Indices& indices, ImDrawIdx base_idx) {
-        for (auto idx : indices) {
-            PrimWriteIdx(base_idx + idx);
+    template<class Vs>
+    void AddGeometry(const Vs& vertices)
+    {
+        const auto vert_count = std::ranges::size(vertices);
+        PrimReserve((int)vert_count, (int)vert_count);
+        for (const auto& v : vertices) {
+            *_IdxWritePtr++ = _VtxCurrentIdx;
+            *_VtxWritePtr++ = v;
+            _VtxCurrentIdx++;
         }
     }
-
-    // Write vertex with unique index
-    void PrimVtx(const ImVec2& pos, const ImVec2& uv, ImU32 col) {
-        PrimWriteIdx((ImDrawIdx)_VtxCurrentIdx);
-        PrimWriteVtx(pos, uv, col);
-    } 
 
     // [Internal helpers]
     void _ResetForNewFrame();
@@ -2728,6 +2732,12 @@ struct ImDrawList
     int _CalcCircleAutoSegmentCount(float radius) const;
     void _PathArcToFastEx(const ImVec2& center, float radius, int a_min_sample, int a_max_sample, int a_step);
     void _PathArcToN(const ImVec2& center, float radius, float a_min, float a_max, int num_segments);
+
+    
+    void AddPolyline_NonAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);   // Each line segment is drawn as a one simple quad
+    void AddPolyline_ThickAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness); // Each line segment is drawn as 3 quads - opaque center quad and gradient sides
+    void AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);  // Each line segment is drawn as 2 quads - opaque center line and gradient towards edges
+    void AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);   // Each line segment is drawn as one quad with a texture
 };
 
 // All draw data to render a Dear ImGui frame
