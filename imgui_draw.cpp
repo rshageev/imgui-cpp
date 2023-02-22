@@ -745,10 +745,6 @@ void ImDrawList::AddPolyline_ThickAA(std::span<ImVec2> points, ImU32 col, ImDraw
     const float AA_SIZE = _FringeScale;
     const ImU32 col_trans = col & ~IM_COL32_A_MASK;
 
-    const int idx_count = count * 18;
-    const int vtx_count = points_count * 4;
-    PrimReserve(idx_count, vtx_count);
-
     const auto temp_normals = GeneratePolylineNormals(points, closed);
     std::vector<std::array<ImVec2, 4>> temp_points(points_count);
 
@@ -771,11 +767,13 @@ void ImDrawList::AddPolyline_ThickAA(std::span<ImVec2> points, ImU32 col, ImDraw
         temp_points.back() = gen_add_points(points.back(), temp_normals.back());
     }
 
-    unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+    std::vector<ImDrawIdx> indices;
+
+    unsigned int idx1 = 0; // Vertex index for start of line segment
     for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
     {
         const int i2 = (i1 + 1) == points_count ? 0 : (i1 + 1); // i2 is the second point of the line segment
-        const unsigned int idx2 = (i1 + 1) == points_count ? _VtxCurrentIdx : (idx1 + 4); // Vertex index for end of segment
+        const unsigned int idx2 = (i1 + 1) == points_count ? 0 : (idx1 + 4); // Vertex index for end of segment
 
         // Average normals
         ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
@@ -785,42 +783,42 @@ void ImDrawList::AddPolyline_ThickAA(std::span<ImVec2> points, ImU32 col, ImDraw
         temp_points[i2] = gen_add_points(points[i2], dm);
 
         // Add indexes
-        _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 1);
-        _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 1);
-        _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2);
-        _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2);
-        _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2);
-        _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 1);
+        indices.push_back(idx2 + 1);
+        indices.push_back(idx1 + 1);
+        indices.push_back(idx1 + 2);
+        indices.push_back(idx1 + 2);
+        indices.push_back(idx2 + 2);
+        indices.push_back(idx2 + 1);
 
-        _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1);
-        _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1);
-        _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0);
-        _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0);
-        _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
-        _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1);
+        indices.push_back(idx2 + 1);
+        indices.push_back(idx1 + 1);
+        indices.push_back(idx1 + 0);
+        indices.push_back(idx1 + 0);
+        indices.push_back(idx2 + 0);
+        indices.push_back(idx2 + 1);
 
-        _IdxWritePtr[12] = (ImDrawIdx)(idx2 + 2);
-        _IdxWritePtr[13] = (ImDrawIdx)(idx1 + 2);
-        _IdxWritePtr[14] = (ImDrawIdx)(idx1 + 3);
-        _IdxWritePtr[15] = (ImDrawIdx)(idx1 + 3);
-        _IdxWritePtr[16] = (ImDrawIdx)(idx2 + 3);
-        _IdxWritePtr[17] = (ImDrawIdx)(idx2 + 2);
-
-        _IdxWritePtr += 18;
+        indices.push_back(idx2 + 2);
+        indices.push_back(idx1 + 2);
+        indices.push_back(idx1 + 3);
+        indices.push_back(idx1 + 3);
+        indices.push_back(idx2 + 3);
+        indices.push_back(idx2 + 2);
 
         idx1 = idx2;
     }
 
     // Add vertices
-    for (int i = 0; i < points_count; i++)
+    std::vector<ImDrawVert> vertices;
+    for (const auto& pts : temp_points)
     {
-        _VtxWritePtr[0] = { temp_points[i][0], opaque_uv, col_trans };
-        _VtxWritePtr[1] = { temp_points[i][1], opaque_uv, col };
-        _VtxWritePtr[2] = { temp_points[i][2], opaque_uv, col };
-        _VtxWritePtr[3] = { temp_points[i][3], opaque_uv, col_trans };
-        _VtxWritePtr += 4;
+        vertices.push_back({ pts[0], opaque_uv, col_trans });
+        vertices.push_back({ pts[1], opaque_uv, col });
+        vertices.push_back({ pts[2], opaque_uv, col });
+        vertices.push_back({ pts[3], opaque_uv, col_trans });
     }
-    _VtxCurrentIdx += (ImDrawIdx)vtx_count;
+
+
+    AddGeometry(vertices, indices);
 }
 
 void ImDrawList::AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
@@ -830,7 +828,8 @@ void ImDrawList::AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFl
     const ImVec2 opaque_uv = _Data->TexUvWhitePixel;
     const int seg_count = closed ? points_count : points_count - 1; // The number of line segments we need to draw
 
-    PrimReserve(seg_count * 6, points_count * 2);
+    std::vector<ImDrawIdx> indices;
+    std::vector<ImDrawVert> vertices;
 
     const auto temp_normals = GeneratePolylineNormals(points, closed);
     std::vector<std::pair<ImVec2, ImVec2>> temp_points(points_count);
@@ -850,11 +849,11 @@ void ImDrawList::AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFl
         temp_points.back() = gen_add_points(points.back(), temp_normals.back());
     }
 
-    unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+    unsigned int idx1 = 0; // Vertex index for start of line segment
     for (int i1 = 0; i1 < seg_count; i1++) // i1 is the first point of the line segment
     {
         const int i2 = (i1 + 1) % points_count; // i2 is the second point of the line segment
-        const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + 2); // Vertex index for end of segment
+        const unsigned int idx2 = ((i1 + 1) == points_count) ? 0 : (idx1 + 2); // Vertex index for end of segment
 
         // Average normals
         ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
@@ -864,14 +863,13 @@ void ImDrawList::AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFl
         temp_points[i2] = gen_add_points(points[i2], dm);
 
         // Add indices for two triangles
-        _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
-        _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
-        _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 1); // Right tri
+        indices.push_back(idx2 + 0);
+        indices.push_back(idx1 + 0);
+        indices.push_back(idx1 + 1); // Right tri
 
-        _IdxWritePtr[3] = (ImDrawIdx)(idx2 + 1);
-        _IdxWritePtr[4] = (ImDrawIdx)(idx1 + 1);
-        _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Left tri
-        _IdxWritePtr += 6;
+        indices.push_back(idx2 + 1);
+        indices.push_back(idx1 + 1);
+        indices.push_back(idx2 + 0); // Left tri
 
         idx1 = idx2;
     }
@@ -879,13 +877,13 @@ void ImDrawList::AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFl
     ImVec4 tex_uvs = _Data->TexUvLines[static_cast<int>(thickness)];
     ImVec2 tex_uv0(tex_uvs.x, tex_uvs.y);
     ImVec2 tex_uv1(tex_uvs.z, tex_uvs.w);
-    for (int i = 0; i < points_count; i++)
+    for (const auto& pts : temp_points)
     {
-        _VtxWritePtr[0] = { temp_points[i].first, tex_uv0, col }; // Left-side outer edge
-        _VtxWritePtr[1] = { temp_points[i].second, tex_uv1, col }; // Right-side outer edge
-        _VtxWritePtr += 2;
-        _VtxCurrentIdx += 2;
+        vertices.push_back({ pts.first, tex_uv0, col }); // Left-side outer edge
+        vertices.push_back({ pts.second, tex_uv1, col }); // Right-side outer edge
     }
+
+    AddGeometry(vertices, indices);
 }
 
 void ImDrawList::AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness)
@@ -897,10 +895,11 @@ void ImDrawList::AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawF
     const int count = closed ? points_count : points_count - 1; // The number of line segments we need to draw
     const float AA_SIZE = _FringeScale;
 
-    PrimReserve(count * 12, points_count * 3);
-
     const auto temp_normals = GeneratePolylineNormals(points, closed);
     std::vector<std::pair<ImVec2, ImVec2>> temp_points(points_count);
+
+    std::vector<ImDrawIdx> indices;
+    std::vector<ImDrawVert> vertices;
 
     // If line is not closed, the first and last points need to be generated differently as there are no normals to blend
     if (!closed)
@@ -911,11 +910,11 @@ void ImDrawList::AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawF
         temp_points.back().second = points.back() - temp_normals.back() * AA_SIZE;
     }
 
-    unsigned int idx1 = _VtxCurrentIdx; // Vertex index for start of line segment
+    unsigned int idx1 = 0; // Vertex index for start of line segment
     for (int i1 = 0; i1 < count; i1++) // i1 is the first point of the line segment
     {
         const int i2 = (i1 + 1) == points_count ? 0 : i1 + 1; // i2 is the second point of the line segment
-        const unsigned int idx2 = ((i1 + 1) == points_count) ? _VtxCurrentIdx : (idx1 + 3); // Vertex index for end of segment
+        const unsigned int idx2 = ((i1 + 1) == points_count) ? 0 : (idx1 + 3); // Vertex index for end of segment
 
         // Average normals
         ImVec2 dm = (temp_normals[i1] + temp_normals[i2]) * 0.5f;
@@ -927,34 +926,33 @@ void ImDrawList::AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawF
         temp_points[i2].second = points[i2] - dm;
 
         // Add indexes for four triangles
-        _IdxWritePtr[0] = (ImDrawIdx)(idx2 + 0);
-        _IdxWritePtr[1] = (ImDrawIdx)(idx1 + 0);
-        _IdxWritePtr[2] = (ImDrawIdx)(idx1 + 2); // Right tri 1
+        indices.push_back(idx2 + 0);
+        indices.push_back(idx1 + 0);
+        indices.push_back(idx1 + 2); // Right tri 1
 
-        _IdxWritePtr[3] = (ImDrawIdx)(idx1 + 2);
-        _IdxWritePtr[4] = (ImDrawIdx)(idx2 + 2);
-        _IdxWritePtr[5] = (ImDrawIdx)(idx2 + 0); // Right tri 2
+        indices.push_back(idx1 + 2);
+        indices.push_back(idx2 + 2);
+        indices.push_back(idx2 + 0); // Right tri 2
 
-        _IdxWritePtr[6] = (ImDrawIdx)(idx2 + 1);
-        _IdxWritePtr[7] = (ImDrawIdx)(idx1 + 1);
-        _IdxWritePtr[8] = (ImDrawIdx)(idx1 + 0); // Left tri 1
+        indices.push_back(idx2 + 1);
+        indices.push_back(idx1 + 1);
+        indices.push_back(idx1 + 0); // Left tri 1
 
-        _IdxWritePtr[9] = (ImDrawIdx)(idx1 + 0);
-        _IdxWritePtr[10] = (ImDrawIdx)(idx2 + 0);
-        _IdxWritePtr[11] = (ImDrawIdx)(idx2 + 1); // Left tri 2
-        _IdxWritePtr += 12;
+        indices.push_back(idx1 + 0);
+        indices.push_back(idx2 + 0);
+        indices.push_back(idx2 + 1); // Left tri 2
 
         idx1 = idx2;
     }
 
     for (int i = 0; i < points_count; i++)
     {
-        _VtxWritePtr[0] = { points[i], opaque_uv, col };                    // Center of line 
-        _VtxWritePtr[1] = { temp_points[i].first, opaque_uv, col_trans }; // Left-side outer edge
-        _VtxWritePtr[2] = { temp_points[i].second, opaque_uv, col_trans }; // Right-side outer edge
-        _VtxWritePtr += 3;
-        _VtxCurrentIdx += 3;
+        vertices.push_back({ points[i], opaque_uv, col });                    // Center of line 
+        vertices.push_back({ temp_points[i].first, opaque_uv, col_trans }); // Left-side outer edge
+        vertices.push_back({ temp_points[i].second, opaque_uv, col_trans }); // Right-side outer edge
     }
+
+    AddGeometry(vertices, indices);
 }
 
 
@@ -1015,19 +1013,18 @@ void ImDrawList::AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col)
         // Anti-aliased Fill
         const float AA_SIZE = _FringeScale;
         const ImU32 col_trans = col & ~IM_COL32_A_MASK;
-        const int idx_count = (points_count - 2) * 3 + points_count * 6;
-        const int vtx_count = (points_count * 2);
-        PrimReserve(idx_count, vtx_count);
+
+        std::vector<ImDrawIdx> indices;
+        std::vector<ImDrawVert> vertices;
 
         // Add indexes for fill
-        unsigned int vtx_inner_idx = _VtxCurrentIdx;
-        unsigned int vtx_outer_idx = _VtxCurrentIdx + 1;
-        for (int i = 2; i < points_count; i++)
+        unsigned int vtx_inner_idx = 0;
+        unsigned int vtx_outer_idx = 1;
+        for (size_t i = 2; i < points.size(); i++)
         {
-            _IdxWritePtr[0] = (ImDrawIdx)(vtx_inner_idx);
-            _IdxWritePtr[1] = (ImDrawIdx)(vtx_inner_idx + ((i - 1) * 2));
-            _IdxWritePtr[2] = (ImDrawIdx)(vtx_inner_idx + (i * 2));
-            _IdxWritePtr += 3;
+            indices.push_back(vtx_inner_idx);
+            indices.push_back(vtx_inner_idx + ((i - 1) * 2));
+            indices.push_back(vtx_inner_idx + (i * 2));
         }
 
         // Compute normals
@@ -1047,20 +1044,19 @@ void ImDrawList::AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col)
             dm.y *= AA_SIZE * 0.5f;
 
             // Add vertices
-            _VtxWritePtr[0] = { points[i1] - dm, uv, col };       // Inner     
-            _VtxWritePtr[1] = { points[i1] + dm, uv, col_trans }; // Outer
-            _VtxWritePtr += 2;
+            vertices.push_back({ points[i1] - dm, uv, col });       // Inner     
+            vertices.push_back({ points[i1] + dm, uv, col_trans }); // Outer
 
             // Add indexes for fringes
-            _IdxWritePtr[0] = (ImDrawIdx)(vtx_inner_idx + i1 * 2);
-            _IdxWritePtr[1] = (ImDrawIdx)(vtx_inner_idx + i0 * 2);
-            _IdxWritePtr[2] = (ImDrawIdx)(vtx_outer_idx + i0 * 2);
-            _IdxWritePtr[3] = (ImDrawIdx)(vtx_outer_idx + i0 * 2);
-            _IdxWritePtr[4] = (ImDrawIdx)(vtx_outer_idx + i1 * 2);
-            _IdxWritePtr[5] = (ImDrawIdx)(vtx_inner_idx + i1 * 2);
-            _IdxWritePtr += 6;
+            indices.push_back(vtx_inner_idx + i1 * 2);
+            indices.push_back(vtx_inner_idx + i0 * 2);
+            indices.push_back(vtx_outer_idx + i0 * 2);
+            indices.push_back(vtx_outer_idx + i0 * 2);
+            indices.push_back(vtx_outer_idx + i1 * 2);
+            indices.push_back(vtx_inner_idx + i1 * 2);
         }
-        _VtxCurrentIdx += (ImDrawIdx)vtx_count;
+
+        AddGeometry(vertices, indices);
     }
     else
     {
@@ -3566,8 +3562,8 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
             y += line_height;
         }
 
-    // For large text, scan for the last visible line in order to avoid over-reserving in the call to PrimReserve()
-    // Note that very large horizontal line will still be affected by the issue (e.g. a one megabyte string buffer without a newline will likely crash atm)
+    // Note that very large horizontal line will still be affected by the issue
+    // (e.g. a one megabyte string buffer without a newline will likely crash atm)
     if (text_end - s > 10000 && !word_wrap_enabled)
     {
         const char* s_end = s;
