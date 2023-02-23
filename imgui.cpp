@@ -11226,17 +11226,21 @@ void ImGui::AddSettingsHandler(const ImGuiSettingsHandler* handler)
 void ImGui::RemoveSettingsHandler(const char* type_name)
 {
     ImGuiContext& g = *GImGui;
-    if (ImGuiSettingsHandler* handler = FindSettingsHandler(type_name))
-        g.SettingsHandlers.erase(handler);
+    const ImGuiID type_hash = ImHashStr(type_name);
+    std::erase_if(g.SettingsHandlers, [=](const auto& handler){
+        return handler.TypeHash == type_hash;
+    });
 }
 
 ImGuiSettingsHandler* ImGui::FindSettingsHandler(const char* type_name)
 {
     ImGuiContext& g = *GImGui;
     const ImGuiID type_hash = ImHashStr(type_name);
-    for (int handler_n = 0; handler_n < g.SettingsHandlers.Size; handler_n++)
-        if (g.SettingsHandlers[handler_n].TypeHash == type_hash)
-            return &g.SettingsHandlers[handler_n];
+    for (auto& handler : g.SettingsHandlers) {
+        if (handler.TypeHash == type_hash) {
+            return &handler;
+        }
+    }
     return NULL;
 }
 
@@ -11245,9 +11249,11 @@ void ImGui::ClearIniSettings()
 {
     ImGuiContext& g = *GImGui;
     g.SettingsIniData.clear();
-    for (int handler_n = 0; handler_n < g.SettingsHandlers.Size; handler_n++)
-        if (g.SettingsHandlers[handler_n].ClearAllFn)
-            g.SettingsHandlers[handler_n].ClearAllFn(&g, &g.SettingsHandlers[handler_n]);
+    for (auto& handler : g.SettingsHandlers) {
+        if (handler.ClearAllFn) {
+            handler.ClearAllFn(&g, &handler);
+        }
+    }
 }
 
 void ImGui::LoadIniSettingsFromDisk(const char* ini_filename)
@@ -11281,9 +11287,11 @@ void ImGui::LoadIniSettingsFromMemory(const char* ini_data, size_t ini_size)
 
     // Call pre-read handlers
     // Some types will clear their data (e.g. dock information) some types will allow merge/override (window)
-    for (int handler_n = 0; handler_n < g.SettingsHandlers.Size; handler_n++)
-        if (g.SettingsHandlers[handler_n].ReadInitFn)
-            g.SettingsHandlers[handler_n].ReadInitFn(&g, &g.SettingsHandlers[handler_n]);
+    for (auto& handler : g.SettingsHandlers) {
+        if (handler.ReadInitFn) {
+            handler.ReadInitFn(&g, &handler);
+        }
+    }
 
     void* entry_data = NULL;
     ImGuiSettingsHandler* entry_handler = NULL;
@@ -11327,9 +11335,11 @@ void ImGui::LoadIniSettingsFromMemory(const char* ini_data, size_t ini_size)
     memcpy(buf, ini_data, ini_size);
 
     // Call post-read handlers
-    for (int handler_n = 0; handler_n < g.SettingsHandlers.Size; handler_n++)
-        if (g.SettingsHandlers[handler_n].ApplyAllFn)
-            g.SettingsHandlers[handler_n].ApplyAllFn(&g, &g.SettingsHandlers[handler_n]);
+    for (auto& handler : g.SettingsHandlers) {
+        if (handler.ApplyAllFn) {
+            handler.ApplyAllFn(&g, &handler);
+        }
+    }
 }
 
 void ImGui::SaveIniSettingsToDisk(const char* ini_filename)
@@ -11355,13 +11365,12 @@ const char* ImGui::SaveIniSettingsToMemory(size_t* out_size)
     g.SettingsDirtyTimer = 0.0f;
     g.SettingsIniData.Buf.resize(0);
     g.SettingsIniData.Buf.push_back(0);
-    for (int handler_n = 0; handler_n < g.SettingsHandlers.Size; handler_n++)
-    {
-        ImGuiSettingsHandler* handler = &g.SettingsHandlers[handler_n];
-        handler->WriteAllFn(&g, handler, &g.SettingsIniData);
+    for (auto& handler : g.SettingsHandlers) {
+        handler.WriteAllFn(&g, &handler, &g.SettingsIniData);
     }
-    if (out_size)
+    if (out_size) {
         *out_size = (size_t)g.SettingsIniData.size();
+    }
     return g.SettingsIniData.c_str();
 }
 
@@ -12235,10 +12244,11 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         else
             TextUnformatted("<NULL>");
         Text("SettingsDirtyTimer %.2f", g.SettingsDirtyTimer);
-        if (TreeNode("SettingsHandlers", "Settings handlers: (%d)", g.SettingsHandlers.Size))
+        if (TreeNode("SettingsHandlers", "Settings handlers: (%d)", g.SettingsHandlers.size()))
         {
-            for (int n = 0; n < g.SettingsHandlers.Size; n++)
-                BulletText("%s", g.SettingsHandlers[n].TypeName);
+            for (const auto& handler : g.SettingsHandlers) {
+                BulletText("%s", handler.TypeName);
+            }
             TreePop();
         }
         if (TreeNode("SettingsWindows", "Settings packed data: Windows: %d bytes", g.SettingsWindows.size()))

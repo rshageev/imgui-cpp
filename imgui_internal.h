@@ -1566,7 +1566,6 @@ struct ImGuiSettingsHandler
     void (*ReadLineFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line) = nullptr; // Read: Called for every line of text within an ini entry
     void (*ApplyAllFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler) = nullptr;                                // Read: Called after reading (in registration order)
     void (*WriteAllFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out_buf) = nullptr;      // Write: Output every entries into 'out_buf'
-    void* UserData = nullptr;
 };
 
 //-----------------------------------------------------------------------------
@@ -1897,7 +1896,7 @@ struct ImGuiContext
     bool SettingsLoaded = false;
     float SettingsDirtyTimer = 0.0f;                    // Save .ini Settings to memory when time reaches zero
     ImGuiTextBuffer SettingsIniData;                    // In memory .ini settings
-    ImVector<ImGuiSettingsHandler> SettingsHandlers;    // List of .ini settings handlers
+    std::vector<ImGuiSettingsHandler> SettingsHandlers; // List of .ini settings handlers
     ImChunkStream<ImGuiWindowSettings> SettingsWindows; // ImGuiWindow .ini settings entries
     ImChunkStream<ImGuiTableSettings> SettingsTables;   // ImGuiTable .ini settings entries
     ImVector<ImGuiContextHook> Hooks;                   // Hooks for extensions (e.g. test engine)
