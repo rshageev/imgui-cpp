@@ -40,6 +40,9 @@
     <ClCompile Include="..\..\utils\fps_counter.cpp">
       <Filter>imgui\utils</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\imgui_style.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\imconfig.h">
@@ -65,6 +68,9 @@
     </ClInclude>
     <ClInclude Include="..\..\utils\fps_counter.h">
       <Filter>imgui\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\imgui_style.h">
+      <Filter>imgui</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

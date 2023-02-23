@@ -83,3 +83,35 @@ inline ImVec2 Normalized(ImVec2 vec) {
     }
     return vec;
 }
+
+inline ImVec2 ImMin(const ImVec2& lhs, const ImVec2& rhs) {
+    return ImVec2(lhs.x < rhs.x ? lhs.x : rhs.x, lhs.y < rhs.y ? lhs.y : rhs.y);
+}
+inline ImVec2 ImMax(const ImVec2& lhs, const ImVec2& rhs) {
+    return ImVec2(lhs.x >= rhs.x ? lhs.x : rhs.x, lhs.y >= rhs.y ? lhs.y : rhs.y);
+}
+inline ImVec2 ImClamp(const ImVec2& v, const ImVec2& mn, ImVec2 mx) {
+    return ImVec2((v.x < mn.x) ? mn.x : (v.x > mx.x) ? mx.x : v.x, (v.y < mn.y) ? mn.y : (v.y > mx.y) ? mx.y : v.y);
+}
+inline ImVec2 ImLerp(const ImVec2& a, const ImVec2& b, float t) {
+    return ImVec2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+}
+inline ImVec2 ImLerp(const ImVec2& a, const ImVec2& b, const ImVec2& t) {
+    return ImVec2(a.x + (b.x - a.x) * t.x, a.y + (b.y - a.y) * t.y);
+}
+inline ImVec4 ImLerp(const ImVec4& a, const ImVec4& b, float t) {
+    return ImVec4(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, a.w + (b.w - a.w) * t);
+}
+
+
+// A cardinal direction
+using ImGuiDir = int;
+enum ImGuiDir_
+{
+    ImGuiDir_None    = -1,
+    ImGuiDir_Left    = 0,
+    ImGuiDir_Right   = 1,
+    ImGuiDir_Up      = 2,
+    ImGuiDir_Down    = 3,
+    ImGuiDir_COUNT
+};
