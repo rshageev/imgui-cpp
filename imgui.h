@@ -115,7 +115,6 @@ struct ImGuiInputTextCallbackData;  // Shared state of InputText() when using cu
 struct ImGuiKeyData;                // Storage for ImGuiIO and IsKeyDown(), IsKeyPressed() etc functions.
 struct ImGuiOnceUponAFrame;         // Helper for running a block of code not more than once a frame
 struct ImGuiPayload;                // User data payload for drag and drop operations
-struct ImGuiPlatformImeData;        // Platform IME data for io.SetPlatformImeDataFn() function.
 struct ImGuiSizeCallbackData;       // Callback data when using SetNextWindowSizeConstraints() (rare/advanced use)
 struct ImGuiStorage;                // Helper for key->value storage
 struct ImGuiStyle;                  // Runtime data for styling/colors
@@ -1958,10 +1957,6 @@ struct ImGuiIO
     void (*SetClipboardTextFn)(void* user_data, const char* text) = nullptr;
     void* ClipboardUserData = nullptr;
 
-    // Optional: Notify OS Input Method Editor of the screen position of your cursor for text input position (e.g. when using Japanese/Chinese IME on Windows)
-    // (default to use native imm32 api on Windows)
-    void (*SetPlatformImeDataFn)(ImGuiViewport* viewport, ImGuiPlatformImeData* data) = nullptr;
-
     void* _UnusedPadding = nullptr;   // Unused field to keep data structure the same size.
 
     //------------------------------------------------------------------
@@ -3008,21 +3003,6 @@ struct ImGuiViewport
     // Helpers
     ImVec2              GetCenter() const       { return ImVec2(Pos.x + Size.x * 0.5f, Pos.y + Size.y * 0.5f); }
     ImVec2              GetWorkCenter() const   { return ImVec2(WorkPos.x + WorkSize.x * 0.5f, WorkPos.y + WorkSize.y * 0.5f); }
-};
-
-//-----------------------------------------------------------------------------
-// [SECTION] Platform Dependent Interfaces
-//-----------------------------------------------------------------------------
-
-// (Optional) Support for IME (Input Method Editor) via the io.SetPlatformImeDataFn() function.
-struct ImGuiPlatformImeData
-{
-    bool WantVisible = false;     // A widget wants the IME to be visible
-    ImVec2 InputPos;             // Position of the input cursor
-    float InputLineHeight = 0.0f; // Line height
-
-    bool operator==(const ImGuiPlatformImeData& rhs) const = default;
-    bool operator!=(const ImGuiPlatformImeData& rhs) const = default;
 };
 
 //-----------------------------------------------------------------------------

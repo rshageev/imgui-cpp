@@ -172,7 +172,6 @@ static void             WindowSettingsHandler_WriteAll(ImGuiContext*, ImGuiSetti
 // Platform Dependents default implementation for IO functions
 static const char*      GetClipboardTextFn_DefaultImpl(void* user_data);
 static void             SetClipboardTextFn_DefaultImpl(void* user_data, const char* text);
-static void             SetPlatformImeDataFn_DefaultImpl(ImGuiViewport* viewport, ImGuiPlatformImeData* data);
 
 namespace ImGui
 {
@@ -360,7 +359,6 @@ ImGuiIO::ImGuiIO()
     // Platform Functions
     GetClipboardTextFn = GetClipboardTextFn_DefaultImpl;   // Platform dependent default implementations
     SetClipboardTextFn = SetClipboardTextFn_DefaultImpl;
-    SetPlatformImeDataFn = SetPlatformImeDataFn_DefaultImpl;
 
     MouseDownDuration.fill(-1.0f);
     MouseDownDurationPrev.fill(-1.0f);
@@ -3342,10 +3340,6 @@ void ImGui::NewFrame()
     g.MouseCursor = ImGuiMouseCursor_Arrow;
     g.WantCaptureMouseNextFrame = g.WantCaptureKeyboardNextFrame = g.WantTextInputNextFrame = -1;
 
-    // Platform IME data: reset for the frame
-    g.PlatformImeDataPrev = g.PlatformImeData;
-    g.PlatformImeData.WantVisible = false;
-
     // Mouse wheel scrolling, scale
     UpdateMouseWheel();
 
@@ -3630,14 +3624,6 @@ void ImGui::EndFrame()
     CallContextHooks(&g, ImGuiContextHookType_EndFramePre);
 
     ErrorCheckEndFrameSanityChecks();
-
-    // Notify Platform/OS when our Input Method Editor cursor has moved (e.g. CJK inputs using Microsoft IME)
-    if (g.IO.SetPlatformImeDataFn && g.PlatformImeData != g.PlatformImeDataPrev)
-    {
-        auto& ime_data = g.PlatformImeData;
-        IMGUI_DEBUG_LOG_IO("Calling io.SetPlatformImeDataFn(): WantVisible: %d, InputPos (%.2f,%.2f)\n", ime_data.WantVisible, ime_data.InputPos.x, ime_data.InputPos.y);
-        g.IO.SetPlatformImeDataFn(GetMainViewport(), &ime_data);
-    }
 
     // Hide implicit/fallback "Debug" window if it hasn't been used
     g.WithinFrameScopeWithImplicitWindow = false;
@@ -11701,44 +11687,6 @@ static void SetClipboardTextFn_DefaultImpl(void*, const char* text)
     memcpy(&g.ClipboardHandlerData[0], text, (size_t)(text_end - text));
     g.ClipboardHandlerData[(int)(text_end - text)] = 0;
 }
-
-#endif
-
-// Win32 API IME support (for Asian languages, etc.)
-#if defined(_WIN32) && !defined(IMGUI_DISABLE_WIN32_FUNCTIONS) && !defined(IMGUI_DISABLE_WIN32_DEFAULT_IME_FUNCTIONS)
-
-#include <imm.h>
-#ifdef _MSC_VER
-#pragma comment(lib, "imm32")
-#endif
-
-static void SetPlatformImeDataFn_DefaultImpl(ImGuiViewport* viewport, ImGuiPlatformImeData* data)
-{
-    // Notify OS Input Method Editor of text input position
-    HWND hwnd = (HWND)viewport->PlatformHandleRaw;
-    if (hwnd == 0)
-        return;
-
-    //::ImmAssociateContextEx(hwnd, NULL, data->WantVisible ? IACE_DEFAULT : 0);
-    if (HIMC himc = ::ImmGetContext(hwnd))
-    {
-        COMPOSITIONFORM composition_form = {};
-        composition_form.ptCurrentPos.x = (LONG)data->InputPos.x;
-        composition_form.ptCurrentPos.y = (LONG)data->InputPos.y;
-        composition_form.dwStyle = CFS_FORCE_POSITION;
-        ::ImmSetCompositionWindow(himc, &composition_form);
-        CANDIDATEFORM candidate_form = {};
-        candidate_form.dwStyle = CFS_CANDIDATEPOS;
-        candidate_form.ptCurrentPos.x = (LONG)data->InputPos.x;
-        candidate_form.ptCurrentPos.y = (LONG)data->InputPos.y;
-        ::ImmSetCandidateWindow(himc, &candidate_form);
-        ::ImmReleaseContext(hwnd, himc);
-    }
-}
-
-#else
-
-static void SetPlatformImeDataFn_DefaultImpl(ImGuiViewport*, ImGuiPlatformImeData*) {}
 
 #endif
 

@@ -126,25 +126,6 @@ static void ImGui_ImplSDL2_SetClipboardText(void*, const char* text)
     SDL_SetClipboardText(text);
 }
 
-// Note: native IME will only display if user calls SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1") _before_ SDL_CreateWindow().
-static void ImGui_ImplSDL2_SetPlatformImeData(ImGuiViewport*, ImGuiPlatformImeData* data)
-{
-    if (data->WantVisible)
-    {
-        SDL_Rect r;
-        r.x = (int)data->InputPos.x;
-        r.y = (int)data->InputPos.y;
-        r.w = 1;
-        r.h = (int)data->InputLineHeight;
-        SDL_SetTextInputRect(&r);
-        SDL_StartTextInput();
-    }
-    else
-    {
-        SDL_StopTextInput();
-    }
-}
-
 static ImGuiKey ImGui_ImplSDL2_KeycodeToImGuiKey(int keycode)
 {
     switch (keycode)
