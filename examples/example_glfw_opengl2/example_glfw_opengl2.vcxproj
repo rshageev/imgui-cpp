@@ -179,7 +179,6 @@
     <ClInclude Include="..\..\utils\fps_counter.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\misc\debuggers\imgui.natvis" />
     <None Include="..\README.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
