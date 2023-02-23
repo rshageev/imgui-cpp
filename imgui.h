@@ -1754,12 +1754,6 @@ struct ImVector
         Size = new_size;
     }
 
-    // Resize a vector to a smaller size, guaranteed not to cause a reallocation
-    void shrink(int new_size) {
-        IM_ASSERT(new_size <= Size);
-        Size = new_size;
-    }
-
     void reserve(int new_capacity) {
         if (new_capacity <= Capacity)
             return;
@@ -1809,24 +1803,6 @@ struct ImVector
         return Data + off;
     }
 
-    T* erase(const T* it, const T* it_last){
-        IM_ASSERT(it >= Data && it < Data + Size && it_last >= it && it_last <= Data + Size);
-        const ptrdiff_t count = it_last - it;
-        const ptrdiff_t off = it - Data;
-        memmove(Data + off, Data + off + count, ((size_t)Size - (size_t)off - (size_t)count) * sizeof(T));
-        Size -= (int)count;
-        return Data + off;
-    }
-
-    T* erase_unsorted(const T* it) {
-        IM_ASSERT(it >= Data && it < Data + Size);
-        const ptrdiff_t off = it - Data;
-        if (it < Data + Size - 1)
-            memcpy(Data + off, Data + Size - 1, sizeof(T));
-        Size--;
-        return Data + off;
-    }
-
     T* insert(const T* it, const T& v) {
         IM_ASSERT(it >= Data && it <= Data + Size);
         const ptrdiff_t off = it - Data;
@@ -1846,51 +1822,6 @@ struct ImVector
             if (*data++ == v)
                 return true;
         return false;
-    }
-
-    T* find(const T& v) {
-        T* data = Data;
-        const T* data_end = Data + Size;
-        while (data < data_end)
-            if (*data == v)
-                break;
-            else
-                ++data;
-        return data;
-    }
-
-    const T* find(const T& v) const {
-        const T* data = Data;
-        const T* data_end = Data + Size;
-        while (data < data_end)
-            if (*data == v)
-                break;
-            else ++data;
-        return data;
-    }
-
-    bool find_erase(const T& v) {
-        const T* it = find(v);
-        if (it < Data + Size) {
-            erase(it);
-            return true;
-        }
-        return false;
-    }
-
-    bool find_erase_unsorted(const T& v) {
-        const T* it = find(v);
-        if (it < Data + Size) {
-            erase_unsorted(it);
-            return true;
-        }
-        return false;
-    }
-
-    int index_from_ptr(const T* it) const {
-        IM_ASSERT(it >= Data && it < Data + Size);
-        const ptrdiff_t off = it - Data;
-        return (int)off;
     }
 };
 
