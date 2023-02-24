@@ -331,9 +331,8 @@ inline bool ImCharIsBlankW(unsigned int c){ return c == ' ' || c == '\t' || c ==
 
 // Helpers: Formatting
 int           ImFormatString(char* buf, size_t buf_size, const char* fmt, ...) IM_FMTARGS(3);
-int           ImFormatStringV(char* buf, size_t buf_size, const char* fmt, va_list args) IM_FMTLIST(3);
-void          ImFormatStringToTempBuffer(const char** out_buf, const char** out_buf_end, const char* fmt, ...) IM_FMTARGS(3);
-void          ImFormatStringToTempBufferV(const char** out_buf, const char** out_buf_end, const char* fmt, va_list args) IM_FMTLIST(3);
+std::string ImFormatStringToString(const char* fmt, ...);
+std::string ImFormatStringToStringV(const char* fmt, va_list args);
 const char*   ImParseFormatFindStart(const char* format);
 const char*   ImParseFormatFindEnd(const char* format);
 const char*   ImParseFormatTrimDecorations(const char* format, char* buf, size_t buf_size);
@@ -2652,7 +2651,7 @@ namespace ImGui
     }
 
     ImGuiKeyData* GetKeyData(ImGuiKey key);
-    void GetKeyChordName(ImGuiKeyChord key_chord, char* out_buf, int out_buf_size);
+    std::string GetKeyChordName(ImGuiKeyChord key_chord);
     inline ImGuiKey MouseButtonToKey(ImGuiMouseButton button) {
         IM_ASSERT(button >= 0 && button < ImGuiMouseButton_COUNT);
         return (ImGuiKey)(ImGuiKey_MouseLeft + button);
