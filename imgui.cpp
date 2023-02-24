@@ -270,37 +270,6 @@ static void*                GImAllocatorUserData = NULL;
 // [SECTION] USER FACING STRUCTURES (ImGuiStyle, ImGuiIO)
 //-----------------------------------------------------------------------------
 
-
-// To scale your entire UI (e.g. if you want your app to use High DPI or generally be DPI aware) you may use this helper function. Scaling the fonts is done separately and is up to you.
-// Important: This operation is lossy because we round all sizes to integer. If you need to change your scale multiples, call this over a freshly initialized ImGuiStyle structure rather than scaling multiple times.
-void ImGuiStyle::ScaleAllSizes(float scale_factor)
-{
-    WindowPadding = ImFloor(WindowPadding * scale_factor);
-    WindowRounding = ImFloor(WindowRounding * scale_factor);
-    WindowMinSize = ImFloor(WindowMinSize * scale_factor);
-    ChildRounding = ImFloor(ChildRounding * scale_factor);
-    PopupRounding = ImFloor(PopupRounding * scale_factor);
-    FramePadding = ImFloor(FramePadding * scale_factor);
-    FrameRounding = ImFloor(FrameRounding * scale_factor);
-    ItemSpacing = ImFloor(ItemSpacing * scale_factor);
-    ItemInnerSpacing = ImFloor(ItemInnerSpacing * scale_factor);
-    CellPadding = ImFloor(CellPadding * scale_factor);
-    TouchExtraPadding = ImFloor(TouchExtraPadding * scale_factor);
-    IndentSpacing = ImFloor(IndentSpacing * scale_factor);
-    ColumnsMinSpacing = ImFloor(ColumnsMinSpacing * scale_factor);
-    ScrollbarSize = ImFloor(ScrollbarSize * scale_factor);
-    ScrollbarRounding = ImFloor(ScrollbarRounding * scale_factor);
-    GrabMinSize = ImFloor(GrabMinSize * scale_factor);
-    GrabRounding = ImFloor(GrabRounding * scale_factor);
-    LogSliderDeadzone = ImFloor(LogSliderDeadzone * scale_factor);
-    TabRounding = ImFloor(TabRounding * scale_factor);
-    TabMinWidthForCloseButton = (TabMinWidthForCloseButton != FLT_MAX) ? ImFloor(TabMinWidthForCloseButton * scale_factor) : FLT_MAX;
-    SeparatorTextPadding = ImFloor(SeparatorTextPadding * scale_factor);
-    DisplayWindowPadding = ImFloor(DisplayWindowPadding * scale_factor);
-    DisplaySafeAreaPadding = ImFloor(DisplaySafeAreaPadding * scale_factor);
-    MouseCursorScale = ImFloor(MouseCursorScale * scale_factor);
-}
-
 ImGuiIO::ImGuiIO()
 {
 #ifdef __APPLE__

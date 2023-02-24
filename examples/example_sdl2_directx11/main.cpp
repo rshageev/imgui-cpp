@@ -62,10 +62,6 @@ int main(int, char**)
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
-    // Setup Dear ImGui style
-    ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
-
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForD3D(window);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);

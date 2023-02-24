@@ -6094,9 +6094,9 @@ bool ImGui::ShowStyleSelector(const char* label)
     {
         switch (style_idx)
         {
-        case 0: ImGui::StyleColorsDark(ImGui::GetStyle()); break;
-        case 1: ImGui::StyleColorsLight(ImGui::GetStyle()); break;
-        case 2: ImGui::StyleColorsClassic(ImGui::GetStyle()); break;
+        case 0: ImGui::GetStyle().Colors = Style::Dark; break;
+        case 1: ImGui::GetStyle().Colors = Style::Light; break;
+        case 2: ImGui::GetStyle().Colors = Style::Classic; break;
         }
         return true;
     }
