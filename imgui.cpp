@@ -819,37 +819,17 @@ ImGuiID ImHashData(const void* data_p, size_t data_size, ImGuiID seed)
 }
 
 // Zero-terminated string hash, with support for ### to reset back to seed value
-// We support a syntax of "label###id" where only "###id" is included in the hash, and only "label" gets displayed.
+// We support a syntax of "label###id" where only "id" is included in the hash, and only "label" gets displayed.
 // Because this syntax is rarely used we are optimizing for the common case.
 // - If we reach ### in the string we discard the hash so far and reset to the seed.
-// - We don't do 'current += 2; continue;' after handling ### to keep the code smaller/faster (measured ~10% diff in Debug build)
 // FIXME-OPT: Replace with e.g. FNV1a hash? CRC32 pretty much randomly access 1KB. Need to do proper measurements.
-ImGuiID ImHashStr(const char* data_p, size_t data_size, ImGuiID seed)
+ImGuiID ImHashStr(std::string_view str, ImGuiID seed)
 {
-    seed = ~seed;
-    ImU32 crc = seed;
-    const unsigned char* data = (const unsigned char*)data_p;
-    const ImU32* crc32_lut = GCrc32LookupTable;
-    if (data_size != 0)
-    {
-        while (data_size-- != 0)
-        {
-            unsigned char c = *data++;
-            if (c == '#' && data_size >= 2 && data[0] == '#' && data[1] == '#')
-                crc = seed;
-            crc = (crc >> 8) ^ crc32_lut[(crc & 0xFF) ^ c];
-        }
+    auto pos = str.find("###");
+    if (pos != std::string_view::npos) {
+        str = str.substr(pos + 3);
     }
-    else
-    {
-        while (unsigned char c = *data++)
-        {
-            if (c == '#' && data[0] == '#' && data[1] == '#')
-                crc = seed;
-            crc = (crc >> 8) ^ crc32_lut[(crc & 0xFF) ^ c];
-        }
-    }
-    return ~crc;
+    return ImHashData(str.data(), str.size(), seed);
 }
 
 //-----------------------------------------------------------------------------
@@ -2387,20 +2367,23 @@ ImGuiWindow::~ImGuiWindow()
     ColumnsStorage.clear_destruct();
 }
 
-ImGuiID ImGuiWindow::GetID(const char* str, const char* str_end)
+ImGuiID ImGuiWindow::GetID(const char* str_begin, const char* str_end)
 {
+    std::string_view str = str_end ? std::string_view(str_begin, str_end) : std::string_view(str_begin);
+
     ImGuiID seed = IDStack.back();
-    ImGuiID id = ImHashStr(str, str_end ? (str_end - str) : 0, seed);
+    ImGuiID id = ImHashStr(str, seed);
     ImGuiContext& g = *GImGui;
-    if (g.DebugHookIdInfo == id)
-        ImGui::DebugHookIdInfo(id, ImGuiDataType_String, str, str_end);
+    if (g.DebugHookIdInfo == id) {
+        ImGui::DebugHookIdInfo(id, ImGuiDataType_String, str.data(), str.data() + str.size());
+    }
     return id;
 }
 
 ImGuiID ImGuiWindow::GetID(const void* ptr)
 {
     ImGuiID seed = IDStack.back();
-    ImGuiID id = ImHashData(&ptr, sizeof(void*), seed);
+    ImGuiID id = ImHash(ptr, seed);
     ImGuiContext& g = *GImGui;
     if (g.DebugHookIdInfo == id)
         ImGui::DebugHookIdInfo(id, ImGuiDataType_Pointer, ptr, NULL);
@@ -2410,7 +2393,7 @@ ImGuiID ImGuiWindow::GetID(const void* ptr)
 ImGuiID ImGuiWindow::GetID(int n)
 {
     ImGuiID seed = IDStack.back();
-    ImGuiID id = ImHashData(&n, sizeof(n), seed);
+    ImGuiID id = ImHash(n, seed);
     ImGuiContext& g = *GImGui;
     if (g.DebugHookIdInfo == id)
         ImGui::DebugHookIdInfo(id, ImGuiDataType_S32, (void*)(intptr_t)n, NULL);
@@ -2422,7 +2405,7 @@ ImGuiID ImGuiWindow::GetIDFromRectangle(const ImRect& r_abs)
 {
     ImGuiID seed = IDStack.back();
     ImRect r_rel = ImGui::WindowRectAbsToRel(this, r_abs);
-    ImGuiID id = ImHashData(&r_rel, sizeof(r_rel), seed);
+    ImGuiID id = ImHash(r_rel, seed);
     return id;
 }
 
@@ -4235,8 +4218,8 @@ ImGuiID ImGui::GetWindowResizeCornerID(ImGuiWindow* window, int n)
 {
     IM_ASSERT(n >= 0 && n < 4);
     ImGuiID id = window->ID;
-    id = ImHashStr("#RESIZE", 0, id);
-    id = ImHashData(&n, sizeof(int), id);
+    id = ImHashStr("#RESIZE", id);
+    id = ImHash(n, id);
     return id;
 }
 
@@ -4246,8 +4229,8 @@ ImGuiID ImGui::GetWindowResizeBorderID(ImGuiWindow* window, ImGuiDir dir)
     IM_ASSERT(dir >= 0 && dir < 4);
     int n = (int)dir + 4;
     ImGuiID id = window->ID;
-    id = ImHashStr("#RESIZE", 0, id);
-    id = ImHashData(&n, sizeof(int), id);
+    id = ImHashStr("#RESIZE", id);
+    id = ImHash(n, id);
     return id;
 }
 
@@ -6158,18 +6141,21 @@ void ImGui::PushOverrideID(ImGuiID id)
 // Helper to avoid a common series of PushOverrideID -> GetID() -> PopID() call
 // (note that when using this pattern, TestEngine's "Stack Tool" will tend to not display the intermediate stack level.
 //  for that to work we would need to do PushOverrideID() -> ItemAdd() -> PopID() which would alter widget code a little more)
-ImGuiID ImGui::GetIDWithSeed(const char* str, const char* str_end, ImGuiID seed)
+ImGuiID ImGui::GetIDWithSeed(const char* str_begin, const char* str_end, ImGuiID seed)
 {
-    ImGuiID id = ImHashStr(str, str_end ? (str_end - str) : 0, seed);
+    std::string_view str = str_end ? std::string_view(str_begin, str_end) : std::string_view(str_begin);
+
+    ImGuiID id = ImHashStr(str, seed);
     ImGuiContext& g = *GImGui;
-    if (g.DebugHookIdInfo == id)
-        DebugHookIdInfo(id, ImGuiDataType_String, str, str_end);
+    if (g.DebugHookIdInfo == id) {
+        DebugHookIdInfo(id, ImGuiDataType_String, str.data(), str.data() + str.size());
+    }
     return id;
 }
 
 ImGuiID ImGui::GetIDWithSeed(int n, ImGuiID seed)
 {
-    ImGuiID id = ImHashData(&n, sizeof(n), seed);
+    ImGuiID id = ImHash(n, seed);
     ImGuiContext& g = *GImGui;
     if (g.DebugHookIdInfo == id)
         DebugHookIdInfo(id, ImGuiDataType_S32, (void*)(intptr_t)n, NULL);
@@ -11227,7 +11213,7 @@ ImGuiWindowSettings* ImGui::CreateNewWindowSettings(const char* name)
     const size_t chunk_size = sizeof(ImGuiWindowSettings) + name_len + 1;
     ImGuiWindowSettings* settings = g.SettingsWindows.alloc_chunk(chunk_size);
     IM_PLACEMENT_NEW(settings) ImGuiWindowSettings();
-    settings->ID = ImHashStr(name, name_len);
+    settings->ID = ImHashStr(name);
     memcpy(settings->GetName(), name, name_len + 1);   // Store with zero terminator
 
     return settings;

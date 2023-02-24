@@ -299,7 +299,12 @@ namespace ImStb
 
 // Helpers: Hashing
 ImGuiID ImHashData(const void* data, size_t data_size, ImGuiID seed = 0);
-ImGuiID ImHashStr(const char* data, size_t data_size = 0, ImGuiID seed = 0);
+ImGuiID ImHashStr(std::string_view str, ImGuiID seed = 0);
+
+template<class T>
+ImGuiID ImHash(T& data, ImGuiID seed = 0) {
+    return ImHashData(std::addressof(data), sizeof(T), seed);
+}
 
 // Helpers: Sorting
 #ifndef ImQsort

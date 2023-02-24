@@ -3047,7 +3047,7 @@ void ImGui::TableOpenContextMenu(int column_n)
         table->IsContextPopupOpen = true;
         table->ContextPopupColumn = (ImGuiTableColumnIdx)column_n;
         table->InstanceInteracted = table->InstanceCurrent;
-        const ImGuiID context_menu_id = ImHashStr("##ContextMenu", 0, table->ID);
+        const ImGuiID context_menu_id = ImHashStr("##ContextMenu", table->ID);
         OpenPopupEx(context_menu_id, ImGuiPopupFlags_None);
     }
 }
@@ -3056,7 +3056,7 @@ bool ImGui::TableBeginContextMenuPopup(ImGuiTable* table)
 {
     if (!table->IsContextPopupOpen || table->InstanceCurrent != table->InstanceInteracted)
         return false;
-    const ImGuiID context_menu_id = ImHashStr("##ContextMenu", 0, table->ID);
+    const ImGuiID context_menu_id = ImHashStr("##ContextMenu", table->ID);
     if (BeginPopupEx(context_menu_id, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings))
         return true;
     table->IsContextPopupOpen = false;
