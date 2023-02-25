@@ -1958,7 +1958,6 @@ struct ImGuiWindowTempData
     float CurrLineTextBaseOffset = 0.0f; // Baseline offset (0.0f by default on a new line, generally == style.FramePadding.y when a framed item has been added).
     float PrevLineTextBaseOffset = 0.0f;
     bool IsSameLine = false;
-    bool IsSetPos = false;
     ImVec1 Indent;                 // Indentation / start position from left of window (increased by TreePush/TreePop, etc.)
     ImVec1 ColumnsOffset;          // Offset to the current column (if ColumnsCurrent > 0). FIXME: This and the above should be a stack to allow use cases like Tree->Column->Tree. Need revamp columns API.
     ImVec1 GroupOffset;
@@ -2930,9 +2929,6 @@ namespace ImGui
     void          DebugLogV(const char* fmt, va_list args) IM_FMTLIST(1);
 
     // Debug Tools
-    void          ErrorCheckEndFrameRecover(ImGuiErrorLogCallback log_callback, void* user_data = NULL);
-    void          ErrorCheckEndWindowRecover(ImGuiErrorLogCallback log_callback, void* user_data = NULL);
-    void          ErrorCheckUsingSetCursorPosToExtendParentBoundaries();
     void          DebugLocateItem(ImGuiID target_id);                     // Call sparingly: only 1 at the same time!
     void          DebugLocateItemOnHover(ImGuiID target_id);              // Only call on reaction to a mouse Hover: because only 1 at the same time!
     void          DebugLocateItemResolveWithLastItem();

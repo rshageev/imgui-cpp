@@ -5198,7 +5198,7 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         window->DC.IdealMaxPos = window->DC.CursorStartPos;
         window->DC.CurrLineSize = window->DC.PrevLineSize = ImVec2(0.0f, 0.0f);
         window->DC.CurrLineTextBaseOffset = window->DC.PrevLineTextBaseOffset = 0.0f;
-        window->DC.IsSameLine = window->DC.IsSetPos = false;
+        window->DC.IsSameLine = false;
 
         window->DC.NavLayerCurrent = ImGuiNavLayer_Main;
         window->DC.NavLayersActiveMask = window->DC.NavLayersActiveMaskNext;
@@ -5348,9 +5348,6 @@ void ImGui::End()
     // Stop logging
     if (!(window->Flags & ImGuiWindowFlags_ChildWindow))    // FIXME: add more options for scope of logging
         LogFinish();
-
-    if (window->DC.IsSetPos)
-        ErrorCheckUsingSetCursorPosToExtendParentBoundaries();
 
     // Pop from window stack
     g.LastItemData = g.CurrentWindowStack.back().ParentLastItemDataBackup;
@@ -7374,34 +7371,6 @@ bool ImGui::DebugCheckVersionAndDataLayout(const char* version, size_t sz_io, si
     return !error;
 }
 
-// Until 1.89 (IMGUI_VERSION_NUM < 18814) it was legal to use SetCursorPos() to extend the boundary of a parent (e.g. window or table cell)
-// This is causing issues and ambiguity and we need to retire that.
-// See https://github.com/ocornut/imgui/issues/5548 for more details.
-// [Scenario 1]
-//  Previously this would make the window content size ~200x200:
-//    Begin(...) + SetCursorScreenPos(GetCursorScreenPos() + ImVec2(200,200)) + End();  // NOT OK
-//  Instead, please submit an item:
-//    Begin(...) + SetCursorScreenPos(GetCursorScreenPos() + ImVec2(200,200)) + Dummy(ImVec2(0,0)) + End(); // OK
-//  Alternative:
-//    Begin(...) + Dummy(ImVec2(200,200)) + End(); // OK
-// [Scenario 2]
-//  For reference this is one of the issue what we aim to fix with this change:
-//    BeginGroup() + SomeItem("foobar") + SetCursorScreenPos(GetCursorScreenPos()) + EndGroup()
-//  The previous logic made SetCursorScreenPos(GetCursorScreenPos()) have a side-effect! It would erroneously incorporate ItemSpacing.y after the item into content size, making the group taller!
-//  While this code is a little twisted, no-one would expect SetXXX(GetXXX()) to have a side-effect. Using vertical alignment patterns could trigger this issue.
-void ImGui::ErrorCheckUsingSetCursorPosToExtendParentBoundaries()
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    IM_ASSERT(window->DC.IsSetPos);
-    window->DC.IsSetPos = false;
-    if (window->DC.CursorPos.x <= window->DC.CursorMaxPos.x && window->DC.CursorPos.y <= window->DC.CursorMaxPos.y)
-        return;
-    if (window->SkipItems)
-        return;
-    IM_ASSERT(0 && "Code uses SetCursorPos()/SetCursorScreenPos() to extend window/parent boundaries. Please submit an item e.g. Dummy() to validate extent.");
-}
-
 static void ImGui::ErrorCheckNewFrameSanityChecks()
 {
     ImGuiContext& g = *GImGui;
@@ -7454,9 +7423,6 @@ static void ImGui::ErrorCheckEndFrameSanityChecks()
     IM_ASSERT((key_mods == 0 || g.IO.KeyMods == key_mods) && "Mismatching io.KeyCtrl/io.KeyShift/io.KeyAlt/io.KeySuper vs io.KeyMods");
     IM_UNUSED(key_mods);
 
-    // [EXPERIMENTAL] Recover from errors: You may call this yourself before EndFrame().
-    //ErrorCheckEndFrameRecover();
-
     // Report when there is a mismatch of Begin/BeginChild vs End/EndChild calls. Important: Remember that the Begin/BeginChild API requires you
     // to always call End/EndChild even if Begin/BeginChild returns false! (this is unfortunately inconsistent with most other Begin* API).
     if (g.CurrentWindowStack.size() != 1)
@@ -7472,96 +7438,6 @@ static void ImGui::ErrorCheckEndFrameSanityChecks()
     }
 
     IM_ASSERT_USER_ERROR(g.GroupStack.empty(), "Missing EndGroup call!");
-}
-
-// Experimental recovery from incorrect usage of BeginXXX/EndXXX/PushXXX/PopXXX calls.
-// Must be called during or before EndFrame().
-// This is generally flawed as we are not necessarily End/Popping things in the right order.
-// FIXME: Can't recover from inside BeginTabItem/EndTabItem yet.
-// FIXME: Can't recover from interleaved BeginTabBar/Begin
-void ImGui::ErrorCheckEndFrameRecover(ImGuiErrorLogCallback log_callback, void* user_data)
-{
-    ImGuiContext& g = *GImGui;
-    while (g.CurrentWindowStack.size() > 0)
-    {
-        ErrorCheckEndWindowRecover(log_callback, user_data);
-        ImGuiWindow* window = g.CurrentWindow;
-        if (g.CurrentWindowStack.size() == 1)
-        {
-            IM_ASSERT(window->IsFallbackWindow);
-            break;
-        }
-        if (window->Flags & ImGuiWindowFlags_ChildWindow)
-        {
-            if (log_callback) log_callback(user_data, "Recovered from missing EndChild() for '%s'", window->Name);
-            EndChild();
-        }
-        else
-        {
-            if (log_callback) log_callback(user_data, "Recovered from missing End() for '%s'", window->Name);
-            End();
-        }
-    }
-}
-
-// Must be called before End()/EndChild()
-void    ImGui::ErrorCheckEndWindowRecover(ImGuiErrorLogCallback log_callback, void* user_data)
-{
-    ImGuiContext& g = *GImGui;
-    while (g.CurrentTable && (g.CurrentTable->OuterWindow == g.CurrentWindow || g.CurrentTable->InnerWindow == g.CurrentWindow))
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing EndTable() in '%s'", g.CurrentTable->OuterWindow->Name);
-        EndTable();
-    }
-
-    ImGuiWindow* window = g.CurrentWindow;
-    ImGuiStackSizes* stack_sizes = &g.CurrentWindowStack.back().StackSizesOnBegin;
-    IM_ASSERT(window != NULL);
-    while (g.CurrentTabBar != NULL) //-V1044
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing EndTabBar() in '%s'", window->Name);
-        EndTabBar();
-    }
-    while (window->DC.TreeDepth > 0)
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing TreePop() in '%s'", window->Name);
-        TreePop();
-    }
-    while (g.GroupStack.size() > stack_sizes->SizeOfGroupStack) //-V1044
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing EndGroup() in '%s'", window->Name);
-        EndGroup();
-    }
-    while (window->IDStack.size() > 1)
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing PopID() in '%s'", window->Name);
-        PopID();
-    }
-    while (g.DisabledStackSize > stack_sizes->SizeOfDisabledStack) //-V1044
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing EndDisabled() in '%s'", window->Name);
-        EndDisabled();
-    }
-    while (g.ColorStack.size() > stack_sizes->SizeOfColorStack)
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing PopStyleColor() in '%s' for ImGuiCol_%s", window->Name, GetStyleColorName(g.ColorStack.back().Col));
-        PopStyleColor();
-    }
-    while (g.ItemFlagsStack.size() > stack_sizes->SizeOfItemFlagsStack) //-V1044
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing PopItemFlag() in '%s'", window->Name);
-        PopItemFlag();
-    }
-    while (g.StyleVarStack.size() > stack_sizes->SizeOfStyleVarStack) //-V1044
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing PopStyleVar() in '%s'", window->Name);
-        PopStyleVar();
-    }
-    while (g.FocusScopeStack.size() > stack_sizes->SizeOfFocusScopeStack + 1) //-V1044
-    {
-        if (log_callback) log_callback(user_data, "Recovered from missing PopFocusScope() in '%s'", window->Name);
-        PopFocusScope();
-    }
 }
 
 // Save current stack sizes for later compare
@@ -7668,7 +7544,7 @@ void ImGui::ItemSize(const ImVec2& size, float text_baseline_y)
     window->DC.CurrLineSize.y = 0.0f;
     window->DC.PrevLineTextBaseOffset = ImMax(window->DC.CurrLineTextBaseOffset, text_baseline_y);
     window->DC.CurrLineTextBaseOffset = 0.0f;
-    window->DC.IsSameLine = window->DC.IsSetPos = false;
+    window->DC.IsSameLine = false;
 
     // Horizontal layout mode
     if (window->DC.LayoutType == ImGuiLayoutType_Horizontal)
@@ -7791,8 +7667,6 @@ void ImGui::SetCursorScreenPos(const ImVec2& pos)
 {
     ImGuiWindow* window = GetCurrentWindow();
     window->DC.CursorPos = pos;
-    //window->DC.CursorMaxPos = ImMax(window->DC.CursorMaxPos, window->DC.CursorPos);
-    window->DC.IsSetPos = true;
 }
 
 // User generally sees positions in window coordinates. Internally we store CursorPos in absolute screen coordinates because it is more convenient.
@@ -7819,24 +7693,18 @@ void ImGui::SetCursorPos(const ImVec2& local_pos)
 {
     ImGuiWindow* window = GetCurrentWindow();
     window->DC.CursorPos = window->Pos - window->Scroll + local_pos;
-    //window->DC.CursorMaxPos = ImMax(window->DC.CursorMaxPos, window->DC.CursorPos);
-    window->DC.IsSetPos = true;
 }
 
 void ImGui::SetCursorPosX(float x)
 {
     ImGuiWindow* window = GetCurrentWindow();
     window->DC.CursorPos.x = window->Pos.x - window->Scroll.x + x;
-    //window->DC.CursorMaxPos.x = ImMax(window->DC.CursorMaxPos.x, window->DC.CursorPos.x);
-    window->DC.IsSetPos = true;
 }
 
 void ImGui::SetCursorPosY(float y)
 {
     ImGuiWindow* window = GetCurrentWindow();
     window->DC.CursorPos.y = window->Pos.y - window->Scroll.y + y;
-    //window->DC.CursorMaxPos.y = ImMax(window->DC.CursorMaxPos.y, window->DC.CursorPos.y);
-    window->DC.IsSetPos = true;
 }
 
 ImVec2 ImGui::GetCursorStartPos()
@@ -8053,9 +7921,6 @@ void ImGui::EndGroup()
 
     ImGuiGroupData& group_data = g.GroupStack.back();
     IM_ASSERT(group_data.WindowID == window->ID); // EndGroup() in wrong window?
-
-    if (window->DC.IsSetPos)
-        ErrorCheckUsingSetCursorPosToExtendParentBoundaries();
 
     ImRect group_bb(group_data.BackupCursorPos, ImMax(window->DC.CursorMaxPos, group_data.BackupCursorPos));
 
