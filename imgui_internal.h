@@ -2074,7 +2074,6 @@ struct ImGuiWindow
     float ItemWidthDefault = 0.0f;
     ImGuiStorage StateStorage;
     ImVector<ImGuiOldColumns> ColumnsStorage;
-    float FontWindowScale = 1.0f;  // User scale multiplier per-window, via SetWindowFontScale()
     int SettingsOffset = -1;       // Offset into SettingsWindows[] (offsets are always valid as we only grow the array from the back)
 
     ImDrawList* DrawList = nullptr;                        // == &DrawListInst (for backward compatibility reason with code using imgui_internal.h we keep this a pointer)
@@ -2106,10 +2105,7 @@ public:
     }
     float CalcFontSize() const {
         ImGuiContext& g = *GImGui;
-        float scale = g.FontBaseSize * FontWindowScale;
-        if (ParentWindow)
-            scale *= ParentWindow->FontWindowScale;
-        return scale;
+        return g.FontBaseSize;
     }
     float TitleBarHeight() const {
         ImGuiContext& g = *GImGui;

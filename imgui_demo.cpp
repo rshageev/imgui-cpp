@@ -6267,22 +6267,6 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
             HelpMarker("Read FAQ and docs/FONTS.md for details on font loading.");
             ImGui::ShowFontAtlas(atlas);
 
-            // Post-baking font scaling. Note that this is NOT the nice way of scaling fonts, read below.
-            // (we enforce hard clamping manually as by default DragFloat/SliderFloat allows CTRL+Click text to get out of bounds).
-            const float MIN_SCALE = 0.3f;
-            const float MAX_SCALE = 2.0f;
-            HelpMarker(
-                "Those are old settings provided for convenience.\n"
-                "However, the _correct_ way of scaling your UI is currently to reload your font at the designed size, "
-                "rebuild the font atlas, and call style.ScaleAllSizes() on a reference ImGuiStyle structure.\n"
-                "Using those settings here will give you poor quality results.");
-            static float window_scale = 1.0f;
-            ImGui::PushItemWidth(ImGui::GetFontSize() * 8);
-            if (ImGui::DragFloat("window scale", &window_scale, 0.005f, MIN_SCALE, MAX_SCALE, "%.2f", ImGuiSliderFlags_AlwaysClamp)) // Scale only this window
-                ImGui::SetWindowFontScale(window_scale);
-            ImGui::DragFloat("global scale", &io.FontGlobalScale, 0.005f, MIN_SCALE, MAX_SCALE, "%.2f", ImGuiSliderFlags_AlwaysClamp); // Scale everything
-            ImGui::PopItemWidth();
-
             ImGui::EndTabItem();
         }
 
@@ -6364,8 +6348,6 @@ void ImGui::ShowUserGuide()
     ImGui::BulletText("CTRL+Click on a slider or drag box to input value as text.");
     ImGui::BulletText("TAB/SHIFT+TAB to cycle through keyboard editable fields.");
     ImGui::BulletText("CTRL+Tab to select a window.");
-    if (io.FontAllowUserScaling)
-        ImGui::BulletText("CTRL+Mouse Wheel to zoom window contents.");
     ImGui::BulletText("While inputing text:\n");
     ImGui::Indent();
     ImGui::BulletText("CTRL+Left/Right to word jump.");

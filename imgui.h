@@ -278,7 +278,6 @@ namespace ImGui
     void SetWindowSize(const ImVec2& size, ImGuiCond cond = 0);                      // (not recommended) set current window size - call within Begin()/End(). set to ImVec2(0, 0) to force an auto-fit. prefer using SetNextWindowSize(), as this may incur tearing and minor side-effects.
     void SetWindowCollapsed(bool collapsed, ImGuiCond cond = 0);                     // (not recommended) set current window collapsed state. prefer using SetNextWindowCollapsed().
     void SetWindowFocus();                                                           // (not recommended) set current window to be focused / top-most. prefer using SetNextWindowFocus().
-    void SetWindowFontScale(float scale);                                            // [OBSOLETE] set font scale. Adjust IO.FontGlobalScale if you want to scale all windows. This is an old API! For correct scaling, prefer to reload font + rebuild ImFontAtlas + call style.ScaleAllSizes().
     void SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond = 0);      // set named window position.
     void SetWindowSize(const char* name, const ImVec2& size, ImGuiCond cond = 0);    // set named window size. set axis to 0.0f to force an auto-fit on this axis.
     void SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond = 0);   // set named window collapsed state
@@ -1749,9 +1748,8 @@ struct ImGuiIO
     float HoverDelayShort = 0.1f;               // Delay on hovering before IsItemHovered(ImGuiHoveredFlags_DelayShort) returns true.
     void* UserData = nullptr;                   // Store your own data.
 
-    std::shared_ptr<ImFontAtlas> Fonts;               // Font atlas: load, rasterize and pack one or more fonts into a single texture.
+    std::shared_ptr<ImFontAtlas> Fonts;         // Font atlas: load, rasterize and pack one or more fonts into a single texture.
     float FontGlobalScale = 1.0f;               // Global scale all fonts
-    bool FontAllowUserScaling = false;          // Allow user scaling text of individual window with CTRL+Wheel.
     ImFont* FontDefault = nullptr;              // Font to use on NewFrame(). Use NULL to uses Fonts->Fonts[0].
     ImVec2 DisplayFramebufferScale = { 1.0f, 1.0f }; // For retina display or other situations where window coordinates are different from framebuffer coordinates. This generally ends up in ImDrawData::FramebufferScale.
 
@@ -2727,7 +2725,7 @@ struct ImFont
     float EllipsisWidth = 0.0f;      // out               // Width
     float EllipsisCharStep = 0.0f;   // out               // Step between characters when EllipsisCount > 0
     bool DirtyLookupTables = false;  // out //
-    float Scale = 1.0f;              // in  // = 1.f      // Base font scale, multiplied by the per-window font scale which you can adjust with SetWindowFontScale()
+    float Scale = 1.0f;              // in  // = 1.f      // Base font scale
     float Ascent = 0.0f;
     float Descent = 0.0f;    // out //            // Ascent: distance from top to bottom of e.g. 'A' [0..FontSize]
     int MetricsTotalSurface = 0;// out //            // Total surface in pixels to get an idea of the font rasterization/texture cost (not exact, we approximate the cost of padding between glyphs)

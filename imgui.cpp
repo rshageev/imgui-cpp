@@ -5907,15 +5907,6 @@ ImVec2 ImGui::GetFontTexUvWhitePixel()
     return GImGui->DrawListSharedData.TexUvWhitePixel;
 }
 
-void ImGui::SetWindowFontScale(float scale)
-{
-    IM_ASSERT(scale > 0.0f);
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = GetCurrentWindow();
-    window->FontWindowScale = scale;
-    g.FontSize = g.DrawListSharedData.FontSize = window->CalcFontSize();
-}
-
 void ImGui::ActivateItem(ImGuiID id)
 {
     ImGuiContext& g = *GImGui;
@@ -6925,24 +6916,6 @@ void ImGui::UpdateMouseWheel()
     if (!mouse_window || mouse_window->Collapsed)
         return;
 
-    // Zoom / Scale window
-    // FIXME-OBSOLETE: This is an old feature, it still works but pretty much nobody is using it and may be best redesigned.
-    if (wheel.y != 0.0f && g.IO.KeyCtrl && g.IO.FontAllowUserScaling)
-    {
-        LockWheelingWindow(mouse_window, wheel.y);
-        ImGuiWindow* window = mouse_window;
-        const float new_font_scale = ImClamp(window->FontWindowScale + g.IO.MouseWheel * 0.10f, 0.50f, 2.50f);
-        const float scale = new_font_scale / window->FontWindowScale;
-        window->FontWindowScale = new_font_scale;
-        if (window == window->RootWindow)
-        {
-            const ImVec2 offset = window->Size * (1.0f - scale) * (g.IO.MousePos - window->Pos) / window->Size;
-            SetWindowPos(window, window->Pos + offset, 0);
-            window->Size = ImFloor(window->Size * scale);
-            window->SizeFull = ImFloor(window->SizeFull * scale);
-        }
-        return;
-    }
     if (g.IO.KeyCtrl)
         return;
 
