@@ -7722,14 +7722,14 @@ static void ShowExampleAppCustomRendering(bool* p_open)
 // Simplified structure to mimic a Document model
 struct MyDocument
 {
-    const char* Name;       // Document title
-    bool        Open;       // Set when open (we keep an array of all available documents to simplify demo code!)
-    bool        OpenPrev;   // Copy of Open from last update.
-    bool        Dirty;      // Set when the document has been modified
-    bool        WantClose;  // Set when the document
-    ImVec4      Color;      // An arbitrary variable associated to the document
+    const char* Name; // Document title
+    bool Open;        // Set when open (we keep an array of all available documents to simplify demo code!)
+    bool OpenPrev;    // Copy of Open from last update.
+    bool Dirty;       // Set when the document has been modified
+    bool WantClose;   // Set when the document
+    ImColorf Color;   // An arbitrary variable associated to the document
 
-    MyDocument(const char* name, bool open = true, const ImVec4& color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f))
+    MyDocument(const char* name, bool open = true, const ImColorf& color = ImColorf(1.0f, 1.0f, 1.0f, 1.0f))
     {
         Name = name;
         Open = OpenPrev = open;
@@ -7755,7 +7755,7 @@ struct MyDocument
         ImGui::SameLine();
         if (ImGui::Button("Save", ImVec2(100, 0)))
             doc->DoSave();
-        ImGui::ColorEdit3("color", &doc->Color.x);  // Useful to test drag and drop and hold-dragged-to-open-tab behavior.
+        ImGui::ColorEdit3("color", &doc->Color.r);  // Useful to test drag and drop and hold-dragged-to-open-tab behavior.
         ImGui::PopID();
     }
 
@@ -7781,12 +7781,12 @@ struct ExampleAppDocuments
 
     ExampleAppDocuments()
     {
-        Documents.push_back(MyDocument("Lettuce",             true,  ImVec4(0.4f, 0.8f, 0.4f, 1.0f)));
-        Documents.push_back(MyDocument("Eggplant",            true,  ImVec4(0.8f, 0.5f, 1.0f, 1.0f)));
-        Documents.push_back(MyDocument("Carrot",              true,  ImVec4(1.0f, 0.8f, 0.5f, 1.0f)));
-        Documents.push_back(MyDocument("Tomato",              false, ImVec4(1.0f, 0.3f, 0.4f, 1.0f)));
+        Documents.push_back(MyDocument("Lettuce", true, ImColorf(0.4f, 0.8f, 0.4f, 1.0f)));
+        Documents.push_back(MyDocument("Eggplant", true, ImColorf(0.8f, 0.5f, 1.0f, 1.0f)));
+        Documents.push_back(MyDocument("Carrot", true, ImColorf(1.0f, 0.8f, 0.5f, 1.0f)));
+        Documents.push_back(MyDocument("Tomato", false, ImColorf(1.0f, 0.3f, 0.4f, 1.0f)));
         Documents.push_back(MyDocument("A Rather Long Title", false));
-        Documents.push_back(MyDocument("Some Document",       false));
+        Documents.push_back(MyDocument("Some Document", false));
     }
 };
 

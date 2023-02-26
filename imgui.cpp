@@ -1599,18 +1599,6 @@ ImCol ImGui::GetColor(ImCol col)
     return col;
 }
 
-// FIXME: This may incur a round-trip (if the end user got their data from a float4) but eventually we aim to store the in-flight colors as ImU32
-void ImGui::PushStyleColor(ImGuiCol idx, ImU32 col)
-{
-    ImColorf color = ColorConvertToFloat(ImCol::FromU32(col));
-    PushStyleColor(idx, color);
-}
-
-void ImGui::PushStyleColor(ImGuiCol idx, const ImVec4& col)
-{
-    PushStyleColor(idx, ImColorf{ col.x, col.y, col.z, col.w });
-}
-
 void ImGui::PushStyleColor(ImGuiCol idx, ImColorf col)
 {
     ImGuiContext& g = *GImGui;
