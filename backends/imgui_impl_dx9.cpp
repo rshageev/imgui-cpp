@@ -18,7 +18,6 @@
 //  2021-05-19: DirectX9: Replaced direct access to ImDrawCmd::TextureId with a call to ImDrawCmd::GetTexID(). (will become a requirement)
 //  2021-04-23: DirectX9: Explicitly setting up more graphics states to increase compatibility with unusual non-default states.
 //  2021-03-18: DirectX9: Calling IDirect3DStateBlock9::Capture() after CreateStateBlock() as a workaround for state restoring issues (see #3857).
-//  2021-03-03: DirectX9: Added support for IMGUI_USE_BGRA_PACKED_COLOR in user's imconfig file.
 //  2021-02-18: DirectX9: Change blending equation to preserve alpha in output buffer.
 //  2019-05-29: DirectX9: Added support for large mesh (64K+ vertices), enable ImGuiBackendFlags_RendererHasVtxOffset flag.
 //  2019-04-30: DirectX9: Added support for special ImDrawCallback_ResetRenderState callback to reset render state.
@@ -61,11 +60,7 @@ struct CUSTOMVERTEX
 };
 #define D3DFVF_CUSTOMVERTEX (D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1)
 
-#ifdef IMGUI_USE_BGRA_PACKED_COLOR
-#define IMGUI_COL_TO_DX9_ARGB(_COL)     (_COL)
-#else
 #define IMGUI_COL_TO_DX9_ARGB(_COL)     (((_COL) & 0xFF00FF00) | (((_COL) & 0xFF0000) >> 16) | (((_COL) & 0xFF) << 16))
-#endif
 
 // Backend data stored in io.BackendRendererUserData to allow support for multiple Dear ImGui contexts
 // It is STRONGLY preferred that you use docking branch with multi-viewports (== single Dear ImGui context + multiple windows) instead of multiple Dear ImGui contexts.
@@ -201,7 +196,6 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
 
     // Copy and convert all vertices into a single contiguous buffer, convert colors to DX9 default format.
     // FIXME-OPT: This is a minor waste of resource, the ideal is to use imconfig.h and
-    //  1) to avoid repacking colors:   #define IMGUI_USE_BGRA_PACKED_COLOR
     //  2) to avoid repacking vertices: #define IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT struct ImDrawVert { ImVec2 pos; float z; ImU32 col; ImVec2 uv; }
     for (const ImDrawList* cmd_list : draw_data->CmdLists)
     {
@@ -313,7 +307,6 @@ static bool ImGui_ImplDX9_CreateFontsTexture()
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height, &bytes_per_pixel);
 
     // Convert RGBA32 to BGRA32 (because RGBA32 is not well supported by DX9 devices)
-#ifndef IMGUI_USE_BGRA_PACKED_COLOR
     if (io.Fonts->TexPixelsUseColors)
     {
         ImU32* dst_start = (ImU32*)ImGui::MemAlloc((size_t)width * height * bytes_per_pixel);
@@ -321,7 +314,6 @@ static bool ImGui_ImplDX9_CreateFontsTexture()
             *dst = IMGUI_COL_TO_DX9_ARGB(*src);
         pixels = (unsigned char*)dst_start;
     }
-#endif
 
     // Upload texture to graphics system
     bd->FontTexture = nullptr;
@@ -337,10 +329,8 @@ static bool ImGui_ImplDX9_CreateFontsTexture()
     // Store our identifier
     io.Fonts->SetTexID((ImTextureID)bd->FontTexture);
 
-#ifndef IMGUI_USE_BGRA_PACKED_COLOR
     if (io.Fonts->TexPixelsUseColors)
         ImGui::MemFree(pixels);
-#endif
 
     return true;
 }
