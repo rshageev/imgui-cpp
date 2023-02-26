@@ -7869,10 +7869,6 @@ void ShowExampleAppDocuments(bool* p_open)
             if (opt_reorderable)
                 NotifyOfDocumentsClosedElsewhere(app);
 
-            // [DEBUG] Stress tests
-            //if ((ImGui::GetFrameCount() % 30) == 0) docs[1].Open ^= 1;            // [DEBUG] Automatically show/hide a tab. Test various interactions e.g. dragging with this on.
-            //if (ImGui::GetIO().KeyCtrl) ImGui::SetTabItemSelected(docs[1].Name);  // [DEBUG] Test SetTabItemSelected(), probably not very useful as-is anyway..
-
             // Submit Tabs
             for (int doc_n = 0; doc_n < app.Documents.Size; doc_n++)
             {

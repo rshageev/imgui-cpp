@@ -1789,7 +1789,6 @@ struct ImGuiContext
     ImGuiDir NavMoveClipDir = ImGuiDir_None;        // FIXME-NAV: Describe the purpose of this better. Might want to rename?
     ImRect NavScoringRect;                          // Rectangle used for scoring, in screen space. Based of window->NavRectRel[], modified for directional navigation scoring.
     ImRect NavScoringNoClipRect;                    // Some nav operations (such as PageUp/PageDown) enforce a region which clipper will attempt to always keep submitted
-    int NavScoringDebugCount = 0;                   // Metrics for debugging
     int NavTabbingDir = 0;                          // Generally -1 or +1, 0 when tabbing without a nav id
     int NavTabbingCounter = 0;                      // >0 when counting items for tabbing
     ImGuiNavItemData NavMoveResultLocal;            // Best move request candidate within NavWindow
