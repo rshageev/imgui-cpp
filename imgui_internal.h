@@ -311,9 +311,6 @@ ImGuiID ImHash(T& data, ImGuiID seed = 0) {
 static inline void ImQsort(void* base, size_t count, size_t size_of_element, int(IMGUI_CDECL *compare_func)(void const*, void const*)) { if (count > 1) qsort(base, count, size_of_element, compare_func); }
 #endif
 
-// Helpers: Color Blending
-ImCol ImAlphaBlendColors(ImCol col_a, ImCol col_b);
-
 // Helpers: Bit manipulation
 static inline bool      ImIsPowerOfTwo(int v)           { return v != 0 && (v & (v - 1)) == 0; }
 static inline bool      ImIsPowerOfTwo(ImU64 v)         { return v != 0 && (v & (v - 1)) == 0; }
@@ -944,7 +941,7 @@ enum ImGuiDataTypePrivate_
 struct ImGuiColorMod
 {
     ImGuiCol Col;
-    ImVec4 BackupValue;
+    ImColorf BackupValue;
 };
 
 // Stacked style modifier, backup of modified data so we can restore it. Data type inferred from the variable.

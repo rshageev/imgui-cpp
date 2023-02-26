@@ -1091,15 +1091,6 @@ int ImTextCountUtf8BytesFromStr(const ImWchar* in_text, const ImWchar* in_text_e
 // Note: The Convert functions are early design which are not consistent with other API.
 //-----------------------------------------------------------------------------
 
-ImCol ImAlphaBlendColors(ImCol col_a, ImCol col_b)
-{
-    const auto t = static_cast<float>(col_b.a) / 255.0f;
-    const auto r = static_cast<std::uint8_t>(std::lerp(col_a.r, col_b.r, t));
-    const auto g = static_cast<std::uint8_t>(std::lerp(col_a.g, col_b.g, t));
-    const auto b = static_cast<std::uint8_t>(std::lerp(col_a.b, col_b.b, t));
-    return ImCol(r, g, b, 255);
-}
-
 ImVec4 ImGui::ColorConvertU32ToFloat4(ImU32 in)
 {
     float s = 1.0f / 255.0f;
@@ -1120,56 +1111,7 @@ ImU32 ImGui::ColorConvertFloat4ToU32(const ImVec4& in)
     return out;
 }
 
-// Convert rgb floats ([0-1],[0-1],[0-1]) to hsv floats ([0-1],[0-1],[0-1]), from Foley & van Dam p592
-// Optimized http://lolengine.net/blog/2013/01/13/fast-rgb-to-hsv
-void ImGui::ColorConvertRGBtoHSV(float r, float g, float b, float& out_h, float& out_s, float& out_v)
-{
-    float K = 0.f;
-    if (g < b)
-    {
-        ImSwap(g, b);
-        K = -1.f;
-    }
-    if (r < g)
-    {
-        ImSwap(r, g);
-        K = -2.f / 6.f - K;
-    }
 
-    const float chroma = r - (g < b ? g : b);
-    out_h = ImFabs(K + (g - b) / (6.f * chroma + 1e-20f));
-    out_s = chroma / (r + 1e-20f);
-    out_v = r;
-}
-
-// Convert hsv floats ([0-1],[0-1],[0-1]) to rgb floats ([0-1],[0-1],[0-1]), from Foley & van Dam p593
-// also http://en.wikipedia.org/wiki/HSL_and_HSV
-void ImGui::ColorConvertHSVtoRGB(float h, float s, float v, float& out_r, float& out_g, float& out_b)
-{
-    if (s == 0.0f)
-    {
-        // gray
-        out_r = out_g = out_b = v;
-        return;
-    }
-
-    h = ImFmod(h, 1.0f) / (60.0f / 360.0f);
-    int   i = (int)h;
-    float f = h - (float)i;
-    float p = v * (1.0f - s);
-    float q = v * (1.0f - s * f);
-    float t = v * (1.0f - s * (1.0f - f));
-
-    switch (i)
-    {
-    case 0: out_r = v; out_g = t; out_b = p; break;
-    case 1: out_r = q; out_g = v; out_b = p; break;
-    case 2: out_r = p; out_g = v; out_b = t; break;
-    case 3: out_r = p; out_g = q; out_b = v; break;
-    case 4: out_r = t; out_g = p; out_b = v; break;
-    case 5: default: out_r = v; out_g = p; out_b = q; break;
-    }
-}
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImGuiStorage
@@ -1654,23 +1596,22 @@ ImGuiStyle& ImGui::GetStyle()
 
 ImU32 ImGui::GetColorU32(ImGuiCol idx, float alpha_mul)
 {
-    ImGuiStyle& style = GImGui->Style;
-    ImVec4 c = style.Colors[idx];
-    c.w *= style.Alpha * alpha_mul;
-    return ColorConvertFloat4ToU32(c);
+    return ImCol::ToU32(GetColor(idx, alpha_mul));
 }
 
 ImCol ImGui::GetColor(ImGuiCol idx, float alpha_mul)
 {
-    return ImCol::FromU32(GetColorU32(idx, alpha_mul));
+    ImGuiStyle& style = GImGui->Style;
+    ImColorf c = style.Colors[idx];
+    c.a *= style.Alpha * alpha_mul;
+
+    return ColorConvertToByte(c);
 }
 
 ImU32 ImGui::GetColorU32(const ImVec4& col)
 {
-    ImGuiStyle& style = GImGui->Style;
-    ImVec4 c = col;
-    c.w *= style.Alpha;
-    return ColorConvertFloat4ToU32(c);
+    ImColorf color{ col.x, col.y, col.z, col.w };
+    return ImCol::ToU32(GetColor(color));
 }
 
 ImCol ImGui::GetColor(const ImVec4& col)
@@ -1678,7 +1619,15 @@ ImCol ImGui::GetColor(const ImVec4& col)
     return ImCol::FromU32(GetColorU32(col));
 }
 
-const ImVec4& ImGui::GetStyleColorVec4(ImGuiCol idx)
+ImCol ImGui::GetColor(const ImColorf& col)
+{
+    ImGuiStyle& style = GImGui->Style;
+    ImColorf c = col;
+    c.a *= style.Alpha;
+    return ColorConvertToByte(c);
+}
+
+ImColorf ImGui::GetStyleColorf(ImGuiCol idx)
 {
     ImGuiStyle& style = GImGui->Style;
     return style.Colors[idx];
@@ -1686,12 +1635,7 @@ const ImVec4& ImGui::GetStyleColorVec4(ImGuiCol idx)
 
 ImU32 ImGui::GetColorU32(ImU32 col)
 {
-    ImGuiStyle& style = GImGui->Style;
-    if (style.Alpha >= 1.0f)
-        return col;
-    ImU32 a = (col & IM_COL32_A_MASK) >> IM_COL32_A_SHIFT;
-    a = (ImU32)(a * style.Alpha); // We don't need to clamp 0..255 because Style.Alpha is in 0..1 range.
-    return (col & ~IM_COL32_A_MASK) | (a << IM_COL32_A_SHIFT);
+    return ImCol::ToU32(GetColor(ImCol::FromU32(col)));
 }
 
 ImCol ImGui::GetColor(ImCol col)
@@ -1706,15 +1650,16 @@ ImCol ImGui::GetColor(ImCol col)
 // FIXME: This may incur a round-trip (if the end user got their data from a float4) but eventually we aim to store the in-flight colors as ImU32
 void ImGui::PushStyleColor(ImGuiCol idx, ImU32 col)
 {
-    ImGuiContext& g = *GImGui;
-    ImGuiColorMod backup;
-    backup.Col = idx;
-    backup.BackupValue = g.Style.Colors[idx];
-    g.ColorStack.push_back(backup);
-    g.Style.Colors[idx] = ColorConvertU32ToFloat4(col);
+    ImColorf color = ColorConvertToFloat(ImCol::FromU32(col));
+    PushStyleColor(idx, color);
 }
 
 void ImGui::PushStyleColor(ImGuiCol idx, const ImVec4& col)
+{
+    PushStyleColor(idx, ImColorf{ col.x, col.y, col.z, col.w });
+}
+
+void ImGui::PushStyleColor(ImGuiCol idx, ImColorf col)
 {
     ImGuiContext& g = *GImGui;
     ImGuiColorMod backup;
@@ -1722,6 +1667,11 @@ void ImGui::PushStyleColor(ImGuiCol idx, const ImVec4& col)
     backup.BackupValue = g.Style.Colors[idx];
     g.ColorStack.push_back(backup);
     g.Style.Colors[idx] = col;
+}
+
+void ImGui::PushStyleColor(ImGuiCol idx, ImCol col)
+{
+    PushStyleColor(idx, ColorConvertToFloat(col));
 }
 
 void ImGui::PopStyleColor(size_t count)
@@ -8245,7 +8195,7 @@ void ImGui::BeginTooltipEx(ImGuiTooltipFlags tooltip_flags, ImGuiWindowFlags ext
         //ImVec2 tooltip_pos = g.IO.MousePos - g.ActiveIdClickOffset - g.Style.WindowPadding;
         ImVec2 tooltip_pos = g.IO.MousePos + ImVec2(16 * g.Style.MouseCursorScale, 8 * g.Style.MouseCursorScale);
         SetNextWindowPos(tooltip_pos);
-        SetNextWindowBgAlpha(g.Style.Colors[ImGuiCol_PopupBg].w * 0.60f);
+        SetNextWindowBgAlpha(g.Style.Colors[ImGuiCol_PopupBg].a * 0.60f);
         //PushStyleVar(ImGuiStyleVar_Alpha, g.Style.Alpha * 0.60f); // This would be nice but e.g ColorButton with checkboard has issue with transparent colors :(
         tooltip_flags |= ImGuiTooltipFlags_OverridePreviousTooltip;
     }
@@ -11588,8 +11538,8 @@ void ImGui::ShowFontAtlas(ImFontAtlas* atlas)
         ImGuiContext& g = *GImGui;
         ImGuiMetricsConfig* cfg = &g.DebugMetricsConfig;
         Checkbox("Tint with Text Color", &cfg->ShowAtlasTintedWithTextColor); // Using text color ensure visibility of core atlas data, but will alter custom colored icons
-        ImVec4 tint_col = cfg->ShowAtlasTintedWithTextColor ? GetStyleColorVec4(ImGuiCol_Text) : ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-        ImVec4 border_col = GetStyleColorVec4(ImGuiCol_Border);
+        ImColorf tint_col = cfg->ShowAtlasTintedWithTextColor ? GetStyleColorf(ImGuiCol_Text) : ImColorf::White;
+        ImColorf border_col = GetStyleColorf(ImGuiCol_Border);
         Image(atlas->TexID, ImVec2((float)atlas->TexWidth, (float)atlas->TexHeight), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), tint_col, border_col);
         TreePop();
     }
@@ -12152,7 +12102,7 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
     if (draw_list == GetWindowDrawList())
     {
         SameLine();
-        TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "CURRENTLY APPENDING"); // Can't display stats for active draw list! (we don't have the data double-buffered)
+        TextColored(ImColorf(1.0f, 0.4f, 0.4f, 1.0f), "CURRENTLY APPENDING"); // Can't display stats for active draw list! (we don't have the data double-buffered)
         if (node_open)
             TreePop();
         return;
@@ -12396,7 +12346,7 @@ void ImGui::DebugNodeTabBar(ImGuiTabBar* tab_bar, const char* label)
             tab_n > 0 ? ", " : "", TabBarGetTabName(tab_bar, tab));
     }
     p += ImFormatString(p, buf_end - p, (tab_bar->Tabs.size() > 3) ? " ... }" : " } ");
-    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorVec4(ImGuiCol_TextDisabled)); }
+    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled)); }
     bool open = TreeNode(label, "%s", buf);
     if (!is_active) { PopStyleColor(); }
     if (is_active && IsItemHovered())
@@ -12455,7 +12405,7 @@ void ImGui::DebugNodeWindow(ImGuiWindow* window, const char* label)
     ImGuiContext& g = *GImGui;
     const bool is_active = window->WasActive;
     ImGuiTreeNodeFlags tree_node_flags = (window == g.NavWindow) ? ImGuiTreeNodeFlags_Selected : ImGuiTreeNodeFlags_None;
-    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorVec4(ImGuiCol_TextDisabled)); }
+    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled)); }
     const bool open = TreeNodeEx(label, tree_node_flags, "%s '%s'%s", label, window->Name, is_active ? "" : " *Inactive*");
     if (!is_active) { PopStyleColor(); }
     if (IsItemHovered() && is_active)
@@ -12697,10 +12647,12 @@ void ImGui::UpdateDebugToolItemPicker()
     Text("HoveredId: 0x%08X", hovered_id);
     Text("Press ESC to abort picking.");
     const char* mouse_button_names[] = { "Left", "Right", "Middle" };
-    if (change_mapping)
+    if (change_mapping) {
         Text("Remap w/ Ctrl+Shift: click anywhere to select new mouse button.");
-    else
-        TextColored(GetStyleColorVec4(hovered_id ? ImGuiCol_Text : ImGuiCol_TextDisabled), "Click %s Button to break in debugger! (remap w/ Ctrl+Shift)", mouse_button_names[g.DebugItemPickerMouseButton]);
+    } else {
+        const auto color = GetStyleColorf(hovered_id ? ImGuiCol_Text : ImGuiCol_TextDisabled);
+        TextColored(color, "Click %s Button to break in debugger! (remap w/ Ctrl+Shift)", mouse_button_names[g.DebugItemPickerMouseButton]);
+    }
     EndTooltip();
 }
 
@@ -12829,7 +12781,7 @@ void ImGui::ShowStackToolWindow(bool* p_open)
     const float time_since_copy = (float)g.Time - tool->CopyToClipboardLastTime;
     Checkbox("Ctrl+C: copy path to clipboard", &tool->CopyToClipboardOnCtrlC);
     SameLine();
-    TextColored((time_since_copy >= 0.0f && time_since_copy < 0.75f && ImFmod(time_since_copy, 0.25f) < 0.25f * 0.5f) ? ImVec4(1.f, 1.f, 0.3f, 1.f) : ImVec4(), "*COPIED*");
+    TextColored((time_since_copy >= 0.0f && time_since_copy < 0.75f && ImFmod(time_since_copy, 0.25f) < 0.25f * 0.5f) ? ImColorf(1.f, 1.f, 0.3f, 1.f) : ImColorf::BlackTransparent, "*COPIED*");
     if (tool->CopyToClipboardOnCtrlC && IsKeyDown(ImGuiMod_Ctrl) && IsKeyPressed(ImGuiKey_C))
     {
         tool->CopyToClipboardLastTime = (float)g.Time;

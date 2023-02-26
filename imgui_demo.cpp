@@ -588,9 +588,9 @@ static void ShowDemoWindowWidgets()
             if (i > 0)
                 ImGui::SameLine();
             ImGui::PushID(i);
-            ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(i / 7.0f, 0.6f, 0.6f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(i / 7.0f, 0.7f, 0.7f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(i / 7.0f, 0.8f, 0.8f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImColorf::FromHSV(i / 7.0f, 0.6f, 0.6f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(i / 7.0f, 0.7f, 0.7f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColorf::FromHSV(i / 7.0f, 0.8f, 0.8f));
             ImGui::Button("Click");
             ImGui::PopStyleColor(3);
             ImGui::PopID();
@@ -941,8 +941,8 @@ static void ShowDemoWindowWidgets()
         if (ImGui::TreeNode("Colorful Text"))
         {
             // Using shortcut. You can use PushStyleColor()/PopStyleColor() for more flexibility.
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 1.0f, 1.0f), "Pink");
-            ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Yellow");
+            ImGui::TextColored(ImColorf(1.0f, 0.0f, 1.0f, 1.0f), "Pink");
+            ImGui::TextColored(ImColorf(1.0f, 1.0f, 0.0f, 1.0f), "Yellow");
             ImGui::TextDisabled("Disabled");
             ImGui::SameLine(); HelpMarker("The TextDisabled color is stored in ImGuiStyle.");
             ImGui::TreePop();
@@ -1043,8 +1043,8 @@ static void ShowDemoWindowWidgets()
             ImVec2 pos = ImGui::GetCursorScreenPos();
             ImVec2 uv_min = ImVec2(0.0f, 0.0f);                 // Top-left
             ImVec2 uv_max = ImVec2(1.0f, 1.0f);                 // Lower-right
-            ImVec4 tint_col = use_text_color_for_tint ? ImGui::GetStyleColorVec4(ImGuiCol_Text) : ImVec4(1.0f, 1.0f, 1.0f, 1.0f);   // No tint
-            ImVec4 border_col = ImGui::GetStyleColorVec4(ImGuiCol_Border);
+            ImColorf tint_col = use_text_color_for_tint ? ImGui::GetStyleColorf(ImGuiCol_Text) : ImColorf::White;   // No tint
+            ImColorf border_col = ImGui::GetStyleColorf(ImGuiCol_Border);
             ImGui::Image(my_tex_id, ImVec2(my_tex_w, my_tex_h), uv_min, uv_max, tint_col, border_col);
             if (ImGui::IsItemHovered())
             {
@@ -2156,10 +2156,10 @@ static void ShowDemoWindowWidgets()
         {
             if (i > 0) ImGui::SameLine();
             ImGui::PushID(i);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, (ImVec4)ImColor::HSV(i / 7.0f, 0.5f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, (ImVec4)ImColor::HSV(i / 7.0f, 0.6f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, (ImVec4)ImColor::HSV(i / 7.0f, 0.7f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_SliderGrab, (ImVec4)ImColor::HSV(i / 7.0f, 0.9f, 0.9f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImColorf::FromHSV(i / 7.0f, 0.5f, 0.5f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImColorf::FromHSV(i / 7.0f, 0.6f, 0.5f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImColorf::FromHSV(i / 7.0f, 0.7f, 0.5f));
+            ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImColorf::FromHSV(i / 7.0f, 0.9f, 0.9f));
             ImGui::VSliderFloat("##v", ImVec2(18, 160), &values[i], 0.0f, 1.0f, "");
             if (ImGui::IsItemActive() || ImGui::IsItemHovered())
                 ImGui::SetTooltip("%.3f", values[i]);
@@ -2615,7 +2615,7 @@ static void ShowDemoWindowLayout()
             ImGui::DragInt("Offset X", &offset_x, 1.0f, -1000, 1000);
 
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (float)offset_x);
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(255, 0, 0, 100));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImCol(255, 0, 0, 100));
             ImGui::BeginChild("Red", ImVec2(200, 100), true, ImGuiWindowFlags_None);
             for (int n = 0; n < 50; n++)
                 ImGui::Text("Some test %d", n);
@@ -2716,11 +2716,11 @@ static void ShowDemoWindowLayout()
         // Text
         IMGUI_DEMO_MARKER("Layout/Basic Horizontal Layout/SameLine");
         ImGui::Text("Two items: Hello"); ImGui::SameLine();
-        ImGui::TextColored(ImVec4(1,1,0,1), "Sailor");
+        ImGui::TextColored(ImColorf(1,1,0,1), "Sailor");
 
         // Adjust spacing
         ImGui::Text("More spacing: Hello"); ImGui::SameLine(0, 20);
-        ImGui::TextColored(ImVec4(1,1,0,1), "Sailor");
+        ImGui::TextColored(ImColorf(1,1,0,1), "Sailor");
 
         // Button
         ImGui::AlignTextToFramePadding();
@@ -3029,7 +3029,7 @@ static void ShowDemoWindowLayout()
                 {
                     if (enable_track && item == track_item)
                     {
-                        ImGui::TextColored(ImVec4(1, 1, 0, 1), "Item %d", item);
+                        ImGui::TextColored(ImColorf(1, 1, 0, 1), "Item %d", item);
                         ImGui::SetScrollHereY(i * 0.25f); // 0.0f:top, 0.5f:center, 1.0f:bottom
                     }
                     else
@@ -3073,7 +3073,7 @@ static void ShowDemoWindowLayout()
                         ImGui::SameLine();
                     if (enable_track && item == track_item)
                     {
-                        ImGui::TextColored(ImVec4(1, 1, 0, 1), "Item %d", item);
+                        ImGui::TextColored(ImColorf(1, 1, 0, 1), "Item %d", item);
                         ImGui::SetScrollHereX(i * 0.25f); // 0.0f:left, 0.5f:center, 1.0f:right
                     }
                     else
@@ -3118,9 +3118,9 @@ static void ShowDemoWindowLayout()
                 sprintf(num_buf, "%d", n);
                 const char* label = (!(n % 15)) ? "FizzBuzz" : (!(n % 3)) ? "Fizz" : (!(n % 5)) ? "Buzz" : num_buf;
                 float hue = n * 0.05f;
-                ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(hue, 0.6f, 0.6f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(hue, 0.7f, 0.7f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(hue, 0.8f, 0.8f));
+                ImGui::PushStyleColor(ImGuiCol_Button, ImColorf::FromHSV(hue, 0.6f, 0.6f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(hue, 0.7f, 0.7f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColorf::FromHSV(hue, 0.8f, 0.8f));
                 ImGui::Button(label, ImVec2(40.0f + sinf((float)(line + n)) * 20.0f, 0.0f));
                 ImGui::PopStyleColor(3);
                 ImGui::PopID();
@@ -4199,8 +4199,9 @@ static void ShowDemoWindowTables()
         {
             static char text_bufs[3 * 5][16]; // Mini text storage for 3x5 cells
             static bool init = true;
-            if (!show_widget_frame_bg)
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, 0);
+            if (!show_widget_frame_bg) {
+                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImColorf::BlackTransparent);
+            }
             for (int cell = 0; cell < 3 * 5; cell++)
             {
                 ImGui::TableNextColumn();
@@ -6209,11 +6210,11 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
                 ImGui::LogText("ImVec4* colors = ImGui::GetStyle().Colors;" IM_NEWLINE);
                 for (int i = 0; i < ImGuiCol_COUNT; i++)
                 {
-                    const ImVec4& col = style.Colors[i];
+                    const auto col = style.Colors[i];
                     const char* name = ImGui::GetStyleColorName(i);
                     if (!output_only_modified || col != ref->Colors[i]) {
-                        ImGui::LogText("colors[ImGuiCol_%s]%*s= ImVec4(%.2ff, %.2ff, %.2ff, %.2ff);" IM_NEWLINE,
-                            name, 23 - (int)strlen(name), "", col.x, col.y, col.z, col.w);
+                        ImGui::LogText("colors[ImGuiCol_%s]%*s= ImColorf(%.2ff, %.2ff, %.2ff, %.2ff);" IM_NEWLINE,
+                            name, 23 - (int)strlen(name), "", col.r, col.g, col.b, col.a);
                     }
                 }
                 ImGui::LogFinish();
@@ -6650,14 +6651,14 @@ struct ExampleAppConsole
 
                 // Normally you would store more information in your item than just a string.
                 // (e.g. make Items[] an array of structure, store color/type etc.)
-                ImVec4 color;
+                ImColorf color;
                 bool has_color = false;
                 if (item.starts_with("[error]")) {
-                    color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+                    color = { 1.0f, 0.4f, 0.4f, 1.0f };
                     has_color = true;
                 }
                 else if (item.starts_with("# ")) {
-                    color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
+                    color = { 1.0f, 0.8f, 0.6f, 1.0f };
                     has_color = true;
                 }
                 if (has_color) {
@@ -7538,7 +7539,7 @@ static void ShowExampleAppCustomRendering(bool* p_open)
             static int circle_segments_override_v = 12;
             static bool curve_segments_override = false;
             static int curve_segments_override_v = 8;
-            static ImVec4 colf = ImVec4(1.0f, 1.0f, 0.4f, 1.0f);
+            static ImColorf colf = ImColorf(1.0f, 1.0f, 0.4f, 1.0f);
             ImGui::DragFloat("Size", &sz, 0.2f, 2.0f, 100.0f, "%.0f");
             ImGui::DragFloat("Thickness", &thickness, 0.05f, 1.0f, 8.0f, "%.02f");
             ImGui::SliderInt("N-gon sides", &ngon_sides, 3, 12);
@@ -7548,10 +7549,10 @@ static void ShowExampleAppCustomRendering(bool* p_open)
             ImGui::Checkbox("##curvessegmentoverride", &curve_segments_override);
             ImGui::SameLine(0.0f, ImGui::GetStyle().ItemInnerSpacing.x);
             curve_segments_override |= ImGui::SliderInt("Curves segments override", &curve_segments_override_v, 3, 40);
-            ImGui::ColorEdit4("Color", &colf.x);
+            ImGui::ColorEdit4("Color", &colf.r);
 
             const ImVec2 p = ImGui::GetCursorScreenPos();
-            const ImU32 col = ImColor(colf);
+            const ImU32 col = ImCol::ToU32(ImGui::ColorConvertToByte(colf));
             const float spacing = 10.0f;
             const ImDrawFlags corners_tl_br = ImDrawFlags_RoundCornersTopLeft | ImDrawFlags_RoundCornersBottomRight;
             const float rounding = sz / 5.0f;
@@ -7616,7 +7617,7 @@ static void ShowExampleAppCustomRendering(bool* p_open)
             // Here we demonstrate that this can be replaced by simple offsetting + custom drawing + PushClipRect/PopClipRect() calls.
             // To use a child window instead we could use, e.g:
             //      ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));      // Disable padding
-            //      ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(50, 50, 50, 255));  // Set a background color
+            //      ImGui::PushStyleColor(ImGuiCol_ChildBg, ImCol(50, 50, 50, 255));  // Set a background color
             //      ImGui::BeginChild("canvas", ImVec2(0.0f, 0.0f), true, ImGuiWindowFlags_NoMove);
             //      ImGui::PopStyleColor();
             //      ImGui::PopStyleVar();

@@ -43,6 +43,9 @@
     <ClCompile Include="..\..\imgui_style.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\imgui_color.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\imconfig.h">
@@ -70,6 +73,9 @@
       <Filter>imgui\utils</Filter>
     </ClInclude>
     <ClInclude Include="..\..\imgui_style.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\imgui_color.h">
       <Filter>imgui</Filter>
     </ClInclude>
   </ItemGroup>

@@ -30,6 +30,7 @@ Index of this file:
 #include "imconfig.h"
 
 #include "imgui_types.h"
+#include "imgui_color.h"
 #include "imgui_style.h"
 
 #ifndef IMGUI_DISABLE
@@ -308,8 +309,11 @@ namespace ImGui
     // Parameters stacks (shared)
     void          PushFont(ImFont* font);                                         // use NULL as a shortcut to push default font
     void          PopFont();
-    void          PushStyleColor(ImGuiCol idx, ImU32 col);                        // modify a style color. always use this if you modify the style after NewFrame().
-    void          PushStyleColor(ImGuiCol idx, const ImVec4& col);
+
+    void PushStyleColor(ImGuiCol idx, ImU32 col);                        // modify a style color. always use this if you modify the style after NewFrame().
+    void PushStyleColor(ImGuiCol idx, const ImVec4& col);
+    void PushStyleColor(ImGuiCol idx, ImColorf col);
+    void PushStyleColor(ImGuiCol idx, ImCol col);
     void          PopStyleColor(size_t count = 1);
     void          PushStyleVar(ImGuiStyleVar idx, float val);                     // modify a style float variable. always use this if you modify the style after NewFrame().
     void          PushStyleVar(ImGuiStyleVar idx, const ImVec2& val);             // modify a style ImVec2 variable. always use this if you modify the style after NewFrame().
@@ -336,9 +340,13 @@ namespace ImGui
     ImCol GetColor(ImGuiCol idx, float alpha_mil = 1.0f);
     ImU32 GetColorU32(const ImVec4& col);                    // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
     ImCol GetColor(const ImVec4& col);
+    ImCol GetColor(const ImColorf& col);
     ImU32 GetColorU32(ImU32 col);                            // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
     ImCol GetColor(ImCol col);
-    const ImVec4& GetStyleColorVec4(ImGuiCol idx);           // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(), otherwise use GetColorU32() to get style color with style alpha baked in.
+
+    // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(),
+    // otherwise use GetColor() to get style color with style alpha baked in.
+    ImColorf GetStyleColorf(ImGuiCol idx);
 
     // Cursor / Layout
     // - By "cursor" we mean the current output position.
@@ -392,20 +400,20 @@ namespace ImGui
     ImGuiID       GetID(const void* ptr_id);
 
     // Widgets: Text
-    void          TextUnformatted(const char* text, const char* text_end = NULL); // raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
-    void          Text(const char* fmt, ...)                                      IM_FMTARGS(1); // formatted text
-    void          TextV(const char* fmt, va_list args)                            IM_FMTLIST(1);
-    void          TextColored(const ImVec4& col, const char* fmt, ...)            IM_FMTARGS(2); // shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
-    void          TextColoredV(const ImVec4& col, const char* fmt, va_list args)  IM_FMTLIST(2);
-    void          TextDisabled(const char* fmt, ...)                              IM_FMTARGS(1); // shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
-    void          TextDisabledV(const char* fmt, va_list args)                    IM_FMTLIST(1);
-    void          TextWrapped(const char* fmt, ...)                               IM_FMTARGS(1); // shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
-    void          TextWrappedV(const char* fmt, va_list args)                     IM_FMTLIST(1);
-    void          LabelText(const char* label, const char* fmt, ...)              IM_FMTARGS(2); // display text+label aligned the same way as value+label widgets
-    void          LabelTextV(const char* label, const char* fmt, va_list args)    IM_FMTLIST(2);
-    void          BulletText(const char* fmt, ...)                                IM_FMTARGS(1); // shortcut for Bullet()+Text()
-    void          BulletTextV(const char* fmt, va_list args)                      IM_FMTLIST(1);
-    void          SeparatorText(const char* label); // currently: formatted text with an horizontal line
+    void TextUnformatted(const char* text, const char* text_end = NULL); // raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
+    void Text(const char* fmt, ...)                                      IM_FMTARGS(1); // formatted text
+    void TextV(const char* fmt, va_list args)                            IM_FMTLIST(1);
+    void TextColored(const ImColorf& col, const char* fmt, ...)            IM_FMTARGS(2); // shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
+    void TextColoredV(const ImColorf& col, const char* fmt, va_list args)  IM_FMTLIST(2);
+    void TextDisabled(const char* fmt, ...)                              IM_FMTARGS(1); // shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
+    void TextDisabledV(const char* fmt, va_list args)                    IM_FMTLIST(1);
+    void TextWrapped(const char* fmt, ...)                               IM_FMTARGS(1); // shortcut for PushTextWrapPos(0.0f); Text(fmt, ...); PopTextWrapPos();. Note that this won't work on an auto-resizing window if there's no other widgets to extend the window width, yoy may need to set a size using SetNextWindowSize().
+    void TextWrappedV(const char* fmt, va_list args)                     IM_FMTLIST(1);
+    void LabelText(const char* label, const char* fmt, ...)              IM_FMTARGS(2); // display text+label aligned the same way as value+label widgets
+    void LabelTextV(const char* label, const char* fmt, va_list args)    IM_FMTLIST(2);
+    void BulletText(const char* fmt, ...)                                IM_FMTARGS(1); // shortcut for Bullet()+Text()
+    void BulletTextV(const char* fmt, va_list args)                      IM_FMTLIST(1);
+    void SeparatorText(const char* label); // currently: formatted text with an horizontal line
 
     // Widgets: Main
     // - Most widgets return true when the value has been changed or when pressed/selected
@@ -424,8 +432,8 @@ namespace ImGui
 
     // Widgets: Images
     // - Read about ImTextureID here: https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
-    void          Image(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImVec4& tint_col = ImVec4(1, 1, 1, 1), const ImVec4& border_col = ImVec4(0, 0, 0, 0));
-    bool          ImageButton(const char* str_id, ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImVec4& bg_col = ImVec4(0, 0, 0, 0), const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
+    void Image(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImColorf& tint_col = ImColorf::White, const ImColorf& border_col = ImColorf::BlackTransparent);
+    bool ImageButton(const char* str_id, ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImVec4& bg_col = ImVec4(0, 0, 0, 0), const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
 
     // Widgets: Combo Box (Dropdown)
     // - The BeginCombo()/EndCombo() api allows you to manage your contents and selection state however you want it, by creating e.g. Selectable() items.
@@ -793,8 +801,6 @@ namespace ImGui
     // Color Utilities
     ImVec4        ColorConvertU32ToFloat4(ImU32 in);
     ImU32         ColorConvertFloat4ToU32(const ImVec4& in);
-    void          ColorConvertRGBtoHSV(float r, float g, float b, float& out_h, float& out_s, float& out_v);
-    void          ColorConvertHSVtoRGB(float h, float s, float v, float& out_r, float& out_g, float& out_b);
 
     // Inputs Utilities: Keyboard/Mouse/Gamepad
     // - the ImGuiKey enum contains all possible keyboard, mouse and gamepad inputs (e.g. ImGuiKey_A, ImGuiKey_MouseLeft, ImGuiKey_GamepadDpadUp...).
@@ -2150,27 +2156,6 @@ private:
 #define IM_COL32_WHITE       IM_COL32(255,255,255,255)  // Opaque white = 0xFFFFFFFF
 #define IM_COL32_BLACK       IM_COL32(0,0,0,255)        // Opaque black
 #define IM_COL32_BLACK_TRANS IM_COL32(0,0,0,0)          // Transparent black = 0x00000000
-
-// Helper: ImColor() implicitly converts colors to either ImU32 (packed 4x1 byte) or ImVec4 (4x1 float)
-// Prefer using IM_COL32() macros if you want a guaranteed compile-time ImU32 for usage with ImDrawList API.
-// **Avoid storing ImColor! Store either u32 of ImVec4. This is not a full-featured color class. MAY OBSOLETE.
-// **None of the ImGui API are using ImColor directly but you can use it as a convenience to pass colors in either ImU32 or ImVec4 formats. Explicitly cast to ImU32 or ImVec4 if needed.
-struct ImColor
-{
-    ImVec4 Value;
-
-    constexpr ImColor()                                             { }
-    constexpr ImColor(float r, float g, float b, float a = 1.0f)    : Value(r, g, b, a) { }
-    constexpr ImColor(const ImVec4& col)                            : Value(col) {}
-    ImColor(int r, int g, int b, int a = 255)                       { float sc = 1.0f / 255.0f; Value.x = (float)r * sc; Value.y = (float)g * sc; Value.z = (float)b * sc; Value.w = (float)a * sc; }
-    ImColor(ImU32 rgba)                                             { float sc = 1.0f / 255.0f; Value.x = (float)((rgba >> IM_COL32_R_SHIFT) & 0xFF) * sc; Value.y = (float)((rgba >> IM_COL32_G_SHIFT) & 0xFF) * sc; Value.z = (float)((rgba >> IM_COL32_B_SHIFT) & 0xFF) * sc; Value.w = (float)((rgba >> IM_COL32_A_SHIFT) & 0xFF) * sc; }
-    inline operator ImU32() const                                   { return ImGui::ColorConvertFloat4ToU32(Value); }
-    inline operator ImVec4() const                                  { return Value; }
-
-    // FIXME-OBSOLETE: May need to obsolete/cleanup those helpers.
-    inline void    SetHSV(float h, float s, float v, float a = 1.0f){ ImGui::ColorConvertHSVtoRGB(h, s, v, Value.x, Value.y, Value.z); Value.w = a; }
-    static ImColor HSV(float h, float s, float v, float a = 1.0f)   { float r, g, b; ImGui::ColorConvertHSVtoRGB(h, s, v, r, g, b); return ImColor(r, g, b, a); }
-};
 
 //-----------------------------------------------------------------------------
 // [SECTION] Drawing API (ImDrawCmd, ImDrawIdx, ImDrawVert, ImDrawChannel, ImDrawListSplitter, ImDrawListFlags, ImDrawList, ImDrawData)

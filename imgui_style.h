@@ -1,6 +1,7 @@
 #pragma once
 
 #include "imgui_types.h"
+#include "imgui_color.h"
 
 #include <array>
 
@@ -64,10 +65,10 @@ enum ImGuiCol_
     ImGuiCol_COUNT
 };
 
-using ColorScheme = std::array<ImVec4, ImGuiCol_COUNT>;
+using ColorScheme = std::array<ImColorf, ImGuiCol_COUNT>;
 
 template<size_t N>
-constexpr ColorScheme MakeColorScheme(std::pair<ImGuiCol, ImVec4> (&&colors)[N])
+constexpr ColorScheme MakeColorScheme(std::pair<ImGuiCol, ImColorf> (&&colors)[N])
 {
     ColorScheme out;
     for (auto [idx, col] : colors) { out[idx] = col; }

@@ -2994,7 +2994,7 @@ void ImGui::TableHeader(const char* label)
             float y = label_pos.y;
             if (column->SortOrder > 0)
             {
-                PushStyleColor(ImGuiCol_Text, GetColorU32(ImGuiCol_Text, 0.70f));
+                PushStyleColor(ImGuiCol_Text, GetColor(ImGuiCol_Text, 0.70f));
                 RenderText(ImVec2(x + g.Style.ItemInnerSpacing.x, y), sort_order_suf);
                 PopStyleColor();
                 x += w_sort_text;
@@ -3523,7 +3523,7 @@ void ImGui::DebugNodeTable(ImGuiTable* table)
     const char* buf_end = buf + IM_ARRAYSIZE(buf);
     const bool is_active = (table->LastFrameActive >= ImGui::GetFrameCount() - 2); // Note that fully clipped early out scrolling tables will appear as inactive here.
     ImFormatString(p, buf_end - p, "Table 0x%08X (%d columns, in '%s')%s", table->ID, table->ColumnsCount, table->OuterWindow->Name, is_active ? "" : " *Inactive*");
-    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorVec4(ImGuiCol_TextDisabled)); }
+    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled)); }
     bool open = TreeNode(table, "%s", buf);
     if (!is_active) { PopStyleColor(); }
     if (IsItemHovered())

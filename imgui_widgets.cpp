@@ -274,7 +274,7 @@ void ImGui::TextV(const char* fmt, va_list args)
     TextEx(text.data(), text.data() + text.size(), ImGuiTextFlags_NoWidthForLargeClippedText);
 }
 
-void ImGui::TextColored(const ImVec4& col, const char* fmt, ...)
+void ImGui::TextColored(const ImColorf& col, const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -282,7 +282,7 @@ void ImGui::TextColored(const ImVec4& col, const char* fmt, ...)
     va_end(args);
 }
 
-void ImGui::TextColoredV(const ImVec4& col, const char* fmt, va_list args)
+void ImGui::TextColoredV(const ImColorf& col, const char* fmt, va_list args)
 {
     PushStyleColor(ImGuiCol_Text, col);
     TextV(fmt, args);
@@ -998,20 +998,20 @@ bool ImGui::ScrollbarEx(const ImRect& bb_frame, ImGuiID id, ImGuiAxis axis, ImS6
     return held;
 }
 
-void ImGui::Image(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0, const ImVec2& uv1, const ImVec4& tint_col, const ImVec4& border_col)
+void ImGui::Image(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0, const ImVec2& uv1, const ImColorf& tint_col, const ImColorf& border_col)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
         return;
 
     ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
-    if (border_col.w > 0.0f)
+    if (border_col.a > 0.0f)
         bb.Max += ImVec2(2, 2);
     ItemSize(bb);
     if (!ItemAdd(bb, 0))
         return;
 
-    if (border_col.w > 0.0f)
+    if (border_col.a > 0.0f)
     {
         window->DrawList->AddRect(bb.Min, bb.Max, GetColor(border_col), 0.0f);
         window->DrawList->AddImage(user_texture_id, bb.Min + ImVec2(1, 1), bb.Max - ImVec2(1, 1), uv0, uv1, GetColor(tint_col));
@@ -7994,11 +7994,11 @@ static ImGuiTabItem* ImGui::TabBarScrollingButtons(ImGuiTabBar* tab_bar)
     const ImVec2 backup_cursor_pos = window->DC.CursorPos;
 
     int select_dir = 0;
-    ImVec4 arrow_col = g.Style.Colors[ImGuiCol_Text];
-    arrow_col.w *= 0.5f;
+    ImColorf arrow_col = g.Style.Colors[ImGuiCol_Text];
+    arrow_col.a *= 0.5f;
 
     PushStyleColor(ImGuiCol_Text, arrow_col);
-    PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    PushStyleColor(ImGuiCol_Button, ImColorf::BlackTransparent);
     const float backup_repeat_delay = g.IO.KeyRepeatDelay;
     const float backup_repeat_rate = g.IO.KeyRepeatRate;
     g.IO.KeyRepeatDelay = 0.250f;
@@ -8057,10 +8057,10 @@ static ImGuiTabItem* ImGui::TabBarTabListPopupButton(ImGuiTabBar* tab_bar)
     window->DC.CursorPos = ImVec2(tab_bar->BarRect.Min.x - g.Style.FramePadding.y, tab_bar->BarRect.Min.y);
     tab_bar->BarRect.Min.x += tab_list_popup_button_width;
 
-    ImVec4 arrow_col = g.Style.Colors[ImGuiCol_Text];
-    arrow_col.w *= 0.5f;
+    ImColorf arrow_col = g.Style.Colors[ImGuiCol_Text];
+    arrow_col.a *= 0.5f;
     PushStyleColor(ImGuiCol_Text, arrow_col);
-    PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    PushStyleColor(ImGuiCol_Button, ImColorf::BlackTransparent);
     bool open = BeginCombo("##v", NULL, ImGuiComboFlags_NoPreview | ImGuiComboFlags_HeightLargest);
     PopStyleColor(2);
 
