@@ -124,3 +124,31 @@ enum ImGuiDir_
     ImGuiDir_Down    = 3,
     ImGuiDir_COUNT
 };
+
+
+struct ImCol
+{
+    std::uint8_t r,g,b,a;
+
+    constexpr ImCol(std::uint8_t red, std::uint8_t green, std::uint8_t blue, std::uint8_t alpha)
+        : r(red), g(green), b(blue), a(alpha)
+    {}
+
+    static ImCol FromU32(ImU32 col) {
+        return std::bit_cast<ImCol>(col);
+    }
+    static ImU32 ToU32(ImCol col) {
+        return std::bit_cast<ImU32>(col);
+    }
+
+    ImCol Transparent() const { return ImCol(r,g,b,0); }
+
+    static const ImCol White;
+    static const ImCol Black;
+    static const ImCol BlackTransp;
+};
+inline constexpr ImCol ImCol::White = ImCol(255, 255, 255, 255);
+inline constexpr ImCol ImCol::Black = ImCol(0, 0, 0, 255);
+inline constexpr ImCol ImCol::BlackTransp = ImCol(0, 0, 0, 0);
+
+static_assert(sizeof(ImCol) == sizeof(ImU32));

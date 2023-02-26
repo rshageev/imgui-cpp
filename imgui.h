@@ -329,13 +329,16 @@ namespace ImGui
 
     // Style read access
     // - Use the ShowStyleEditor() function to interactively see/edit the colors.
-    ImFont*       GetFont();                                                      // get current font
-    float         GetFontSize();                                                  // get current font size (= height in pixels) of current font with current scale applied
-    ImVec2        GetFontTexUvWhitePixel();                                       // get UV coordinate for a while pixel, useful to draw custom shapes via the ImDrawList API
-    ImU32         GetColorU32(ImGuiCol idx, float alpha_mul = 1.0f);              // retrieve given style color with style alpha applied and optional extra alpha multiplier, packed as a 32-bit value suitable for ImDrawList
-    ImU32         GetColorU32(const ImVec4& col);                                 // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
-    ImU32         GetColorU32(ImU32 col);                                         // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
-    const ImVec4& GetStyleColorVec4(ImGuiCol idx);                                // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(), otherwise use GetColorU32() to get style color with style alpha baked in.
+    ImFont*  GetFont();                                      // get current font
+    float    GetFontSize();                                  // get current font size (= height in pixels) of current font with current scale applied
+    ImVec2   GetFontTexUvWhitePixel();                       // get UV coordinate for a while pixel, useful to draw custom shapes via the ImDrawList API
+    ImU32 GetColorU32(ImGuiCol idx, float alpha_mul = 1.0f); // retrieve given style color with style alpha applied and optional extra alpha multiplier, packed as a 32-bit value suitable for ImDrawList
+    ImCol GetColor(ImGuiCol idx, float alpha_mil = 1.0f);
+    ImU32 GetColorU32(const ImVec4& col);                    // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
+    ImCol GetColor(const ImVec4& col);
+    ImU32 GetColorU32(ImU32 col);                            // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
+    ImCol GetColor(ImCol col);
+    const ImVec4& GetStyleColorVec4(ImGuiCol idx);           // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(), otherwise use GetColorU32() to get style color with style alpha baked in.
 
     // Cursor / Layout
     // - By "cursor" we mean the current output position.
@@ -2354,22 +2357,22 @@ struct ImDrawList
     //   In older versions (until Dear ImGui 1.77) the AddCircle functions defaulted to num_segments == 12.
     //   In future versions we will use textures to provide cheaper and higher-quality circles.
     //   Use AddNgon() and AddNgonFilled() functions if you need to guarantee a specific number of sides.
-    void AddLine(const ImVec2& p1, const ImVec2& p2, ImU32 col, float thickness = 1.0f);
-    void AddRect(const ImVec2& p_min, const ImVec2& p_max, ImU32 col, float rounding = 0.0f, ImDrawFlags flags = 0, float thickness = 1.0f);   // a: upper-left, b: lower-right (== upper-left + size)
-    void AddRectFilled(const ImVec2& p_min, const ImVec2& p_max, ImU32 col, float rounding = 0.0f, ImDrawFlags flags = 0);                     // a: upper-left, b: lower-right (== upper-left + size)
-    void AddRectFilledMultiColor(const ImVec2& p_min, const ImVec2& p_max, ImU32 col_upr_left, ImU32 col_upr_right, ImU32 col_bot_right, ImU32 col_bot_left);
-    void AddQuad(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col, float thickness = 1.0f);
-    void AddQuadFilled(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col);
-    void AddTriangle(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImU32 col, float thickness = 1.0f);
-    void AddTriangleFilled(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImU32 col);
+    void AddLine(const ImVec2& p1, const ImVec2& p2, ImCol col, float thickness = 1.0f);
+    void AddRect(const ImVec2& p_min, const ImVec2& p_max, ImCol col, float rounding = 0.0f, ImDrawFlags flags = 0, float thickness = 1.0f);   // a: upper-left, b: lower-right (== upper-left + size)
+    void AddRectFilled(const ImVec2& p_min, const ImVec2& p_max, ImCol col, float rounding = 0.0f, ImDrawFlags flags = 0);                     // a: upper-left, b: lower-right (== upper-left + size)
+    void AddRectFilledMultiColor(const ImVec2& p_min, const ImVec2& p_max, ImCol col_upr_left, ImCol col_upr_right, ImCol col_bot_right, ImCol col_bot_left);
+    void AddQuad(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImCol col, float thickness = 1.0f);
+    void AddQuadFilled(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImCol col);
+    void AddTriangle(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImCol col, float thickness = 1.0f);
+    void AddTriangleFilled(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImCol col);
     void AddCircle(const ImVec2& center, float radius, ImU32 col, int num_segments = 0, float thickness = 1.0f);
     void AddCircleFilled(const ImVec2& center, float radius, ImU32 col, int num_segments = 0);
     void AddNgon(const ImVec2& center, float radius, ImU32 col, int num_segments, float thickness = 1.0f);
-    void AddNgonFilled(const ImVec2& center, float radius, ImU32 col, int num_segments);
-    void AddText(const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end = NULL);
-    void AddText(const ImFont* font, float font_size, const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end = NULL, float wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = NULL);
-    void AddPolyline(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);
-    void AddConvexPolyFilled(std::span<ImVec2> points, ImU32 col);
+    void AddNgonFilled(const ImVec2& center, float radius, ImCol col, int num_segments);
+    void AddText(const ImVec2& pos, ImCol col, const char* text_begin, const char* text_end = NULL);
+    void AddText(const ImFont* font, float font_size, const ImVec2& pos, ImCol col, const char* text_begin, const char* text_end = NULL, float wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = NULL);
+    void AddPolyline(std::span<ImVec2> points, ImCol col, ImDrawFlags flags, float thickness);
+    void AddConvexPolyFilled(std::span<ImVec2> points, ImCol col);
     void AddBezierCubic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col, float thickness, int num_segments = 0); // Cubic Bezier (4 control points)
     void AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImU32 col, float thickness, int num_segments = 0);               // Quadratic Bezier (3 control points)
 
@@ -2377,9 +2380,9 @@ struct ImDrawList
     // - Read FAQ to understand what ImTextureID is.
     // - "p_min" and "p_max" represent the upper-left and lower-right corners of the rectangle.
     // - "uv_min" and "uv_max" represent the normalized texture coordinates to use for those corners. Using (0,0)->(1,1) texture coordinates will generally display the entire texture.
-    void AddImage(ImTextureID user_texture_id, const ImVec2& p_min, const ImVec2& p_max, const ImVec2& uv_min = ImVec2(0, 0), const ImVec2& uv_max = ImVec2(1, 1), ImU32 col = IM_COL32_WHITE);
-    void AddImageQuad(ImTextureID user_texture_id, const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, const ImVec2& uv1 = ImVec2(0, 0), const ImVec2& uv2 = ImVec2(1, 0), const ImVec2& uv3 = ImVec2(1, 1), const ImVec2& uv4 = ImVec2(0, 1), ImU32 col = IM_COL32_WHITE);
-    void AddImageRounded(ImTextureID user_texture_id, const ImVec2& p_min, const ImVec2& p_max, const ImVec2& uv_min, const ImVec2& uv_max, ImU32 col, float rounding, ImDrawFlags flags = 0);
+    void AddImage(ImTextureID user_texture_id, const ImVec2& p_min, const ImVec2& p_max, const ImVec2& uv_min = ImVec2(0, 0), const ImVec2& uv_max = ImVec2(1, 1), ImCol col = ImCol::White);
+    void AddImageQuad(ImTextureID user_texture_id, const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, const ImVec2& uv1 = ImVec2(0, 0), const ImVec2& uv2 = ImVec2(1, 0), const ImVec2& uv3 = ImVec2(1, 1), const ImVec2& uv4 = ImVec2(0, 1), ImCol col = ImCol::White);
+    void AddImageRounded(ImTextureID user_texture_id, const ImVec2& p_min, const ImVec2& p_max, const ImVec2& uv_min, const ImVec2& uv_max, ImCol col, float rounding, ImDrawFlags flags = 0);
 
     // Stateful path API, add points then finish with PathFillConvex() or PathStroke()
     // - Filled shapes must always use clockwise winding order. The anti-aliasing fringe depends on it. Counter-clockwise shapes will have "inward" anti-aliasing.
@@ -2394,11 +2397,11 @@ struct ImDrawList
             _Path.push_back(pos);
         }
     }
-    void PathFillConvex(ImU32 col) {
+    void PathFillConvex(ImCol col) {
         AddConvexPolyFilled(_Path, col);
         _Path.clear();
     }
-    void PathStroke(ImU32 col, ImDrawFlags flags = 0, float thickness = 1.0f) {
+    void PathStroke(ImCol col, ImDrawFlags flags = 0, float thickness = 1.0f) {
         AddPolyline(_Path, col, flags, thickness);
         _Path.clear();
     }
@@ -2427,9 +2430,9 @@ struct ImDrawList
     // - We render triangles (three vertices)
     // - All primitives needs to be reserved via PrimReserve() beforehand.
     void PrimReserve(int idx_count, int vtx_count);
-    void PrimRect(const ImVec2& a, const ImVec2& b, ImU32 col);      // Axis aligned rectangle (composed of two triangles)
-    void PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImU32 col);
-    void PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImU32 col);
+    void PrimRect(const ImVec2& a, const ImVec2& b, ImCol col);      // Axis aligned rectangle (composed of two triangles)
+    void PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImCol col);
+    void PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImCol col);
 
     template<class Vs, class Is>
     void AddGeometry(const Vs& vertices, const Is& indices)
@@ -2452,7 +2455,7 @@ struct ImDrawList
         const auto vert_count = std::ranges::size(vertices);
         PrimReserve((int)vert_count, (int)vert_count);
         for (const auto& v : vertices) {
-            *_IdxWritePtr++ = _VtxCurrentIdx;
+            *_IdxWritePtr++ = static_cast<ImDrawIdx>(_VtxCurrentIdx);
             *_VtxWritePtr++ = v;
             _VtxCurrentIdx++;
         }
@@ -2470,10 +2473,10 @@ struct ImDrawList
     void _PathArcToN(const ImVec2& center, float radius, float a_min, float a_max, int num_segments);
 
     
-    void AddPolyline_NonAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);   // Each line segment is drawn as a one simple quad
-    void AddPolyline_ThickAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness); // Each line segment is drawn as 3 quads - opaque center quad and gradient sides
-    void AddPolyline_ThinAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);  // Each line segment is drawn as 2 quads - opaque center line and gradient towards edges
-    void AddPolyline_TexAA(std::span<ImVec2> points, ImU32 col, ImDrawFlags flags, float thickness);   // Each line segment is drawn as one quad with a texture
+    void AddPolyline_NonAA(std::span<ImVec2> points, ImCol col, ImDrawFlags flags, float thickness);   // Each line segment is drawn as a one simple quad
+    void AddPolyline_ThickAA(std::span<ImVec2> points, ImCol col, ImDrawFlags flags, float thickness); // Each line segment is drawn as 3 quads - opaque center quad and gradient sides
+    void AddPolyline_ThinAA(std::span<ImVec2> points, ImCol col, ImDrawFlags flags, float thickness);  // Each line segment is drawn as 2 quads - opaque center line and gradient towards edges
+    void AddPolyline_TexAA(std::span<ImVec2> points, ImCol col, ImDrawFlags flags, float thickness);   // Each line segment is drawn as one quad with a texture
 };
 
 // All draw data to render a Dear ImGui frame
@@ -2774,8 +2777,8 @@ struct ImFont
     // 'wrap_width' enable automatic word-wrapping across multiple lines to fit into given width. 0.0f to disable.
     ImVec2 CalcTextSizeA(float size, float max_width, float wrap_width, const char* text_begin, const char* text_end = NULL, const char** remaining = NULL) const; // utf8
     const char* CalcWordWrapPositionA(float scale, const char* text, const char* text_end, float wrap_width) const;
-    void RenderChar(ImDrawList* draw_list, float size, const ImVec2& pos, ImU32 col, ImWchar c) const;
-    void RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, ImU32 col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width = 0.0f, bool cpu_fine_clip = false) const;
+    void RenderChar(ImDrawList* draw_list, float size, const ImVec2& pos, ImCol col, ImWchar c) const;
+    void RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, ImCol col, const ImVec4& clip_rect, const char* text_begin, const char* text_end, float wrap_width = 0.0f, bool cpu_fine_clip = false) const;
 
     // [Internal] Don't use!
     void BuildLookupTable();
