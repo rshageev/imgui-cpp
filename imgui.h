@@ -336,12 +336,11 @@ namespace ImGui
     ImFont*  GetFont();                                      // get current font
     float    GetFontSize();                                  // get current font size (= height in pixels) of current font with current scale applied
     ImVec2   GetFontTexUvWhitePixel();                       // get UV coordinate for a while pixel, useful to draw custom shapes via the ImDrawList API
-    ImU32 GetColorU32(ImGuiCol idx, float alpha_mul = 1.0f); // retrieve given style color with style alpha applied and optional extra alpha multiplier, packed as a 32-bit value suitable for ImDrawList
+
+    // retrieve given style color with style alpha applied and optional extra alpha multiplier,
+    // packed as a 32-bit value suitable for ImDrawList
     ImCol GetColor(ImGuiCol idx, float alpha_mil = 1.0f);
-    ImU32 GetColorU32(const ImVec4& col);                    // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
-    ImCol GetColor(const ImVec4& col);
     ImCol GetColor(const ImColorf& col);
-    ImU32 GetColorU32(ImU32 col);                            // retrieve given color with style alpha applied, packed as a 32-bit value suitable for ImDrawList
     ImCol GetColor(ImCol col);
 
     // retrieve style color as stored in ImGuiStyle structure. use to feed back into PushStyleColor(),
@@ -433,7 +432,7 @@ namespace ImGui
     // Widgets: Images
     // - Read about ImTextureID here: https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
     void Image(ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImColorf& tint_col = ImColorf::White, const ImColorf& border_col = ImColorf::BlackTransparent);
-    bool ImageButton(const char* str_id, ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImVec4& bg_col = ImVec4(0, 0, 0, 0), const ImVec4& tint_col = ImVec4(1, 1, 1, 1));
+    bool ImageButton(const char* str_id, ImTextureID user_texture_id, const ImVec2& size, const ImVec2& uv0 = ImVec2(0, 0), const ImVec2& uv1 = ImVec2(1, 1), const ImColorf& bg_col = ImColorf::BlackTransparent, const ImColorf& tint_col = ImColorf::White);
 
     // Widgets: Combo Box (Dropdown)
     // - The BeginCombo()/EndCombo() api allows you to manage your contents and selection state however you want it, by creating e.g. Selectable() items.
@@ -511,12 +510,12 @@ namespace ImGui
     // Widgets: Color Editor/Picker (tip: the ColorEdit* functions have a little color square that can be left-clicked to open a picker, and right-clicked to open an option menu.)
     // - Note that in C++ a 'float v[X]' function argument is the _same_ as 'float* v', the array syntax is just a way to document the number of elements that are expected to be accessible.
     // - You can pass the address of a first float element out of a contiguous structure, e.g. &myvector.x
-    bool          ColorEdit3(const char* label, float col[3], ImGuiColorEditFlags flags = 0);
-    bool          ColorEdit4(const char* label, float col[4], ImGuiColorEditFlags flags = 0);
-    bool          ColorPicker3(const char* label, float col[3], ImGuiColorEditFlags flags = 0);
-    bool          ColorPicker4(const char* label, float col[4], ImGuiColorEditFlags flags = 0, const float* ref_col = NULL);
-    bool          ColorButton(const char* desc_id, const ImVec4& col, ImGuiColorEditFlags flags = 0, const ImVec2& size = ImVec2(0, 0)); // display a color square/button, hover for details, return true when pressed.
-    void          SetColorEditOptions(ImGuiColorEditFlags flags);                     // initialize current options (generally on application startup) if you want to select a default format, picker type, etc. User will be able to change many settings, unless you pass the _NoOptions flag to your calls.
+    bool ColorEdit3(const char* label, float col[3], ImGuiColorEditFlags flags = 0);
+    bool ColorEdit4(const char* label, float col[4], ImGuiColorEditFlags flags = 0);
+    bool ColorPicker3(const char* label, float col[3], ImGuiColorEditFlags flags = 0);
+    bool ColorPicker4(const char* label, float col[4], ImGuiColorEditFlags flags = 0, const float* ref_col = NULL);
+    bool ColorButton(const char* desc_id, const ImColorf& col, ImGuiColorEditFlags flags = 0, const ImVec2& size = ImVec2(0, 0)); // display a color square/button, hover for details, return true when pressed.
+    void SetColorEditOptions(ImGuiColorEditFlags flags);                     // initialize current options (generally on application startup) if you want to select a default format, picker type, etc. User will be able to change many settings, unless you pass the _NoOptions flag to your calls.
 
     // Widgets: Trees
     // - TreeNode functions return true when the node is open, in which case you need to also call TreePop() when you are finished displaying the tree node contents.
@@ -682,14 +681,14 @@ namespace ImGui
     //   changed since last call, or the first time. Make sure to set 'SpecsDirty = false' after sorting,
     //   else you may wastefully sort your data every frame!
     // - Functions args 'int column_n' treat the default value of -1 as the same as passing the current column index.
-    ImGuiTableSortSpecs*  TableGetSortSpecs();                        // get latest sort specs for the table (NULL if not sorting).  Lifetime: don't hold on this pointer over multiple frames or past any subsequent call to BeginTable().
-    int                   TableGetColumnCount();                      // return number of columns (value passed to BeginTable)
-    int                   TableGetColumnIndex();                      // return current column index.
-    int                   TableGetRowIndex();                         // return current row index.
-    const char*           TableGetColumnName(int column_n = -1);      // return "" if column didn't have a name declared by TableSetupColumn(). Pass -1 to use current column.
-    ImGuiTableColumnFlags TableGetColumnFlags(int column_n = -1);     // return column flags so you can query their Enabled/Visible/Sorted/Hovered status flags. Pass -1 to use current column.
-    void                  TableSetColumnEnabled(int column_n, bool v);// change user accessible enabled/disabled state of a column. Set to false to hide the column. User can use the context menu to change this themselves (right-click in headers, or right-click in columns body with ImGuiTableFlags_ContextMenuInBody)
-    void                  TableSetBgColor(ImGuiTableBgTarget target, ImU32 color, int column_n = -1);  // change the color of a cell, row, or column. See ImGuiTableBgTarget_ flags for details.
+    ImGuiTableSortSpecs* TableGetSortSpecs();       // get latest sort specs for the table (NULL if not sorting).  Lifetime: don't hold on this pointer over multiple frames or past any subsequent call to BeginTable().
+    int TableGetColumnCount();                      // return number of columns (value passed to BeginTable)
+    int TableGetColumnIndex();                      // return current column index.
+    int TableGetRowIndex();                         // return current row index.
+    const char* TableGetColumnName(int column_n = -1); // return "" if column didn't have a name declared by TableSetupColumn(). Pass -1 to use current column.
+    ImGuiTableColumnFlags TableGetColumnFlags(int column_n = -1); // return column flags so you can query their Enabled/Visible/Sorted/Hovered status flags. Pass -1 to use current column.
+    void TableSetColumnEnabled(int column_n, bool v);// change user accessible enabled/disabled state of a column. Set to false to hide the column. User can use the context menu to change this themselves (right-click in headers, or right-click in columns body with ImGuiTableFlags_ContextMenuInBody)
+    void TableSetBgColor(ImGuiTableBgTarget target, ImCol color, int column_n = -1); // change the color of a cell, row, or column. See ImGuiTableBgTarget_ flags for details.
 
     // Legacy Columns API (prefer using Tables!)
     // - You can also use SameLine(pos_x) to mimic simplified columns.
@@ -797,10 +796,6 @@ namespace ImGui
 
     // Text Utilities
     ImVec2 CalcTextSize(const char* text, const char* text_end = NULL, bool hide_text_after_double_hash = false, float wrap_width = -1.0f);
-
-    // Color Utilities
-    ImVec4        ColorConvertU32ToFloat4(ImU32 in);
-    ImU32         ColorConvertFloat4ToU32(const ImVec4& in);
 
     // Inputs Utilities: Keyboard/Mouse/Gamepad
     // - the ImGuiKey enum contains all possible keyboard, mouse and gamepad inputs (e.g. ImGuiKey_A, ImGuiKey_MouseLeft, ImGuiKey_GamepadDpadUp...).
@@ -2149,13 +2144,9 @@ private:
 #define IM_COL32_G_SHIFT    8
 #define IM_COL32_B_SHIFT    16
 #define IM_COL32_A_SHIFT    24
-#define IM_COL32_A_MASK     0xFF000000
 
 #endif
 #define IM_COL32(R,G,B,A)    (((ImU32)(A)<<IM_COL32_A_SHIFT) | ((ImU32)(B)<<IM_COL32_B_SHIFT) | ((ImU32)(G)<<IM_COL32_G_SHIFT) | ((ImU32)(R)<<IM_COL32_R_SHIFT))
-#define IM_COL32_WHITE       IM_COL32(255,255,255,255)  // Opaque white = 0xFFFFFFFF
-#define IM_COL32_BLACK       IM_COL32(0,0,0,255)        // Opaque black
-#define IM_COL32_BLACK_TRANS IM_COL32(0,0,0,0)          // Transparent black = 0x00000000
 
 //-----------------------------------------------------------------------------
 // [SECTION] Drawing API (ImDrawCmd, ImDrawIdx, ImDrawVert, ImDrawChannel, ImDrawListSplitter, ImDrawListFlags, ImDrawList, ImDrawData)
@@ -2350,16 +2341,16 @@ struct ImDrawList
     void AddQuadFilled(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImCol col);
     void AddTriangle(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImCol col, float thickness = 1.0f);
     void AddTriangleFilled(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImCol col);
-    void AddCircle(const ImVec2& center, float radius, ImU32 col, int num_segments = 0, float thickness = 1.0f);
-    void AddCircleFilled(const ImVec2& center, float radius, ImU32 col, int num_segments = 0);
-    void AddNgon(const ImVec2& center, float radius, ImU32 col, int num_segments, float thickness = 1.0f);
+    void AddCircle(const ImVec2& center, float radius, ImCol col, int num_segments = 0, float thickness = 1.0f);
+    void AddCircleFilled(const ImVec2& center, float radius, ImCol col, int num_segments = 0);
+    void AddNgon(const ImVec2& center, float radius, ImCol col, int num_segments, float thickness = 1.0f);
     void AddNgonFilled(const ImVec2& center, float radius, ImCol col, int num_segments);
     void AddText(const ImVec2& pos, ImCol col, const char* text_begin, const char* text_end = NULL);
     void AddText(const ImFont* font, float font_size, const ImVec2& pos, ImCol col, const char* text_begin, const char* text_end = NULL, float wrap_width = 0.0f, const ImVec4* cpu_fine_clip_rect = NULL);
     void AddPolyline(std::span<ImVec2> points, ImCol col, ImDrawFlags flags, float thickness);
     void AddConvexPolyFilled(std::span<ImVec2> points, ImCol col);
-    void AddBezierCubic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImU32 col, float thickness, int num_segments = 0); // Cubic Bezier (4 control points)
-    void AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImU32 col, float thickness, int num_segments = 0);               // Quadratic Bezier (3 control points)
+    void AddBezierCubic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, ImCol col, float thickness, int num_segments = 0); // Cubic Bezier (4 control points)
+    void AddBezierQuadratic(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, ImCol col, float thickness, int num_segments = 0);               // Quadratic Bezier (3 control points)
 
     // Image primitives
     // - Read FAQ to understand what ImTextureID is.

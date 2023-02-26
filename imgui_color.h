@@ -5,7 +5,12 @@
 
 struct ImCol
 {
-    std::uint8_t r,g,b,a;
+    std::uint8_t r = 0;
+    std::uint8_t g = 0;
+    std::uint8_t b = 0;
+    std::uint8_t a = 0;
+
+    constexpr ImCol() = default;
 
     constexpr ImCol(std::uint8_t red, std::uint8_t green, std::uint8_t blue, std::uint8_t alpha)
         : r(red), g(green), b(blue), a(alpha)
@@ -18,7 +23,9 @@ struct ImCol
         return std::bit_cast<std::uint32_t>(col);
     }
 
-    ImCol Transparent() const { return ImCol(r,g,b,0); }
+    ImCol WithAlpha(std::uint8_t alpha) const { return ImCol(r, g, b, alpha); }
+
+    bool operator==(const ImCol&) const = default;
 
     static const ImCol White;
     static const ImCol Black;
@@ -53,21 +60,28 @@ namespace ImGui
     void ColorConvertRGBtoHSV(float r, float g, float b, float& out_h, float& out_s, float& out_v);
     void ColorConvertHSVtoRGB(float h, float s, float v, float& out_r, float& out_g, float& out_b);
 
+    constexpr float ColorComponentToFloat(std::uint8_t col) {
+        return static_cast<float>(col / 255.0f);
+    }
+    constexpr std::uint8_t ColorComponentToByte(float col) {
+        return static_cast<std::uint8_t>(col * 255.0f + 0.5f);
+    }
+
     constexpr ImColorf ColorConvertToFloat(ImCol col)
     {
         return {
-            static_cast<float>(col.r) / 255.0f,
-            static_cast<float>(col.g) / 255.0f,
-            static_cast<float>(col.b) / 255.0f,
-            static_cast<float>(col.a) / 255.0f,
+            ColorComponentToFloat(col.r),
+            ColorComponentToFloat(col.g),
+            ColorComponentToFloat(col.b),
+            ColorComponentToFloat(col.a),
         };
     }
 
     constexpr ImCol ColorConvertToByte(ImColorf col)
     {
-        return ImCol( static_cast<std::uint8_t>(col.r * 255.0f),
-            static_cast<std::uint8_t>(col.g * 255.0f),
-            static_cast<std::uint8_t>(col.b * 255.0f),
-            static_cast<std::uint8_t>(col.a * 255.0f));
+        return ImCol( ColorComponentToByte(col.r),
+            ColorComponentToByte(col.g),
+            ColorComponentToByte(col.b),
+            ColorComponentToByte(col.a));
     }
 }

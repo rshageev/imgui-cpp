@@ -210,17 +210,17 @@ static void             UpdateMouseWheel();
 static void             UpdateKeyRoutingTable(ImGuiKeyRoutingTable* rt);
 
 // Misc
-static void             UpdateSettings();
-static bool             UpdateWindowManualResize(ImGuiWindow* window, const ImVec2& size_auto_fit, int* border_held, int resize_grip_count, ImU32 resize_grip_col[4], const ImRect& visibility_rect);
-static void             RenderWindowOuterBorders(ImGuiWindow* window);
-static void             RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar_rect, bool title_bar_is_highlight, bool handle_borders_and_resize_grips, int resize_grip_count, const ImU32 resize_grip_col[4], float resize_grip_draw_size);
-static void             RenderWindowTitleBarContents(ImGuiWindow* window, const ImRect& title_bar_rect, const char* name, bool* p_open);
-static void             RenderDimmedBackgroundBehindWindow(ImGuiWindow* window, ImU32 col);
-static void             RenderDimmedBackgrounds();
-static ImGuiWindow*     FindBlockingModal(ImGuiWindow* window);
+static void UpdateSettings();
+static bool UpdateWindowManualResize(ImGuiWindow* window, const ImVec2& size_auto_fit, int* border_held, int resize_grip_count, ImCol resize_grip_col[4], const ImRect& visibility_rect);
+static void RenderWindowOuterBorders(ImGuiWindow* window);
+static void RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar_rect, bool title_bar_is_highlight, bool handle_borders_and_resize_grips, int resize_grip_count, const ImCol resize_grip_col[4], float resize_grip_draw_size);
+static void RenderWindowTitleBarContents(ImGuiWindow* window, const ImRect& title_bar_rect, const char* name, bool* p_open);
+static void RenderDimmedBackgroundBehindWindow(ImGuiWindow* window, ImCol col);
+static void RenderDimmedBackgrounds();
+static ImGuiWindow* FindBlockingModal(ImGuiWindow* window);
 
 // Viewports
-static void             UpdateViewportsNewFrame();
+static void UpdateViewportsNewFrame();
 
 }
 
@@ -1087,33 +1087,6 @@ int ImTextCountUtf8BytesFromStr(const ImWchar* in_text, const ImWchar* in_text_e
 }
 
 //-----------------------------------------------------------------------------
-// [SECTION] MISC HELPERS/UTILITIES (Color functions)
-// Note: The Convert functions are early design which are not consistent with other API.
-//-----------------------------------------------------------------------------
-
-ImVec4 ImGui::ColorConvertU32ToFloat4(ImU32 in)
-{
-    float s = 1.0f / 255.0f;
-    return ImVec4(
-        ((in >> IM_COL32_R_SHIFT) & 0xFF) * s,
-        ((in >> IM_COL32_G_SHIFT) & 0xFF) * s,
-        ((in >> IM_COL32_B_SHIFT) & 0xFF) * s,
-        ((in >> IM_COL32_A_SHIFT) & 0xFF) * s);
-}
-
-ImU32 ImGui::ColorConvertFloat4ToU32(const ImVec4& in)
-{
-    ImU32 out;
-    out  = ((ImU32)IM_F32_TO_INT8_SAT(in.x)) << IM_COL32_R_SHIFT;
-    out |= ((ImU32)IM_F32_TO_INT8_SAT(in.y)) << IM_COL32_G_SHIFT;
-    out |= ((ImU32)IM_F32_TO_INT8_SAT(in.z)) << IM_COL32_B_SHIFT;
-    out |= ((ImU32)IM_F32_TO_INT8_SAT(in.w)) << IM_COL32_A_SHIFT;
-    return out;
-}
-
-
-
-//-----------------------------------------------------------------------------
 // [SECTION] ImGuiStorage
 // Helper: Key->value storage
 //-----------------------------------------------------------------------------
@@ -1594,11 +1567,6 @@ ImGuiStyle& ImGui::GetStyle()
     return GImGui->Style;
 }
 
-ImU32 ImGui::GetColorU32(ImGuiCol idx, float alpha_mul)
-{
-    return ImCol::ToU32(GetColor(idx, alpha_mul));
-}
-
 ImCol ImGui::GetColor(ImGuiCol idx, float alpha_mul)
 {
     ImGuiStyle& style = GImGui->Style;
@@ -1606,17 +1574,6 @@ ImCol ImGui::GetColor(ImGuiCol idx, float alpha_mul)
     c.a *= style.Alpha * alpha_mul;
 
     return ColorConvertToByte(c);
-}
-
-ImU32 ImGui::GetColorU32(const ImVec4& col)
-{
-    ImColorf color{ col.x, col.y, col.z, col.w };
-    return ImCol::ToU32(GetColor(color));
-}
-
-ImCol ImGui::GetColor(const ImVec4& col)
-{
-    return ImCol::FromU32(GetColorU32(col));
 }
 
 ImCol ImGui::GetColor(const ImColorf& col)
@@ -1631,11 +1588,6 @@ ImColorf ImGui::GetStyleColorf(ImGuiCol idx)
 {
     ImGuiStyle& style = GImGui->Style;
     return style.Colors[idx];
-}
-
-ImU32 ImGui::GetColorU32(ImU32 col)
-{
-    return ImCol::ToU32(GetColor(ImCol::FromU32(col)));
 }
 
 ImCol ImGui::GetColor(ImCol col)
@@ -2022,11 +1974,11 @@ void ImGui::RenderTextEllipsis(ImDrawList* draw_list, const ImVec2& pos_min, con
 }
 
 // Render a rectangle shaped with optional rounding and borders
-void ImGui::RenderFrame(ImVec2 p_min, ImVec2 p_max, ImU32 fill_col, bool border, float rounding)
+void ImGui::RenderFrame(ImVec2 p_min, ImVec2 p_max, ImCol fill_col, bool border, float rounding)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
-    window->DrawList->AddRectFilled(p_min, p_max, ImCol::FromU32(fill_col), rounding);
+    window->DrawList->AddRectFilled(p_min, p_max, fill_col, rounding);
     const float border_size = g.Style.FrameBorderSize;
     if (border && border_size > 0.0f)
     {
@@ -2079,7 +2031,7 @@ void ImGui::RenderNavHighlight(const ImRect& bb, ImGuiID id, ImGuiNavHighlightFl
     }
 }
 
-void ImGui::RenderMouseCursor(ImVec2 base_pos, float base_scale, ImGuiMouseCursor mouse_cursor, ImU32 col_fill, ImU32 col_border, ImU32 col_shadow)
+void ImGui::RenderMouseCursor(ImVec2 base_pos, float base_scale, ImGuiMouseCursor mouse_cursor, ImCol col_fill, ImCol col_border, ImCol col_shadow)
 {
     ImGuiContext& g = *GImGui;
     IM_ASSERT(mouse_cursor > ImGuiMouseCursor_None && mouse_cursor < ImGuiMouseCursor_COUNT);
@@ -2099,10 +2051,10 @@ void ImGui::RenderMouseCursor(ImVec2 base_pos, float base_scale, ImGuiMouseCurso
         ImDrawList* draw_list = GetForegroundDrawList(viewport.get());
         ImTextureID tex_id = font_atlas->TexID;
         draw_list->PushTextureID(tex_id);
-        draw_list->AddImage(tex_id, pos + ImVec2(1, 0) * scale, pos + (ImVec2(1, 0) + size) * scale, uv[2], uv[3], ImCol::FromU32(col_shadow));
-        draw_list->AddImage(tex_id, pos + ImVec2(2, 0) * scale, pos + (ImVec2(2, 0) + size) * scale, uv[2], uv[3], ImCol::FromU32(col_shadow));
-        draw_list->AddImage(tex_id, pos,                        pos + size * scale,                  uv[2], uv[3], ImCol::FromU32(col_border));
-        draw_list->AddImage(tex_id, pos,                        pos + size * scale,                  uv[0], uv[1], ImCol::FromU32(col_fill));
+        draw_list->AddImage(tex_id, pos + ImVec2(1, 0) * scale, pos + (ImVec2(1, 0) + size) * scale, uv[2], uv[3], col_shadow);
+        draw_list->AddImage(tex_id, pos + ImVec2(2, 0) * scale, pos + (ImVec2(2, 0) + size) * scale, uv[2], uv[3], col_shadow);
+        draw_list->AddImage(tex_id, pos,                        pos + size * scale,                  uv[2], uv[3], col_border);
+        draw_list->AddImage(tex_id, pos,                        pos + size * scale,                  uv[0], uv[1], col_fill);
         draw_list->PopTextureID();
     }
 }
@@ -3322,9 +3274,9 @@ void ImGui::PopClipRect()
     window->ClipRect = window->DrawList->_ClipRectStack.back();
 }
 
-static void ImGui::RenderDimmedBackgroundBehindWindow(ImGuiWindow* window, ImU32 col)
+static void ImGui::RenderDimmedBackgroundBehindWindow(ImGuiWindow* window, ImCol col)
 {
-    if ((col & IM_COL32_A_MASK) == 0)
+    if (col.a == 0)
         return;
 
     ImGuiViewportP* viewport = (ImGuiViewportP*)GetMainViewport();
@@ -3340,7 +3292,7 @@ static void ImGui::RenderDimmedBackgroundBehindWindow(ImGuiWindow* window, ImU32
             draw_list->AddDrawCmd();
         }
         draw_list->PushClipRect(viewport_rect.Min - ImVec2(1, 1), viewport_rect.Max + ImVec2(1, 1), false); // Ensure ImDrawCmd are not merged
-        draw_list->AddRectFilled(viewport_rect.Min, viewport_rect.Max, ImCol::FromU32(col));
+        draw_list->AddRectFilled(viewport_rect.Min, viewport_rect.Max, col);
         ImDrawCmd cmd = draw_list->CmdBuffer.back();
         IM_ASSERT(cmd.ElemCount == 6);
         draw_list->CmdBuffer.pop_back();
@@ -3387,12 +3339,12 @@ static void ImGui::RenderDimmedBackgrounds()
     {
         // Draw dimming behind modal or a begin stack child, whichever comes first in draw order.
         ImGuiWindow* dim_behind_window = FindBottomMostVisibleWindowWithinBeginStack(modal_window);
-        RenderDimmedBackgroundBehindWindow(dim_behind_window, GetColorU32(ImGuiCol_ModalWindowDimBg, g.DimBgRatio));
+        RenderDimmedBackgroundBehindWindow(dim_behind_window, GetColor(ImGuiCol_ModalWindowDimBg, g.DimBgRatio));
     }
     else if (dim_bg_for_window_list)
     {
         // Draw dimming behind CTRL+Tab target window
-        RenderDimmedBackgroundBehindWindow(g.NavWindowingTargetAnim, GetColorU32(ImGuiCol_NavWindowingDimBg, g.DimBgRatio));
+        RenderDimmedBackgroundBehindWindow(g.NavWindowingTargetAnim, GetColor(ImGuiCol_NavWindowingDimBg, g.DimBgRatio));
 
         // Draw border around CTRL+Tab target window
         ImGuiWindow* window = g.NavWindowingTargetAnim;
@@ -3537,8 +3489,9 @@ void ImGui::Render()
     }
 
     // Draw software mouse cursor if requested by io.MouseDrawCursor flag
-    if (g.IO.MouseDrawCursor && first_render_of_frame && g.MouseCursor != ImGuiMouseCursor_None)
-        RenderMouseCursor(g.IO.MousePos, g.Style.MouseCursorScale, g.MouseCursor, IM_COL32_WHITE, IM_COL32_BLACK, IM_COL32(0, 0, 0, 48));
+    if (g.IO.MouseDrawCursor && first_render_of_frame && g.MouseCursor != ImGuiMouseCursor_None) {
+        RenderMouseCursor(g.IO.MousePos, g.Style.MouseCursorScale, g.MouseCursor, ImCol::White, ImCol::Black, ImCol(0, 0, 0, 48));
+    }
 
     // Setup ImDrawData structures for end-user
     g.IO.MetricsRenderVertices = g.IO.MetricsRenderIndices = 0;
@@ -4204,7 +4157,7 @@ ImGuiID ImGui::GetWindowResizeBorderID(ImGuiWindow* window, ImGuiDir dir)
 
 // Handle resize for: Resize Grips, Borders, Gamepad
 // Return true when using auto-fit (double-click on resize grip)
-static bool ImGui::UpdateWindowManualResize(ImGuiWindow* window, const ImVec2& size_auto_fit, int* border_held, int resize_grip_count, ImU32 resize_grip_col[4], const ImRect& visibility_rect)
+static bool ImGui::UpdateWindowManualResize(ImGuiWindow* window, const ImVec2& size_auto_fit, int* border_held, int resize_grip_count, ImCol resize_grip_col[4], const ImRect& visibility_rect)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindowFlags flags = window->Flags;
@@ -4263,8 +4216,9 @@ static bool ImGui::UpdateWindowManualResize(ImGuiWindow* window, const ImVec2& s
         }
 
         // Only lower-left grip is visible before hovering/activating
-        if (resize_grip_n == 0 || held || hovered)
-            resize_grip_col[resize_grip_n] = GetColorU32(held ? ImGuiCol_ResizeGripActive : hovered ? ImGuiCol_ResizeGripHovered : ImGuiCol_ResizeGrip);
+        if (resize_grip_n == 0 || held || hovered) {
+            resize_grip_col[resize_grip_n] = GetColor(held ? ImGuiCol_ResizeGripActive : hovered ? ImGuiCol_ResizeGripHovered : ImGuiCol_ResizeGrip);
+        }
     }
     for (int border_n = 0; border_n < resize_border_count; border_n++)
     {
@@ -4315,7 +4269,7 @@ static bool ImGui::UpdateWindowManualResize(ImGuiWindow* window, const ImVec2& s
             g.NavWindowingAccumDeltaSize = ImMax(g.NavWindowingAccumDeltaSize, visibility_rect.Min - window->Pos - window->Size); // We need Pos+Size >= visibility_rect.Min, so Size >= visibility_rect.Min - Pos, so size_delta >= visibility_rect.Min - window->Pos - window->Size
             g.NavWindowingToggleLayer = false;
             g.NavDisableMouseHover = true;
-            resize_grip_col[0] = GetColorU32(ImGuiCol_ResizeGripActive);
+            resize_grip_col[0] = GetColor(ImGuiCol_ResizeGripActive);
             ImVec2 accum_floored = ImFloor(g.NavWindowingAccumDeltaSize);
             if (accum_floored.x != 0.0f || accum_floored.y != 0.0f)
             {
@@ -4377,7 +4331,7 @@ static void ImGui::RenderWindowOuterBorders(ImGuiWindow* window)
 
 // Draw background and borders
 // Draw and handle scrollbars
-void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar_rect, bool title_bar_is_highlight, bool handle_borders_and_resize_grips, int resize_grip_count, const ImU32 resize_grip_col[4], float resize_grip_draw_size)
+void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar_rect, bool title_bar_is_highlight, bool handle_borders_and_resize_grips, int resize_grip_count, const ImCol resize_grip_col[4], float resize_grip_draw_size)
 {
     ImGuiContext& g = *GImGui;
     ImGuiStyle& style = g.Style;
@@ -4396,7 +4350,7 @@ void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar
         // Title bar only
         const float backup_border_size = style.FrameBorderSize;
         g.Style.FrameBorderSize = window->WindowBorderSize;
-        ImU32 title_bar_col = GetColorU32((title_bar_is_highlight && !g.NavDisableHighlight) ? ImGuiCol_TitleBgActive : ImGuiCol_TitleBgCollapsed);
+        ImCol title_bar_col = GetColor((title_bar_is_highlight && !g.NavDisableHighlight) ? ImGuiCol_TitleBgActive : ImGuiCol_TitleBgCollapsed);
         RenderFrame(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, true, window_rounding);
         g.Style.FrameBorderSize = backup_border_size;
     }
@@ -4405,7 +4359,7 @@ void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar
         // Window background
         if (!(flags & ImGuiWindowFlags_NoBackground))
         {
-            ImU32 bg_col = GetColorU32(GetWindowBgColorIdx(window));
+            ImCol bg_col = GetColor(GetWindowBgColorIdx(window));
             bool override_alpha = false;
             float alpha = 1.0f;
             if (g.NextWindowData.Flags & ImGuiNextWindowDataFlags_HasBgAlpha)
@@ -4413,16 +4367,17 @@ void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar
                 alpha = g.NextWindowData.BgAlphaVal;
                 override_alpha = true;
             }
-            if (override_alpha)
-                bg_col = (bg_col & ~IM_COL32_A_MASK) | (IM_F32_TO_INT8_SAT(alpha) << IM_COL32_A_SHIFT);
-            window->DrawList->AddRectFilled(window->Pos + ImVec2(0, window->TitleBarHeight()), window->Pos + window->Size, ImCol::FromU32(bg_col), window_rounding, (flags & ImGuiWindowFlags_NoTitleBar) ? 0 : ImDrawFlags_RoundCornersBottom);
+            if (override_alpha) {
+                bg_col.a = ColorComponentToByte(std::clamp(alpha, 0.0f, 1.0f));
+            }
+            window->DrawList->AddRectFilled(window->Pos + ImVec2(0, window->TitleBarHeight()), window->Pos + window->Size, bg_col, window_rounding, (flags & ImGuiWindowFlags_NoTitleBar) ? 0 : ImDrawFlags_RoundCornersBottom);
         }
 
         // Title bar
         if (!(flags & ImGuiWindowFlags_NoTitleBar))
         {
-            ImU32 title_bar_col = GetColorU32(title_bar_is_highlight ? ImGuiCol_TitleBgActive : ImGuiCol_TitleBg);
-            window->DrawList->AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, ImCol::FromU32(title_bar_col), window_rounding, ImDrawFlags_RoundCornersTop);
+            const ImCol title_bar_col = GetColor(title_bar_is_highlight ? ImGuiCol_TitleBgActive : ImGuiCol_TitleBg);
+            window->DrawList->AddRectFilled(title_bar_rect.Min, title_bar_rect.Max, title_bar_col, window_rounding, ImDrawFlags_RoundCornersTop);
         }
 
         // Menu bar
@@ -4446,15 +4401,15 @@ void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar
         {
             for (int resize_grip_n = 0; resize_grip_n < resize_grip_count; resize_grip_n++)
             {
-                const ImU32 col = resize_grip_col[resize_grip_n];
-                if ((col & IM_COL32_A_MASK) == 0)
+                const ImCol col = resize_grip_col[resize_grip_n];
+                if (col.a == 0)
                     continue;
                 const ImGuiResizeGripDef& grip = resize_grip_def[resize_grip_n];
                 const ImVec2 corner = ImLerp(window->Pos, window->Pos + window->Size, grip.CornerPosN);
                 window->DrawList->PathLineTo(corner + grip.InnerDir * ((resize_grip_n & 1) ? ImVec2(window_border_size, resize_grip_draw_size) : ImVec2(resize_grip_draw_size, window_border_size)));
                 window->DrawList->PathLineTo(corner + grip.InnerDir * ((resize_grip_n & 1) ? ImVec2(resize_grip_draw_size, window_border_size) : ImVec2(window_border_size, resize_grip_draw_size)));
                 window->DrawList->PathArcToFast(ImVec2(corner.x + grip.InnerDir.x * (window_rounding + window_border_size), corner.y + grip.InnerDir.y * (window_rounding + window_border_size)), window_rounding, grip.AngleMin12, grip.AngleMax12);
-                window->DrawList->PathFillConvex(ImCol::FromU32(col));
+                window->DrawList->PathFillConvex(col);
             }
         }
 
@@ -4544,7 +4499,7 @@ void ImGui::RenderWindowTitleBarContents(ImGuiWindow* window, const ImRect& titl
         marker_pos.y = (layout_r.Min.y + layout_r.Max.y) * 0.5f;
         if (marker_pos.x > layout_r.Min.x)
         {
-            RenderBullet(window->DrawList, marker_pos, GetColorU32(ImGuiCol_Text));
+            RenderBullet(window->DrawList, marker_pos, GetColor(ImGuiCol_Text));
             clip_r.Max.x = ImMin(clip_r.Max.x, marker_pos.x - (int)(marker_size_x * 0.5f));
         }
     }
@@ -4989,12 +4944,14 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
 
         // Handle manual resize: Resize Grips, Borders, Gamepad
         int border_held = -1;
-        ImU32 resize_grip_col[4] = {};
+        ImCol resize_grip_col[4] = {};
         const int resize_grip_count = g.IO.ConfigWindowsResizeFromEdges ? 2 : 1; // Allow resize from lower-left if we have the mouse cursor feedback for it.
         const float resize_grip_draw_size = IM_FLOOR(ImMax(g.FontSize * 1.10f, window->WindowRounding + 1.0f + g.FontSize * 0.2f));
-        if (!window->Collapsed)
-            if (UpdateWindowManualResize(window, size_auto_fit, &border_held, resize_grip_count, &resize_grip_col[0], visibility_rect))
+        if (!window->Collapsed) {
+            if (UpdateWindowManualResize(window, size_auto_fit, &border_held, resize_grip_count, &resize_grip_col[0], visibility_rect)) {
                 use_current_size_for_scrollbar_x = use_current_size_for_scrollbar_y = true;
+            }
+        }
         window->ResizeBorderHeld = (signed char)border_held;
 
         // SCROLLBAR VISIBILITY
@@ -7575,7 +7532,6 @@ bool ImGui::ItemAdd(const ImRect& bb, ImGuiID id, const ImRect* nav_bb_arg, ImGu
     if (id != 0 && id == g.DebugLocateId)
         DebugLocateItemResolveWithLastItem();
 #endif
-    //if (g.IO.KeyAlt) window->DrawList->AddRect(bb.Min, bb.Max, IM_COL32(255,255,0,120)); // [DEBUG]
 
     // We need to calculate this now to take account of the current clipping rectangle (as items like Selectable may change them)
     if (is_rect_visible)
@@ -9521,8 +9477,20 @@ static void ImGui::NavUpdate()
     if (g.NavWindow)
     {
         ImDrawList* draw_list = GetForegroundDrawList(g.NavWindow);
-        if (1) { for (int layer = 0; layer < 2; layer++) { ImRect r = WindowRectRelToAbs(g.NavWindow, g.NavWindow->NavRectRel[layer]); draw_list->AddRect(r.Min, r.Max, ImCol(255,200,0,255)); } } // [DEBUG]
-        if (1) { ImU32 col = (!g.NavWindow->Hidden) ? IM_COL32(255,0,255,255) : IM_COL32(255,0,0,255); ImVec2 p = NavCalcPreferredRefPos(); char buf[32]; ImFormatString(buf, 32, "%d", g.NavLayer); draw_list->AddCircleFilled(p, 3.0f, col); draw_list->AddText(NULL, 13.0f, p + ImVec2(8,-4), col, buf); }
+        if (1) {
+            for (int layer = 0; layer < 2; layer++) {
+                ImRect r = WindowRectRelToAbs(g.NavWindow, g.NavWindow->NavRectRel[layer]);
+                draw_list->AddRect(r.Min, r.Max, ImCol(255,200,0,255));
+            }
+        } // [DEBUG]
+        if (1) {
+            ImU32 col = (!g.NavWindow->Hidden) ? ImCol(255,0,255,255) : ImCol(255,0,0,255);
+            ImVec2 p = NavCalcPreferredRefPos();
+            char buf[32];
+            ImFormatString(buf, 32, "%d", g.NavLayer);
+            draw_list->AddCircleFilled(p, 3.0f, col);
+            draw_list->AddText(NULL, 13.0f, p + ImVec2(8,-4), col, buf);
+}
     }
 #endif
 }
@@ -12255,7 +12223,7 @@ void ImGui::DebugNodeFont(ImFont* font)
     if (TreeNode("Glyphs", "Glyphs (%d)", font->Glyphs.Size))
     {
         ImDrawList* draw_list = GetWindowDrawList();
-        const ImU32 glyph_col = GetColorU32(ImGuiCol_Text);
+        const ImCol glyph_col = GetColor(ImGuiCol_Text);
         const float cell_size = font->FontSize * 1;
         const float cell_spacing = GetStyle().ItemSpacing.y;
         for (unsigned int base = 0; base <= IM_UNICODE_CODEPOINT_MAX; base += 256)
@@ -12290,7 +12258,7 @@ void ImGui::DebugNodeFont(ImFont* font)
                 draw_list->AddRect(cell_p1, cell_p2, glyph ? ImCol(255, 255, 255, 100) : ImCol(255, 255, 255, 50));
                 if (!glyph)
                     continue;
-                font->RenderChar(draw_list, cell_size, cell_p1, ImCol::FromU32(glyph_col), (ImWchar)(base + n));
+                font->RenderChar(draw_list, cell_size, cell_p1, glyph_col, (ImWchar)(base + n));
                 if (IsMouseHoveringRect(cell_p1, cell_p2))
                 {
                     BeginTooltip();
@@ -12822,8 +12790,9 @@ void ImGui::ShowStackToolWindow(bool* p_open)
             TextUnformatted(g.TempBuffer.Data);
             TableNextColumn();
             Text("0x%08X", info->ID);
-            if (n == tool->Results.Size - 1)
-                TableSetBgColor(ImGuiTableBgTarget_CellBg, GetColorU32(ImGuiCol_Header));
+            if (n == tool->Results.Size - 1) {
+                TableSetBgColor(ImGuiTableBgTarget_CellBg, GetColor(ImGuiCol_Header));
+            }
         }
         EndTable();
     }
