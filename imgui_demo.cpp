@@ -781,12 +781,6 @@ static void ShowDemoWindowWidgets()
         ImGui::TreePop();
     }
 
-    // Testing ImGuiOnceUponAFrame helper.
-    //static ImGuiOnceUponAFrame once;
-    //for (int i = 0; i < 5; i++)
-    //    if (once)
-    //        ImGui::Text("This will be displayed only once.");
-
     IMGUI_DEMO_MARKER("Widgets/Trees");
     if (ImGui::TreeNode("Trees"))
     {
