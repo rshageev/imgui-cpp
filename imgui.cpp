@@ -1329,8 +1329,6 @@ static void ImGuiListClipper_SeekCursorAndSetupPrevLine(float pos_y, float line_
     window->DC.CursorMaxPos.y = ImMax(window->DC.CursorMaxPos.y, pos_y - g.Style.ItemSpacing.y);
     window->DC.CursorPosPrevLine.y = window->DC.CursorPos.y - line_height;  // Setting those fields so that SetScrollHereY() can properly function after the end of our clipper usage.
     window->DC.PrevLineSize.y = (line_height - g.Style.ItemSpacing.y);      // If we end up needing more accurate data (to e.g. use SameLine) we may as well make the clipper have a fourth step to let user process and display the last item in their list.
-    if (ImGuiOldColumns* columns = window->DC.CurrentColumns)
-        columns->LineMinY = window->DC.CursorPos.y;                         // Setting this so that cell Y position are set properly
     if (ImGuiTable* table = g.CurrentTable)
     {
         if (table->IsInsideRow)
@@ -2270,7 +2268,6 @@ ImGuiWindow::~ImGuiWindow()
 {
     IM_ASSERT(DrawList == &DrawListInst);
     IM_DELETE(Name);
-    ColumnsStorage.clear_destruct();
 }
 
 ImGuiID ImGuiWindow::GetID(const char* str_begin, const char* str_end)
@@ -5119,7 +5116,6 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
         window->DC.TreeJumpToParentOnPopMask = 0x00;
         window->DC.ChildWindows.resize(0);
         window->DC.StateStorage = &window->StateStorage;
-        window->DC.CurrentColumns = NULL;
         window->DC.LayoutType = ImGuiLayoutType_Vertical;
         window->DC.ParentLayoutType = parent_window ? parent_window->DC.LayoutType : ImGuiLayoutType_Vertical;
 
@@ -5247,8 +5243,6 @@ void ImGui::End()
         IM_ASSERT_USER_ERROR(g.WithinEndChild, "Must call EndChild() and not End()!");
 
     // Close anything that is open
-    if (window->DC.CurrentColumns)
-        EndColumns();
     PopClipRect();   // Inner window clip rectangle
     PopFocusScope();
 
@@ -7724,7 +7718,7 @@ ImVec2 ImGui::GetContentRegionMax()
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
     ImVec2 mx = window->ContentRegionRect.Max - window->Pos;
-    if (window->DC.CurrentColumns || g.CurrentTable)
+    if (g.CurrentTable)
         mx.x = window->WorkRect.Max.x - window->Pos.x;
     return mx;
 }
@@ -7735,7 +7729,7 @@ ImVec2 ImGui::GetContentRegionMaxAbs()
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
     ImVec2 mx = window->ContentRegionRect.Max;
-    if (window->DC.CurrentColumns || g.CurrentTable)
+    if (g.CurrentTable)
         mx.x = window->WorkRect.Max.x;
     return mx;
 }
@@ -11938,17 +11932,6 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     End();
 }
 
-// [DEBUG] Display contents of Columns
-void ImGui::DebugNodeColumns(ImGuiOldColumns* columns)
-{
-    if (!TreeNode((void*)(uintptr_t)columns->ID, "Columns Id: 0x%08X, Count: %d, Flags: 0x%04X", columns->ID, columns->Count, columns->Flags))
-        return;
-    BulletText("Width: %.1f (MinX: %.1f, MaxX: %.1f)", columns->OffMaxX - columns->OffMinX, columns->OffMinX, columns->OffMaxX);
-    for (int column_n = 0; column_n < columns->Columns.Size; column_n++)
-        BulletText("Column %02d: OffsetNorm %.3f (= %.1f px)", column_n, columns->Columns[column_n].OffsetNorm, GetColumnOffsetFromNorm(columns, columns->Columns[column_n].OffsetNorm));
-    TreePop();
-}
-
 // [DEBUG] Display contents of ImDrawList
 void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, const char* label)
 {
@@ -12299,12 +12282,6 @@ void ImGui::DebugNodeWindow(ImGuiWindow* window, const char* label)
     if (window->RootWindow != window)       { DebugNodeWindow(window->RootWindow, "RootWindow"); }
     if (window->ParentWindow != NULL)       { DebugNodeWindow(window->ParentWindow, "ParentWindow"); }
     if (window->DC.ChildWindows.size() > 0) { DebugNodeWindowsList(window->DC.ChildWindows, "ChildWindows"); }
-    if (window->ColumnsStorage.Size > 0 && TreeNode("Columns", "Columns sets (%d)", window->ColumnsStorage.Size))
-    {
-        for (int n = 0; n < window->ColumnsStorage.Size; n++)
-            DebugNodeColumns(&window->ColumnsStorage[n]);
-        TreePop();
-    }
     DebugNodeStorage(&window->StateStorage, "Storage");
     TreePop();
 }
@@ -12698,7 +12675,6 @@ void ImGui::ShowStackToolWindow(bool* p_open)
 
 void ImGui::ShowMetricsWindow(bool*) {}
 void ImGui::ShowFontAtlas(ImFontAtlas*) {}
-void ImGui::DebugNodeColumns(ImGuiOldColumns*) {}
 void ImGui::DebugNodeDrawList(ImGuiWindow*, const ImDrawList*, const char*) {}
 void ImGui::DebugNodeDrawCmdShowMeshAndBoundingBox(ImDrawList*, const ImDrawList*, const ImDrawCmd*, bool, bool) {}
 void ImGui::DebugNodeFont(ImFont*) {}

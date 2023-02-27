@@ -1395,10 +1395,6 @@ void ImGui::SeparatorEx(ImGuiSeparatorFlags flags)
             x2 = table->Columns[table->CurrentColumn].MaxX;
         }
 
-        ImGuiOldColumns* columns = (flags & ImGuiSeparatorFlags_SpanAllColumns) ? window->DC.CurrentColumns : NULL;
-        if (columns)
-            PushColumnsBackground();
-
         // We don't provide our width to the layout so that it doesn't get feed back into AutoFit
         // FIXME: This prevents ->CursorMaxPos based bounding box evaluation from working (e.g. TableEndCell)
         const float thickness_for_layout = (thickness == 1.0f) ? 0.0f : thickness; // FIXME: See 1.70/1.71 Separator() change: makes legacy 1-px separator not affect layout yet. Should change.
@@ -1412,11 +1408,6 @@ void ImGui::SeparatorEx(ImGuiSeparatorFlags flags)
             if (g.LogEnabled)
                 LogRenderedText(&bb.Min, "--------------------------------\n");
 
-        }
-        if (columns)
-        {
-            PopColumnsBackground();
-            columns->LineMinY = window->DC.CursorPos.y;
         }
     }
 }
@@ -6414,11 +6405,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
     if (disabled_item && !disabled_global) // Only testing this as an optimization
         BeginDisabled();
 
-    // FIXME: We can standardize the behavior of those two, we could also keep the fast path of override ClipRect + full push on render only,
-    // which would be advantageous since most selectable are not selected.
-    if (span_all_columns && window->DC.CurrentColumns)
-        PushColumnsBackground();
-    else if (span_all_columns && g.CurrentTable)
+    if (span_all_columns && g.CurrentTable)
         TablePushBackgroundChannel();
 
     // We use NoHoldingActiveID on menus so user can click and _hold_ on a menu then drag to browse child entries
@@ -6472,9 +6459,7 @@ bool ImGui::Selectable(const char* label, bool selected, ImGuiSelectableFlags fl
     }
     RenderNavHighlight(bb, id, ImGuiNavHighlightFlags_TypeThin | ImGuiNavHighlightFlags_NoRounding);
 
-    if (span_all_columns && window->DC.CurrentColumns)
-        PopColumnsBackground();
-    else if (span_all_columns && g.CurrentTable)
+    if (span_all_columns && g.CurrentTable)
         TablePopBackgroundChannel();
 
     RenderTextClipped(text_min, text_max, label, NULL, &label_size, style.SelectableTextAlign, &bb);

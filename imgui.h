@@ -688,17 +688,6 @@ namespace ImGui
     void TableSetColumnEnabled(int column_n, bool v);// change user accessible enabled/disabled state of a column. Set to false to hide the column. User can use the context menu to change this themselves (right-click in headers, or right-click in columns body with ImGuiTableFlags_ContextMenuInBody)
     void TableSetBgColor(ImGuiTableBgTarget target, ImCol color, int column_n = -1); // change the color of a cell, row, or column. See ImGuiTableBgTarget_ flags for details.
 
-    // Legacy Columns API (prefer using Tables!)
-    // - You can also use SameLine(pos_x) to mimic simplified columns.
-    void          Columns(int count = 1, const char* id = NULL, bool border = true);
-    void          NextColumn();                                                       // next column, defaults to current row or next row if the current row is finished
-    int           GetColumnIndex();                                                   // get current column index
-    float         GetColumnWidth(int column_index = -1);                              // get column width (in pixels). pass -1 to use current column
-    void          SetColumnWidth(int column_index, float width);                      // set column width (in pixels). pass -1 to use current column
-    float         GetColumnOffset(int column_index = -1);                             // get position of column line (in pixels, from the left side of the contents region). pass -1 to use current column, otherwise 0..GetColumnsCount() inclusive. column 0 is typically 0.0f
-    void          SetColumnOffset(int column_index, float offset_x);                  // set position of column line (in pixels, from the left side of the contents region). pass -1 to use current column
-    int           GetColumnsCount();
-
     // Tab Bars, Tabs
     // - Note: Tabs are automatically created by the docking system (when in 'docking' branch). Use this to create tab bars/tabs yourself.
     bool          BeginTabBar(const char* str_id, ImGuiTabBarFlags flags = 0);        // create and append into a TabBar

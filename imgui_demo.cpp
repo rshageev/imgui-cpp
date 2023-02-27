@@ -3155,7 +3155,7 @@ static void ShowDemoWindowLayout()
             static bool show_button = true;
             static bool show_tree_nodes = true;
             static bool show_text_wrapped = false;
-            static bool show_columns = true;
+            static bool show_tables = true;
             static bool show_tab_bar = true;
             static bool show_child = false;
             static bool explicit_content_size = false;
@@ -3171,7 +3171,7 @@ static void ShowDemoWindowLayout()
             ImGui::Checkbox("Button", &show_button);            // Will grow contents size (unless explicitly overwritten)
             ImGui::Checkbox("Tree nodes", &show_tree_nodes);    // Will grow contents size and display highlight over full width
             ImGui::Checkbox("Text wrapped", &show_text_wrapped);// Will grow and use contents size
-            ImGui::Checkbox("Columns", &show_columns);          // Will use contents size
+            ImGui::Checkbox("Tables", &show_tables);          // Will use contents size
             ImGui::Checkbox("Tab bar", &show_tab_bar);          // Will use contents size
             ImGui::Checkbox("Child", &show_child);              // Will grow and use contents size
             ImGui::Checkbox("Explicit content size", &explicit_content_size);
@@ -3210,7 +3210,7 @@ static void ShowDemoWindowLayout()
             {
                 ImGui::TextWrapped("This text should automatically wrap on the edge of the work rectangle.");
             }
-            if (show_columns)
+            if (show_tables)
             {
                 ImGui::Text("Tables:");
                 if (ImGui::BeginTable("table", 4, ImGuiTableFlags_Borders))
@@ -3222,14 +3222,6 @@ static void ShowDemoWindowLayout()
                     }
                     ImGui::EndTable();
                 }
-                ImGui::Text("Columns:");
-                ImGui::Columns(4);
-                for (int n = 0; n < 4; n++)
-                {
-                    ImGui::Text("Width %.2f", ImGui::GetColumnWidth());
-                    ImGui::NextColumn();
-                }
-                ImGui::Columns(1);
             }
             if (show_tab_bar && ImGui::BeginTabBar("Hello"))
             {
@@ -5480,216 +5472,9 @@ static void ShowDemoWindowTables()
 
     ImGui::PopID();
 
-    ShowDemoWindowColumns();
-
-    if (disable_indent)
+    if (disable_indent) {
         ImGui::PopStyleVar();
-}
-
-// Demonstrate old/legacy Columns API!
-// [2020: Columns are under-featured and not maintained. Prefer using the more flexible and powerful BeginTable() API!]
-static void ShowDemoWindowColumns()
-{
-    IMGUI_DEMO_MARKER("Columns (legacy API)");
-    bool open = ImGui::TreeNode("Legacy Columns API");
-    ImGui::SameLine();
-    HelpMarker("Columns() is an old API! Prefer using the more flexible and powerful BeginTable() API!");
-    if (!open)
-        return;
-
-    // Basic columns
-    IMGUI_DEMO_MARKER("Columns (legacy API)/Basic");
-    if (ImGui::TreeNode("Basic"))
-    {
-        ImGui::Text("Without border:");
-        ImGui::Columns(3, "mycolumns3", false);  // 3-ways, no border
-        ImGui::Separator();
-        for (int n = 0; n < 14; n++)
-        {
-            char label[32];
-            sprintf(label, "Item %d", n);
-            if (ImGui::Selectable(label)) {}
-            //if (ImGui::Button(label, ImVec2(-FLT_MIN,0.0f))) {}
-            ImGui::NextColumn();
-        }
-        ImGui::Columns(1);
-        ImGui::Separator();
-
-        ImGui::Text("With border:");
-        ImGui::Columns(4, "mycolumns"); // 4-ways, with border
-        ImGui::Separator();
-        ImGui::Text("ID"); ImGui::NextColumn();
-        ImGui::Text("Name"); ImGui::NextColumn();
-        ImGui::Text("Path"); ImGui::NextColumn();
-        ImGui::Text("Hovered"); ImGui::NextColumn();
-        ImGui::Separator();
-        const char* names[3] = { "One", "Two", "Three" };
-        const char* paths[3] = { "/path/one", "/path/two", "/path/three" };
-        static int selected = -1;
-        for (int i = 0; i < 3; i++)
-        {
-            char label[32];
-            sprintf(label, "%04d", i);
-            if (ImGui::Selectable(label, selected == i, ImGuiSelectableFlags_SpanAllColumns))
-                selected = i;
-            bool hovered = ImGui::IsItemHovered();
-            ImGui::NextColumn();
-            ImGui::Text(names[i]); ImGui::NextColumn();
-            ImGui::Text(paths[i]); ImGui::NextColumn();
-            ImGui::Text("%d", hovered); ImGui::NextColumn();
-        }
-        ImGui::Columns(1);
-        ImGui::Separator();
-        ImGui::TreePop();
     }
-
-    IMGUI_DEMO_MARKER("Columns (legacy API)/Borders");
-    if (ImGui::TreeNode("Borders"))
-    {
-        // NB: Future columns API should allow automatic horizontal borders.
-        static bool h_borders = true;
-        static bool v_borders = true;
-        static int columns_count = 4;
-        const int lines_count = 3;
-        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8);
-        ImGui::DragInt("##columns_count", &columns_count, 0.1f, 2, 10, "%d columns");
-        if (columns_count < 2)
-            columns_count = 2;
-        ImGui::SameLine();
-        ImGui::Checkbox("horizontal", &h_borders);
-        ImGui::SameLine();
-        ImGui::Checkbox("vertical", &v_borders);
-        ImGui::Columns(columns_count, NULL, v_borders);
-        for (int i = 0; i < columns_count * lines_count; i++)
-        {
-            if (h_borders && ImGui::GetColumnIndex() == 0)
-                ImGui::Separator();
-            ImGui::Text("%c%c%c", 'a' + i, 'a' + i, 'a' + i);
-            ImGui::Text("Width %.2f", ImGui::GetColumnWidth());
-            ImGui::Text("Avail %.2f", ImGui::GetContentRegionAvail().x);
-            ImGui::Text("Offset %.2f", ImGui::GetColumnOffset());
-            ImGui::Text("Long text that is likely to clip");
-            ImGui::Button("Button", ImVec2(-FLT_MIN, 0.0f));
-            ImGui::NextColumn();
-        }
-        ImGui::Columns(1);
-        if (h_borders)
-            ImGui::Separator();
-        ImGui::TreePop();
-    }
-
-    // Create multiple items in a same cell before switching to next column
-    IMGUI_DEMO_MARKER("Columns (legacy API)/Mixed items");
-    if (ImGui::TreeNode("Mixed items"))
-    {
-        ImGui::Columns(3, "mixed");
-        ImGui::Separator();
-
-        ImGui::Text("Hello");
-        ImGui::Button("Banana");
-        ImGui::NextColumn();
-
-        ImGui::Text("ImGui");
-        ImGui::Button("Apple");
-        static float foo = 1.0f;
-        ImGui::InputFloat("red", &foo, 0.05f, 0, "%.3f");
-        ImGui::Text("An extra line here.");
-        ImGui::NextColumn();
-
-        ImGui::Text("Sailor");
-        ImGui::Button("Corniflower");
-        static float bar = 1.0f;
-        ImGui::InputFloat("blue", &bar, 0.05f, 0, "%.3f");
-        ImGui::NextColumn();
-
-        if (ImGui::CollapsingHeader("Category A")) { ImGui::Text("Blah blah blah"); } ImGui::NextColumn();
-        if (ImGui::CollapsingHeader("Category B")) { ImGui::Text("Blah blah blah"); } ImGui::NextColumn();
-        if (ImGui::CollapsingHeader("Category C")) { ImGui::Text("Blah blah blah"); } ImGui::NextColumn();
-        ImGui::Columns(1);
-        ImGui::Separator();
-        ImGui::TreePop();
-    }
-
-    // Word wrapping
-    IMGUI_DEMO_MARKER("Columns (legacy API)/Word-wrapping");
-    if (ImGui::TreeNode("Word-wrapping"))
-    {
-        ImGui::Columns(2, "word-wrapping");
-        ImGui::Separator();
-        ImGui::TextWrapped("The quick brown fox jumps over the lazy dog.");
-        ImGui::TextWrapped("Hello Left");
-        ImGui::NextColumn();
-        ImGui::TextWrapped("The quick brown fox jumps over the lazy dog.");
-        ImGui::TextWrapped("Hello Right");
-        ImGui::Columns(1);
-        ImGui::Separator();
-        ImGui::TreePop();
-    }
-
-    IMGUI_DEMO_MARKER("Columns (legacy API)/Horizontal Scrolling");
-    if (ImGui::TreeNode("Horizontal Scrolling"))
-    {
-        ImGui::SetNextWindowContentSize(ImVec2(1500.0f, 0.0f));
-        ImVec2 child_size = ImVec2(0, ImGui::GetFontSize() * 20.0f);
-        ImGui::BeginChild("##ScrollingRegion", child_size, false, ImGuiWindowFlags_HorizontalScrollbar);
-        ImGui::Columns(10);
-
-        // Also demonstrate using clipper for large vertical lists
-        int ITEMS_COUNT = 2000;
-        ImGuiListClipper clipper;
-        clipper.Begin(ITEMS_COUNT);
-        while (clipper.Step())
-        {
-            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-                for (int j = 0; j < 10; j++)
-                {
-                    ImGui::Text("Line %d Column %d...", i, j);
-                    ImGui::NextColumn();
-                }
-        }
-        ImGui::Columns(1);
-        ImGui::EndChild();
-        ImGui::TreePop();
-    }
-
-    IMGUI_DEMO_MARKER("Columns (legacy API)/Tree");
-    if (ImGui::TreeNode("Tree"))
-    {
-        ImGui::Columns(2, "tree", true);
-        for (int x = 0; x < 3; x++)
-        {
-            bool open1 = ImGui::TreeNode((void*)(intptr_t)x, "Node%d", x);
-            ImGui::NextColumn();
-            ImGui::Text("Node contents");
-            ImGui::NextColumn();
-            if (open1)
-            {
-                for (int y = 0; y < 3; y++)
-                {
-                    bool open2 = ImGui::TreeNode((void*)(intptr_t)y, "Node%d.%d", x, y);
-                    ImGui::NextColumn();
-                    ImGui::Text("Node contents");
-                    if (open2)
-                    {
-                        ImGui::Text("Even more contents");
-                        if (ImGui::TreeNode("Tree in column"))
-                        {
-                            ImGui::Text("The quick brown fox jumps over the lazy dog");
-                            ImGui::TreePop();
-                        }
-                    }
-                    ImGui::NextColumn();
-                    if (open2)
-                        ImGui::TreePop();
-                }
-                ImGui::TreePop();
-            }
-        }
-        ImGui::Columns(1);
-        ImGui::TreePop();
-    }
-
-    ImGui::TreePop();
 }
 
 namespace ImGui { extern ImGuiKeyData* GetKeyData(ImGuiKey key); }
@@ -7114,7 +6899,6 @@ static void ShowPlaceholderObject(const char* prefix, int uid)
                     ImGui::InputFloat("##value", &placeholder_members[i], 1.0f);
                 else
                     ImGui::DragFloat("##value", &placeholder_members[i], 0.01f);
-                ImGui::NextColumn();
             }
             ImGui::PopID();
         }

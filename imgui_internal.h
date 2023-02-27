@@ -146,7 +146,6 @@ typedef int ImGuiDebugLogFlags;         // -> enum ImGuiDebugLogFlags_      // F
 typedef int ImGuiInputFlags;            // -> enum ImGuiInputFlags_         // Flags: for IsKeyPressed(), IsMouseClicked(), SetKeyOwner(), SetItemKeyOwner() etc.
 typedef int ImGuiItemFlags;             // -> enum ImGuiItemFlags_          // Flags: for PushItemFlag(), g.LastItemData.InFlags
 typedef int ImGuiItemStatusFlags;       // -> enum ImGuiItemStatusFlags_    // Flags: for g.LastItemData.StatusFlags
-typedef int ImGuiOldColumnFlags;        // -> enum ImGuiOldColumnFlags_     // Flags: for BeginColumns()
 typedef int ImGuiNavHighlightFlags;     // -> enum ImGuiNavHighlightFlags_  // Flags: for RenderNavHighlight()
 typedef int ImGuiNavMoveFlags;          // -> enum ImGuiNavMoveFlags_       // Flags: for navigation requests
 typedef int ImGuiNextItemDataFlags;     // -> enum ImGuiNextItemDataFlags_  // Flags: for SetNextItemXXX() functions
@@ -1425,50 +1424,6 @@ struct ImGuiNavItemData
 };
 
 //-----------------------------------------------------------------------------
-// [SECTION] Columns support
-//-----------------------------------------------------------------------------
-
-// Flags for internal's BeginColumns(). Prefix using BeginTable() nowadays!
-enum ImGuiOldColumnFlags_
-{
-    ImGuiOldColumnFlags_None                    = 0,
-    ImGuiOldColumnFlags_NoBorder                = 1 << 0,   // Disable column dividers
-    ImGuiOldColumnFlags_NoResize                = 1 << 1,   // Disable resizing columns when clicking on the dividers
-    ImGuiOldColumnFlags_NoPreserveWidths        = 1 << 2,   // Disable column width preservation when adjusting columns
-    ImGuiOldColumnFlags_NoForceWithinWindow     = 1 << 3,   // Disable forcing columns to fit within window
-    ImGuiOldColumnFlags_GrowParentContentsSize  = 1 << 4,   // (WIP) Restore pre-1.51 behavior of extending the parent window contents size but _without affecting the columns width at all_. Will eventually remove.
-};
-
-struct ImGuiOldColumnData
-{
-    float OffsetNorm = 0.0f; // Column start offset, normalized 0.0 (far left) -> 1.0 (far right)
-    float OffsetNormBeforeResize = 0.0f;
-    ImGuiOldColumnFlags Flags = ImGuiOldColumnFlags_None; // Not exposed
-    ImRect ClipRect;
-};
-
-struct ImGuiOldColumns
-{
-    ImGuiID ID = 0;
-    ImGuiOldColumnFlags Flags = ImGuiOldColumnFlags_None;
-    bool IsFirstFrame = false;
-    bool IsBeingResized = false;
-    int Current = 0;
-    int Count = 0;
-    float OffMinX = 0.0f; // Offsets from HostWorkRect.Min.x
-    float OffMaxX = 0.0f; 
-    float LineMinY = 0.0f;
-    float LineMaxY = 0.0f;
-    float HostCursorPosY = 0.0f;     // Backup of CursorPos at the time of BeginColumns()
-    float HostCursorMaxPosX = 0.0f;  // Backup of CursorMaxPos at the time of BeginColumns()
-    ImRect HostInitialClipRect;      // Backup of ClipRect at the time of BeginColumns()
-    ImRect HostBackupClipRect;       // Backup of ClipRect during PushColumnsBackground()/PopColumnsBackground()
-    ImRect HostBackupParentWorkRect; //Backup of WorkRect at the time of BeginColumns()
-    ImVector<ImGuiOldColumnData> Columns;
-    ImDrawListSplitter Splitter;
-};
-
-//-----------------------------------------------------------------------------
 // [SECTION] Multi-select support
 //-----------------------------------------------------------------------------
 
@@ -1974,7 +1929,6 @@ struct ImGuiWindowTempData
     ImU32 TreeJumpToParentOnPopMask = 0;       // Store a copy of !g.NavIdIsAlive for TreeDepth 0..31.. Could be turned into a ImU64 if necessary.
     std::vector<ImGuiWindow*> ChildWindows;
     ImGuiStorage* StateStorage = nullptr;      // Current persistent per-window storage (store e.g. tree node open/close state)
-    ImGuiOldColumns* CurrentColumns = nullptr; // Current columns set
     int CurrentTableIdx = 0;                   // Current table index (into g.Tables)
     ImGuiLayoutType LayoutType = ImGuiLayoutType_Horizontal;
     ImGuiLayoutType ParentLayoutType = ImGuiLayoutType_Horizontal; // Layout type of parent window at the time of Begin()
@@ -2072,7 +2026,6 @@ struct ImGuiWindow
     float LastTimeActive = -1.0f;  // Last timestamp the window was Active (using float as we don't need high precision there)
     float ItemWidthDefault = 0.0f;
     ImGuiStorage StateStorage;
-    ImVector<ImGuiOldColumns> ColumnsStorage;
     int SettingsOffset = -1;       // Offset into SettingsWindows[] (offsets are always valid as we only grow the array from the back)
 
     ImDrawList* DrawList = nullptr;                        // == &DrawListInst (for backward compatibility reason with code using imgui_internal.h we keep this a pointer)
@@ -2734,15 +2687,6 @@ namespace ImGui
 
     // Internal Columns API (this is not exposed because we will encourage transitioning to the Tables API)
     void          SetWindowClipRectBeforeSetChannel(ImGuiWindow* window, const ImRect& clip_rect);
-    void          BeginColumns(const char* str_id, int count, ImGuiOldColumnFlags flags = 0); // setup number of columns. use an identifier to distinguish multiple column sets. close with EndColumns().
-    void          EndColumns();                                                               // close columns
-    void          PushColumnClipRect(int column_index);
-    void          PushColumnsBackground();
-    void          PopColumnsBackground();
-    ImGuiID       GetColumnsID(const char* str_id, int count);
-    ImGuiOldColumns* FindOrCreateColumns(ImGuiWindow* window, ImGuiID id);
-    float         GetColumnOffsetFromNorm(const ImGuiOldColumns* columns, float offset_norm);
-    float         GetColumnNormFromOffset(const ImGuiOldColumns* columns, float offset);
 
     // Tables: Candidates for public API
     void          TableOpenContextMenu(int column_n = -1);
@@ -2932,7 +2876,6 @@ namespace ImGui
     inline void DebugStartItemPicker() { ImGuiContext& g = *GImGui; g.DebugItemPickerActive = true; }
     void          ShowFontAtlas(ImFontAtlas* atlas);
     void          DebugHookIdInfo(ImGuiID id, ImGuiDataType data_type, const void* data_id, const void* data_id_end);
-    void          DebugNodeColumns(ImGuiOldColumns* columns);
     void          DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, const char* label);
     void          DebugNodeDrawCmdShowMeshAndBoundingBox(ImDrawList* out_draw_list, const ImDrawList* draw_list, const ImDrawCmd* draw_cmd, bool show_mesh, bool show_aabb);
     void          DebugNodeFont(ImFont* font);
