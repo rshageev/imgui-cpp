@@ -308,7 +308,6 @@ struct ImGuiStyle
     ImVec2 CellPadding = {4,2};              // Padding within a table cell
     ImVec2 TouchExtraPadding = {0,0};        // Expand reactive bounding box for touch-based system where touch position is not accurate enough. Unfortunately we don't sort widgets so priority on overlap will always be given to the first widget. So don't grow this too much!
     float IndentSpacing = 21.0f;             // Horizontal indentation when e.g. entering a tree node. Generally == (FontSize + FramePadding.x*2).
-    float ColumnsMinSpacing = 6.0f;          // Minimum horizontal spacing between two columns. Preferably > (FramePadding.x + 1).
     float ScrollbarSize = 14.0f;             // Width of the vertical scrollbar, Height of the horizontal scrollbar.
     float ScrollbarRounding = 9.0f;          // Radius of grab corners for scrollbar.
     float GrabMinSize = 12.0f;               // Minimum width/height of a grab box for slider/scrollbar.

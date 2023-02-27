@@ -14,7 +14,6 @@ void ImGuiStyle::ScaleAllSizes(float scale_factor)
     CellPadding = ImFloor(CellPadding * scale_factor);
     TouchExtraPadding = ImFloor(TouchExtraPadding * scale_factor);
     IndentSpacing = std::floor(IndentSpacing * scale_factor);
-    ColumnsMinSpacing = std::floor(ColumnsMinSpacing * scale_factor);
     ScrollbarSize = std::floor(ScrollbarSize * scale_factor);
     ScrollbarRounding = std::floor(ScrollbarRounding * scale_factor);
     GrabMinSize = std::floor(GrabMinSize * scale_factor);
