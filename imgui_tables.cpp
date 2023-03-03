@@ -36,7 +36,6 @@ Index of this file:
 //-----------------------------------------------------------------------------
 // - BeginTable()                               user begin into a table
 //    | BeginChild()                            - (if ScrollX/ScrollY is set)
-//    | TableBeginInitMemory()                  - first time table is used
 //    | TableResetSettings()                    - on settings reset
 //    | TableLoadSettings()                     - on settings load
 //    | TableBeginApplyRequests()               - apply queued resizing/reordering/hiding requests
@@ -232,7 +231,6 @@ Index of this file:
 // - TableFindByID() [Internal]
 // - BeginTable()
 // - BeginTableEx() [Internal]
-// - TableBeginInitMemory() [Internal]
 // - TableBeginApplyRequests() [Internal]
 // - TableSetupColumnFlags() [Internal]
 // - TableUpdateLayout() [Internal]
@@ -487,23 +485,28 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     temp_data->LastTimeActive = (float)g.Time;
 
     // Setup memory buffer (clear data if columns count changed)
-    ImGuiTableColumn* old_columns_to_preserve = NULL;
-    void* old_columns_raw_data = NULL;
+    std::vector<ImGuiTableColumn> old_columns_to_preserve;
     const int old_columns_count = static_cast<int>(table->Columns.size());
     if (old_columns_count != 0 && old_columns_count != columns_count)
     {
         // Attempt to preserve width on column count change (#4046)
-        old_columns_to_preserve = table->Columns.data();
-        old_columns_raw_data = table->RawData;
-        table->RawData = NULL;
+        old_columns_to_preserve = std::move(table->Columns);
+        table->Columns.clear();
     }
-    if (table->RawData == NULL)
+    if (table->Columns.empty())
     {
-        TableBeginInitMemory(table, columns_count);
-        table->IsInitializing = table->IsSettingsRequestLoad = true;
+        table->Columns.resize(columns_count);
+        table->DisplayOrderToIndex.resize(columns_count, 0);
+        table->RowCellData.resize(columns_count);
+        table->EnabledMaskByDisplayOrder.resize(columns_count);
+        table->EnabledMaskByIndex.resize(columns_count);
+        table->VisibleMaskByIndex.resize(columns_count);
+        table->IsInitializing = true;
+        table->IsSettingsRequestLoad = true;
     }
     if (table->IsResetAllRequest)
         TableResetSettings(table);
+
     if (table->IsInitializing)
     {
         // Initialize
@@ -516,25 +519,23 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
         table->HoveredColumnBody = table->HoveredColumnBorder = -1;
         for (int n = 0; n < columns_count; n++)
         {
-            ImGuiTableColumn* column = &table->Columns[n];
-            if (old_columns_to_preserve && n < old_columns_count)
+            ImGuiTableColumn& column = table->Columns[n];
+            if (!old_columns_to_preserve.empty() && n < old_columns_count)
             {
                 // FIXME: We don't attempt to preserve column order in this path.
-                *column = old_columns_to_preserve[n];
+                column = old_columns_to_preserve[n];
             }
             else
             {
-                float width_auto = column->WidthAuto;
-                *column = ImGuiTableColumn();
-                column->WidthAuto = width_auto;
-                column->IsPreserveWidthAuto = true; // Preserve WidthAuto when reinitializing a live table: not technically necessary but remove a visible flicker
-                column->IsEnabled = column->IsUserEnabled = column->IsUserEnabledNextFrame = true;
+                float width_auto = column.WidthAuto;
+                column = ImGuiTableColumn();
+                column.WidthAuto = width_auto;
+                column.IsPreserveWidthAuto = true; // Preserve WidthAuto when reinitializing a live table: not technically necessary but remove a visible flicker
+                column.IsEnabled = column.IsUserEnabled = column.IsUserEnabledNextFrame = true;
             }
-            column->DisplayOrder = table->DisplayOrderToIndex[n] = (ImGuiTableColumnIdx)n;
+            column.DisplayOrder = table->DisplayOrderToIndex[n] = (ImGuiTableColumnIdx)n;
         }
     }
-    if (old_columns_raw_data)
-        IM_FREE(old_columns_raw_data);
 
     // Load settings
     if (table->IsSettingsRequestLoad)
@@ -569,35 +570,6 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     TableBeginApplyRequests(table);
 
     return true;
-}
-
-// For reference, the average total _allocation count_ for a table is:
-// + 0 (for ImGuiTable instance, we are pooling allocations in g.Tables)
-// + 1 (for table->RawData allocated below)
-// + 1 (for table->ColumnsNames, if names are used)
-// Shared allocations per number of nested tables
-// + 1 (for table->Splitter._Channels)
-// + 2 * active_channels_count (for ImDrawCmd and ImDrawIdx buffers inside channels)
-// Where active_channels_count is variable but often == columns_count or columns_count + 1, see TableSetupDrawChannels() for details.
-// Unused channels don't perform their +2 allocations.
-void ImGui::TableBeginInitMemory(ImGuiTable* table, int columns_count)
-{
-    // Allocate single buffer for our arrays
-    ImSpanAllocator<3> span_allocator;
-    span_allocator.Reserve(0, columns_count * sizeof(ImGuiTableColumn));
-    span_allocator.Reserve(1, columns_count * sizeof(ImGuiTableColumnIdx));
-    span_allocator.Reserve(2, columns_count * sizeof(ImGuiTableCellData));
-
-    table->RawData = IM_ALLOC(span_allocator.GetArenaSizeInBytes());
-    memset(table->RawData, 0, span_allocator.GetArenaSizeInBytes());
-    span_allocator.SetArenaBasePtr(table->RawData);
-    table->Columns = span_allocator.GetSpan<ImGuiTableColumn>(0);
-    table->DisplayOrderToIndex = span_allocator.GetSpan<ImGuiTableColumnIdx>(1);
-    table->RowCellData = span_allocator.GetSpan<ImGuiTableCellData>(2);
-
-    table->EnabledMaskByDisplayOrder.resize(columns_count);
-    table->EnabledMaskByIndex.resize(columns_count);
-    table->VisibleMaskByIndex.resize(columns_count);
 }
 
 // Apply queued resizing/reordering/hiding requests
@@ -1661,9 +1633,8 @@ void ImGui::TableSetBgColor(ImGuiTableBgTarget target, ImCol color, int column_n
             return;
         if (table->RowCellDataCurrent < 0 || table->RowCellData[table->RowCellDataCurrent].Column != column_n)
             table->RowCellDataCurrent++;
-        ImGuiTableCellData* cell_data = &table->RowCellData[table->RowCellDataCurrent];
-        cell_data->BgColor = color;
-        cell_data->Column = (ImGuiTableColumnIdx)column_n;
+
+        table->RowCellData[table->RowCellDataCurrent] = { color, (ImGuiTableColumnIdx)column_n };
         break;
     }
     case ImGuiTableBgTarget_RowBg0:
@@ -1839,11 +1810,12 @@ void ImGui::TableEndRow(ImGuiTable* table)
         // Draw cell background color
         if (draw_cell_bg_color)
         {
-            ImGuiTableCellData* cell_data_end = &table->RowCellData[table->RowCellDataCurrent];
-            for (ImGuiTableCellData* cell_data = &table->RowCellData[0]; cell_data <= cell_data_end; cell_data++)
+            for (int i = 0; i <= table->RowCellDataCurrent; ++i)
             {
                 // As we render the BG here we need to clip things (for layout we would not)
-                // FIXME: This cancels the OuterPadding addition done by TableGetCellBgRect(), need to keep it while rendering correctly while scrolling.
+                // FIXME: This cancels the OuterPadding addition done by TableGetCellBgRect(),
+                // need to keep it while rendering correctly while scrolling.
+                ImGuiTableCellData* cell_data = &table->RowCellData[i];
                 const ImGuiTableColumn* column = &table->Columns[cell_data->Column];
                 ImRect cell_bg_rect = TableGetCellBgRect(table, cell_data->Column);
                 cell_bg_rect.ClipWith(table->BgClipRect);

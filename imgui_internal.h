@@ -509,52 +509,6 @@ struct ImRect
     ImVec4      ToVec4() const                      { return ImVec4(Min.x, Min.y, Max.x, Max.y); }
 };
 
-// Helper: ImSpanAllocator<>
-// Facilitate storing multiple chunks into a single large block (the "arena")
-// - Usage: call Reserve() N times, allocate GetArenaSizeInBytes() worth, pass it to SetArenaBasePtr(), call GetSpan() N times to retrieve the aligned ranges.
-template<int CHUNKS>
-struct ImSpanAllocator
-{
-    char* BasePtr = nullptr;
-    int CurrOff = 0;
-    int CurrIdx = 0;
-    int Offsets[CHUNKS];
-    int Sizes[CHUNKS];
-
-    ImSpanAllocator() {
-        std::fill(std::begin(Offsets), std::end(Offsets), 0);
-        std::fill(std::begin(Sizes), std::end(Sizes), 0);
-    }
-    void Reserve(int n, size_t sz, int a=4) {
-        IM_ASSERT(n == CurrIdx && n < CHUNKS);
-        CurrOff = IM_MEMALIGN(CurrOff, a);
-        Offsets[n] = CurrOff;
-        Sizes[n] = (int)sz;
-        CurrIdx++;
-        CurrOff += (int)sz;
-    }
-    int GetArenaSizeInBytes() const {
-        return CurrOff;
-    }
-    void SetArenaBasePtr(void* base_ptr) {
-        BasePtr = (char*)base_ptr;
-    }
-    void* GetSpanPtrBegin(int n) {
-        IM_ASSERT(n >= 0 && n < CHUNKS && CurrIdx == CHUNKS);
-        return (void*)(BasePtr + Offsets[n]);
-    }
-    void* GetSpanPtrEnd(int n) {
-        IM_ASSERT(n >= 0 && n < CHUNKS && CurrIdx == CHUNKS);
-        return (void*)(BasePtr + Offsets[n] + Sizes[n]);
-    }
-
-    template<typename T>
-    std::span<T> GetSpan(int n) {
-        auto ptr_begin = (T*)GetSpanPtrBegin(n);
-        auto ptr_end = (T*)GetSpanPtrEnd(n);
-        return { ptr_begin, ptr_end };
-    }
-};
 
 // Helper: ImPool<>
 // Basic keyed storage for contiguous instances, slow/amortized insertion, O(1) indexable, O(Log N) queries by ID over a dense/hot buffer,
@@ -2210,11 +2164,10 @@ struct ImGuiTable
 {
     ImGuiID ID = 0;
     ImGuiTableFlags Flags = ImGuiTableFlags_None;
-    void* RawData = nullptr;                            // Single allocation to hold Columns[], DisplayOrderToIndex[] and RowCellData[]
     ImGuiTableTempData* TempData = nullptr;             // Transient data while table is active. Point within g.CurrentTableStack[]
-    std::span<ImGuiTableColumn> Columns;                // Point within RawData[]
-    std::span<ImGuiTableColumnIdx> DisplayOrderToIndex; // Point within RawData[]. Store display order of columns (when not reordered, the values are 0...Count-1)
-    std::span<ImGuiTableCellData> RowCellData;          // Point within RawData[]. Store cells background requests for current row.
+    std::vector<ImGuiTableColumn> Columns;                // Point within RawData[]
+    std::vector<ImGuiTableColumnIdx> DisplayOrderToIndex; // Point within RawData[]. Store display order of columns (when not reordered, the values are 0...Count-1)
+    std::vector<ImGuiTableCellData> RowCellData;          // Point within RawData[]. Store cells background requests for current row.
     std::vector<bool> EnabledMaskByDisplayOrder;        // Column DisplayOrder -> IsEnabled map
     std::vector<bool> EnabledMaskByIndex;               // Column Index -> IsEnabled map (== not hidden by user/api) in a format adequate for iterating column without touching cold data
     std::vector<bool> VisibleMaskByIndex;               // Column Index -> IsVisibleX|IsVisibleY map (== not hidden by user/api && not hidden by scrolling/cliprect)
@@ -2312,9 +2265,6 @@ struct ImGuiTable
     bool HasScrollbarYCurr = false;          // Whether ANY instance of this table had a vertical scrollbar during the current frame.
     bool HasScrollbarYPrev = false;          // Whether ANY instance of this table had a vertical scrollbar during the previous.
     bool HostSkipItems = false;              // Backup of InnerWindow->SkipItem at the end of BeginTable(), because we will overwrite InnerWindow->SkipItem on a per-column basis
-
-    ImGuiTable() = default;
-    ~ImGuiTable() { IM_FREE(RawData); }
 };
 
 // Transient data that are only needed between BeginTable() and EndTable(), those buffers are shared (1 per level of stacked table).
@@ -2674,7 +2624,6 @@ namespace ImGui
     inline    ImGuiTable*   GetCurrentTable() { ImGuiContext& g = *GImGui; return g.CurrentTable; }
     ImGuiTable*   TableFindByID(ImGuiID id);
     bool          BeginTableEx(const char* name, ImGuiID id, int columns_count, ImGuiTableFlags flags = 0, const ImVec2& outer_size = ImVec2(0, 0), float inner_width = 0.0f);
-    void          TableBeginInitMemory(ImGuiTable* table, int columns_count);
     void          TableBeginApplyRequests(ImGuiTable* table);
     void          TableSetupDrawChannels(ImGuiTable* table);
     void          TableUpdateLayout(ImGuiTable* table);
