@@ -6578,37 +6578,26 @@ static void ShowExampleAppConsole(bool* p_open)
 //  my_log.Draw("title");
 struct ExampleAppLog
 {
-    ImGuiTextBuffer     Buf;
-    ImGuiTextFilter     Filter;
-    ImVector<int>       LineOffsets; // Index to lines offset. We maintain this with AddLog() calls.
-    bool                AutoScroll;  // Keep scrolling if already at the bottom.
+    std::string Buf;
+    std::vector<std::pair<size_t, size_t>> Lines;
+    ImGuiTextFilter Filter; 
+    bool AutoScroll = true;    // Keep scrolling if already at the bottom.
 
-    ExampleAppLog()
-    {
-        AutoScroll = true;
-        Clear();
-    }
-
-    void    Clear()
-    {
+    void Clear()
+    {   
+        Lines.clear();
         Buf.clear();
-        LineOffsets.clear();
-        LineOffsets.push_back(0);
     }
 
-    void    AddLog(const char* fmt, ...) IM_FMTARGS(2)
+    template<class... Args>
+    void AddLog(std::format_string<Args...> fmt, Args&&... args)
     {
-        int old_size = Buf.size();
-        va_list args;
-        va_start(args, fmt);
-        Buf.appendfv(fmt, args);
-        va_end(args);
-        for (int new_size = Buf.size(); old_size < new_size; old_size++)
-            if (Buf[old_size] == '\n')
-                LineOffsets.push_back(old_size + 1);
+        const auto old_size = Buf.size();
+        std::format_to(std::back_inserter(Buf), fmt, std::forward<Args>(args)...);
+        Lines.emplace_back(old_size, Buf.size());
     }
 
-    void    Draw(const char* title, bool* p_open = NULL)
+    void Draw(const char* title, bool* p_open = NULL)
     {
         if (!ImGui::Begin(title, p_open))
         {
@@ -6639,20 +6628,19 @@ struct ExampleAppLog
                 Clear();
 
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-            const char* buf = Buf.begin();
-            const char* buf_end = Buf.end();
             if (Filter.IsActive())
             {
                 // In this example we don't use the clipper when Filter is enabled.
                 // This is because we don't have random access to the result of our filter.
                 // A real application processing logs with ten of thousands of entries may want to store the result of
                 // search/filter.. especially if the filtering function is not trivial (e.g. reg-exp).
-                for (int line_no = 0; line_no < LineOffsets.Size; line_no++)
+                for (auto [start_idx, end_idx] : Lines)
                 {
-                    const char* line_start = buf + LineOffsets[line_no];
-                    const char* line_end = (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
-                    if (Filter.PassFilter(line_start, line_end))
+                    const char* line_start = Buf.data() + start_idx;
+                    const char* line_end = Buf.data() + end_idx;
+                    if (Filter.PassFilter(line_start, line_end)) {
                         ImGui::TextUnformatted(line_start, line_end);
+                    }
                 }
             }
             else
@@ -6671,14 +6659,13 @@ struct ExampleAppLog
                 // anymore, which is why we don't use the clipper. Storing or skimming through the search result would make
                 // it possible (and would be recommended if you want to search through tens of thousands of entries).
                 ImGuiListClipper clipper;
-                clipper.Begin(LineOffsets.Size);
+                clipper.Begin(Lines.size());
                 while (clipper.Step())
                 {
                     for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
                     {
-                        const char* line_start = buf + LineOffsets[line_no];
-                        const char* line_end = (line_no + 1 < LineOffsets.Size) ? (buf + LineOffsets[line_no + 1] - 1) : buf_end;
-                        ImGui::TextUnformatted(line_start, line_end);
+                        auto [start_idx, end_idx] = Lines[line_no];
+                        ImGui::TextUnformatted(Buf.data() + start_idx, Buf.data() + end_idx);
                     }
                 }
                 clipper.End();
@@ -6715,8 +6702,7 @@ static void ShowExampleAppLog(bool* p_open)
         {
             const char* category = categories[counter % IM_ARRAYSIZE(categories)];
             const char* word = words[counter % IM_ARRAYSIZE(words)];
-            log.AddLog("[%05d] [%s] Hello, current time is %.1f, here's a word: '%s'\n",
-                ImGui::GetFrameCount(), category, ImGui::GetTime(), word);
+            log.AddLog("[{}] [{}] Hello, current time is {:.1f}, here's a word: '{}'\n", ImGui::GetFrameCount(), category, ImGui::GetTime(), word);
             counter++;
         }
     }
@@ -6891,7 +6877,7 @@ static void ShowExampleAppLongText(bool* p_open)
     IMGUI_DEMO_MARKER("Examples/Long text display");
 
     static int test_type = 0;
-    static ImGuiTextBuffer log;
+    static std::string log;
     static int lines = 0;
     ImGui::Text("Printing unusually long amount of text.");
     ImGui::Combo("Test type", &test_type,
@@ -6903,8 +6889,9 @@ static void ShowExampleAppLongText(bool* p_open)
     ImGui::SameLine();
     if (ImGui::Button("Add 1000 lines"))
     {
-        for (int i = 0; i < 1000; i++)
-            log.appendf("%i The quick brown fox jumps over the lazy dog\n", lines + i);
+        for (int i = 0; i < 1000; i++) {
+            std::format_to(std::back_inserter(log), "{} The quick brown fox jumps over the lazy dog\n", lines + i);
+        }
         lines += 1000;
     }
     ImGui::BeginChild("Log");
@@ -6912,7 +6899,7 @@ static void ShowExampleAppLongText(bool* p_open)
     {
     case 0:
         // Single call to TextUnformatted() with a big buffer
-        ImGui::TextUnformatted(log.begin(), log.end());
+        ImGui::TextUnformatted(log.data(), log.data() + log.size());
         break;
     case 1:
         {
