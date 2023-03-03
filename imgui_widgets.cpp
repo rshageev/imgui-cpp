@@ -7313,7 +7313,6 @@ bool ImGui::MenuItem(const char* label, const char* shortcut, bool* p_selected, 
 // - TabBarFindTabById() [Internal]
 // - TabBarFindTabByOrder() [Internal]
 // - TabBarGetCurrentTab() [Internal]
-// - TabBarGetTabName() [Internal]
 // - TabBarRemoveTab() [Internal]
 // - TabBarCloseTab() [Internal]
 // - TabBarScrollClamp() [Internal]
@@ -7598,7 +7597,7 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
         // Refresh tab width immediately, otherwise changes of style e.g. style.FramePadding.x would noticeably lag in the tab bar.
         // Additionally, when using TabBarAddTab() to manipulate tab bar order we occasionally insert new tabs that don't have a width yet,
         // and we cannot wait for the next BeginTabItem() call. We cannot compute this width within TabBarAddTab() because font size depends on the active window.
-        const char* tab_name = TabBarGetTabName(tab_bar, tab);
+        const char* tab_name = tab->GetName();
         const bool has_close_button_or_unsaved_marker = (tab->Flags & ImGuiTabItemFlags_NoCloseButton) == 0 || (tab->Flags & ImGuiTabItemFlags_UnsavedDocument);
         tab->ContentWidth = (tab->RequestedWidth >= 0.0f) ? tab->RequestedWidth : TabItemCalcSize(tab_name, has_close_button_or_unsaved_marker).x;
 
@@ -7694,16 +7693,13 @@ static void ImGui::TabBarLayout(ImGuiTabBar* tab_bar)
         {
             ImGuiTabItem* tab = &tab_bar->Tabs[section_tab_index + tab_n];
             tab->Offset = tab_offset;
-            tab->NameOffset = -1;
+            tab->Name.clear();
             tab_offset += tab->Width + (tab_n < section.TabCount - 1 ? g.Style.ItemInnerSpacing.x : 0.0f);
         }
         tab_bar->WidthAllTabs += std::max(section.Width + section.Spacing, 0.0f);
         tab_offset += section.Spacing;
         section_tab_index += section.TabCount;
     }
-
-    // Clear name buffers
-    tab_bar->TabsNames.Buf.resize(0);
 
     // If we have lost the selected tab, select the next most recently active one
     if (found_selected_tab_id == false)
@@ -7773,14 +7769,6 @@ ImGuiTabItem* ImGui::TabBarGetCurrentTab(ImGuiTabBar* tab_bar)
     if (tab_bar->LastTabItemIdx <= 0 || tab_bar->LastTabItemIdx >= tab_bar->Tabs.size())
         return NULL;
     return &tab_bar->Tabs[tab_bar->LastTabItemIdx];
-}
-
-const char* ImGui::TabBarGetTabName(ImGuiTabBar* tab_bar, ImGuiTabItem* tab)
-{
-    if (tab->NameOffset == -1)
-        return "N/A";
-    IM_ASSERT(tab->NameOffset < tab_bar->TabsNames.Buf.Size);
-    return tab_bar->TabsNames.Buf.Data + tab->NameOffset;
 }
 
 // The *TabId fields are already set by the docking system _before_ the actual TabItem was created, so we clear them regardless.
@@ -8023,7 +8011,7 @@ static ImGuiTabItem* ImGui::TabBarTabListPopupButton(ImGuiTabBar* tab_bar)
             if (tab.Flags & ImGuiTabItemFlags_Button)
                 continue;
 
-            const char* tab_name = TabBarGetTabName(tab_bar, &tab);
+            const char* tab_name = tab.GetName();
             if (Selectable(tab_name, tab_bar->SelectedTabId == tab.ID))
                 tab_to_select = &tab;
         }
@@ -8183,8 +8171,7 @@ bool ImGui::TabItemEx(ImGuiTabBar* tab_bar, const char* label, bool* p_open, ImG
     }
     else
     {
-        tab->NameOffset = (ImS32)tab_bar->TabsNames.size();
-        tab_bar->TabsNames.append(label, label + strlen(label) + 1);
+        tab->Name = label;
     }
 
     // Update selected tab

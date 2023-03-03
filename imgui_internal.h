@@ -2085,10 +2085,12 @@ struct ImGuiTabItem
     float Width = 0.0f;              // Width currently displayed
     float ContentWidth = 0.0f;       // Width of label, stored during BeginTabItem() call
     float RequestedWidth = -1.0f;    // Width optionally requested by caller, -1.0f is unused
-    ImS32 NameOffset = -1;           // When Window==NULL, offset to name within parent ImGuiTabBar::TabsNames
     ImS16 BeginOrder = -1;           // BeginTabItem() order, used to re-order tabs after toggling ImGuiTabBarFlags_Reorderable
     ImS16 IndexDuringLayout = -1;    // Index only used during TabBarLayout(). Tabs gets reordered so 'Tabs[n].IndexDuringLayout == n' but may mismatch during additions.
     bool WantClose = false;          // Marked as closed by SetTabItemClosed()
+    std::string Name;
+
+    const char* GetName() const { return Name.empty() ? "N/A" : Name.c_str(); }
 };
 
 // Storage for a tab bar
@@ -2124,7 +2126,6 @@ struct ImGuiTabBar
     float ItemSpacingY = 0.0f;
     ImVec2 FramePadding;                 // style.FramePadding locked at the time of BeginTabBar()
     ImVec2 BackupCursorPos;
-    ImGuiTextBuffer TabsNames;           // For non-docking tab bar we re-append names in a contiguous buffer.
 };
 
 //-----------------------------------------------------------------------------
@@ -2719,7 +2720,6 @@ namespace ImGui
     bool BeginTabBarEx(ImGuiTabBar* tab_bar, const ImRect& bb, ImGuiTabBarFlags flags);
 
     ImGuiTabItem* TabBarGetCurrentTab(ImGuiTabBar* tab_bar);
-    const char* TabBarGetTabName(ImGuiTabBar* tab_bar, ImGuiTabItem* tab);
     void TabBarRemoveTab(ImGuiTabBar* tab_bar, ImGuiID tab_id);
     void TabBarCloseTab(ImGuiTabBar* tab_bar, ImGuiTabItem& tab);
     void          TabBarQueueReorder(ImGuiTabBar* tab_bar, ImGuiTabItem* tab, int offset);
