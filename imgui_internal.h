@@ -884,15 +884,6 @@ enum ImGuiLayoutType_
     ImGuiLayoutType_Vertical = 1
 };
 
-enum ImGuiLogType
-{
-    ImGuiLogType_None = 0,
-    ImGuiLogType_TTY,
-    ImGuiLogType_File,
-    ImGuiLogType_Buffer,
-    ImGuiLogType_Clipboard,
-};
-
 // X/Y enums are fixed to 0/1 so they may be used to index ImVec2
 enum ImGuiAxis
 {
@@ -1849,19 +1840,6 @@ struct ImGuiContext
     // Localization
     const char* LocalizationTable[ImGuiLocKey_COUNT];
 
-    // Capture/Logging
-    bool LogEnabled = false;                  // Currently capturing
-    ImGuiLogType LogType = ImGuiLogType_None; // Capture target
-    ImFileHandle LogFile = NULL;              // If != NULL log to stdout/ file
-    ImGuiTextBuffer LogBuffer;                // Accumulation buffer when log to clipboard. This is pointer so our GImGui static constructor doesn't call heap allocators.
-    const char* LogNextPrefix = nullptr;
-    const char* LogNextSuffix = nullptr;
-    float LogLinePosY = FLT_MAX;
-    bool LogLineFirstItem = false;
-    int LogDepthRef = 0;
-    int LogDepthToExpand = 2;
-    int LogDepthToExpandDefault = 2; // Default/stored value for LogDepthMaxExpand if not specified in the LogXXX function call.
-
     // Debug Tools
     ImGuiDebugLogFlags DebugLogFlags = ImGuiDebugLogFlags_OutputToTTY;
     std::vector<std::string> DebugLog;
@@ -2528,12 +2506,6 @@ namespace ImGui
     // Parameter stacks (shared)
     void PushItemFlag(ImGuiItemFlags option, bool enabled);
     void PopItemFlag();
-
-    // Logging/Capture
-    void LogBegin(ImGuiLogType type, int auto_open_depth);           // -> BeginCapture() when we design v2 api, for now stay under the radar by using the old name.
-    void LogToBuffer(int auto_open_depth = -1);                      // Start logging/capturing to internal buffer
-    void LogRenderedText(const ImVec2* ref_pos, const char* text, const char* text_end = NULL);
-    void LogSetNextTextDecoration(const char* prefix, const char* suffix);
 
     // Popups, Modals, Tooltips
     bool BeginChildEx(const char* name, ImGuiID id, const ImVec2& size_arg, bool border, ImGuiWindowFlags flags);

@@ -493,25 +493,6 @@ void ImGui::ShowDemoWindow(bool* p_open)
             ImGui::TreePop();
             ImGui::Spacing();
         }
-
-        IMGUI_DEMO_MARKER("Configuration/Capture, Logging");
-        if (ImGui::TreeNode("Capture/Logging"))
-        {
-            HelpMarker(
-                "The logging API redirects all text output so you can easily capture the content of "
-                "a window or a block. Tree nodes can be automatically expanded.\n"
-                "Try opening any of the contents below in this window and then click one of the \"Log To\" button.");
-            ImGui::LogButtons();
-
-            HelpMarker("You can also call ImGui::LogText() to output directly to the log without a visual output.");
-            if (ImGui::Button("Copy \"Hello, world!\" to clipboard"))
-            {
-                ImGui::LogToClipboard();
-                ImGui::LogText("Hello, world!");
-                ImGui::LogFinish();
-            }
-            ImGui::TreePop();
-        }
     }
 
     IMGUI_DEMO_MARKER("Window options");
@@ -5712,14 +5693,8 @@ void ImGui::ShowAboutWindow(bool* p_open)
         ImGuiIO& io = ImGui::GetIO();
         ImGuiStyle& style = ImGui::GetStyle();
 
-        bool copy_to_clipboard = ImGui::Button("Copy to clipboard");
         ImVec2 child_size = ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 18);
         ImGui::BeginChildFrame(ImGui::GetID("cfg_infos"), child_size, ImGuiWindowFlags_NoMove);
-        if (copy_to_clipboard)
-        {
-            ImGui::LogToClipboard();
-            ImGui::LogText("```\n"); // Back quotes will make text appears without formatting when pasting on GitHub
-        }
 
         ImGui::Text("Dear ImGui %s (%d)", IMGUI_VERSION, IMGUI_VERSION_NUM);
         ImGui::Separator();
@@ -5812,11 +5787,6 @@ void ImGui::ShowAboutWindow(bool* p_open)
         ImGui::Text("style.ItemSpacing: %.2f,%.2f", style.ItemSpacing.x, style.ItemSpacing.y);
         ImGui::Text("style.ItemInnerSpacing: %.2f,%.2f", style.ItemInnerSpacing.x, style.ItemInnerSpacing.y);
 
-        if (copy_to_clipboard)
-        {
-            ImGui::LogText("\n```\n");
-            ImGui::LogFinish();
-        }
         ImGui::EndChildFrame();
     }
     ImGui::End();
@@ -5977,29 +5947,6 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
 
         if (ImGui::BeginTabItem("Colors"))
         {
-            static int output_dest = 0;
-            static bool output_only_modified = true;
-            if (ImGui::Button("Export"))
-            {
-                if (output_dest == 0)
-                    ImGui::LogToClipboard();
-                else
-                    ImGui::LogToTTY();
-                ImGui::LogText("ImVec4* colors = ImGui::GetStyle().Colors;" IM_NEWLINE);
-                for (int i = 0; i < ImGuiCol_COUNT; i++)
-                {
-                    const auto col = style.Colors[i];
-                    const char* name = ImGui::GetStyleColorName(i);
-                    if (!output_only_modified || col != ref->Colors[i]) {
-                        ImGui::LogText("colors[ImGuiCol_%s]%*s= ImColorf(%.2ff, %.2ff, %.2ff, %.2ff);" IM_NEWLINE,
-                            name, 23 - (int)strlen(name), "", col.r, col.g, col.b, col.a);
-                    }
-                }
-                ImGui::LogFinish();
-            }
-            ImGui::SameLine(); ImGui::SetNextItemWidth(120); ImGui::Combo("##output_type", &output_dest, "To Clipboard\0To TTY\0");
-            ImGui::SameLine(); ImGui::Checkbox("Only Modified Colors", &output_only_modified);
-
             static ImGuiTextFilter filter;
             filter.Draw("Filter colors", ImGui::GetFontSize() * 16);
 
@@ -6119,7 +6066,6 @@ void ImGui::ShowStyleEditor(ImGuiStyle* ref)
 
 void ImGui::ShowUserGuide()
 {
-    ImGuiIO& io = ImGui::GetIO();
     ImGui::BulletText("Double-click on title bar to collapse window.");
     ImGui::BulletText(
         "Click and drag on lower corner to resize window\n"
@@ -6342,8 +6288,6 @@ struct ExampleAppConsole
         if (ImGui::SmallButton("Clear")) {
             ClearLog();
         }
-        ImGui::SameLine();
-        bool copy_to_clipboard = ImGui::SmallButton("Copy");
 
         ImGui::Separator();
 
@@ -6396,8 +6340,7 @@ struct ExampleAppConsole
             // - Split them into same height items would be simpler and facilitate random-seeking into your list.
             // - Consider using manual call to IsRectVisible() and skipping extraneous decoration from your items.
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
-            if (copy_to_clipboard)
-                ImGui::LogToClipboard();
+
             for (const auto& item : Items)
             {
                 if (!Filter.PassFilter(item))
@@ -6421,9 +6364,6 @@ struct ExampleAppConsole
                 ImGui::TextUnformatted(item.data(), item.data() + item.size());
                 if (has_color)
                     ImGui::PopStyleColor();
-            }
-            if (copy_to_clipboard) {
-                ImGui::LogFinish();
             }
 
             // Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
@@ -6689,8 +6629,6 @@ struct ExampleAppLog
         ImGui::SameLine();
         bool clear = ImGui::Button("Clear");
         ImGui::SameLine();
-        bool copy = ImGui::Button("Copy");
-        ImGui::SameLine();
         Filter.Draw("Filter", -100.0f);
 
         ImGui::Separator();
@@ -6699,8 +6637,6 @@ struct ExampleAppLog
         {
             if (clear)
                 Clear();
-            if (copy)
-                ImGui::LogToClipboard();
 
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
             const char* buf = Buf.begin();

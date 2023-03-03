@@ -697,16 +697,6 @@ namespace ImGui
     bool TabItemButton(const char* label, ImGuiTabItemFlags flags = 0);      // create a Tab behaving like a button. return true when clicked. cannot be selected in the tab bar.
     void SetTabItemClosed(const char* tab_or_docked_window_label);           // notify TabBar or Docking system of a closed tab/window ahead (useful to reduce visual flicker on reorderable tab bars). For tab-bar: call after BeginTabBar() and before Tab submissions. Otherwise call with a window name.
 
-    // Logging/Capture
-    // - All text output from the interface can be captured into tty/file/clipboard. By default, tree nodes are automatically opened during logging.
-    void LogToTTY(int auto_open_depth = -1);                                 // start logging to tty (stdout)
-    void LogToFile(int auto_open_depth = -1, const char* filename = NULL);   // start logging to file
-    void LogToClipboard(int auto_open_depth = -1);                           // start logging to OS clipboard
-    void LogFinish();                                                        // stop logging (close file, etc.)
-    void LogButtons();                                                       // helper to display buttons for logging to tty/file/clipboard
-    void LogText(const char* fmt, ...) IM_FMTARGS(1);                        // pass text data straight to log (without being displayed)
-    void LogTextV(const char* fmt, va_list args) IM_FMTLIST(1);
-
     // Drag and Drop
     // - On source items, call BeginDragDropSource(), if it returns true also call SetDragDropPayload() + EndDragDropSource().
     // - On target candidates, call BeginDragDropTarget(), if it returns true also call AcceptDragDropPayload() + EndDragDropTarget().
@@ -815,7 +805,6 @@ namespace ImGui
     void          SetNextFrameWantCaptureMouse(bool want_capture_mouse);              // Override io.WantCaptureMouse flag next frame (said flag is left for your application to handle, typical when true it instucts your app to ignore inputs). This is equivalent to setting "io.WantCaptureMouse = want_capture_mouse;" after the next NewFrame() call.
 
     // Clipboard Utilities
-    // - Also see the LogToClipboard() function to capture GUI into clipboard, or easily output text data to the clipboard.
     const char*   GetClipboardText();
     void          SetClipboardText(const char* text);
 
@@ -1727,7 +1716,6 @@ struct ImGuiIO
     float DeltaTime = 1.0f / 60.0f;             // Time elapsed since last frame, in seconds. May change every frame.
     float IniSavingRate = 5.0f;                 // Minimum time between saving positions/sizes to .ini file, in seconds.
     const char* IniFilename = "imgui.ini";      // Path to .ini file (important: default "imgui.ini" is relative to current working dir!). Set NULL to disable automatic .ini loading/saving or if you want to manually call LoadIniSettingsXXX() / SaveIniSettingsXXX() functions.
-    const char* LogFilename = "imgui_log.txt";  // Path to .log file (default parameter to ImGui::LogToFile when no file is specified).
     float MouseDoubleClickTime = 0.30f;         // Time for a double-click, in seconds.
     float MouseDoubleClickMaxDist = 6.0f;       // Distance threshold to stay in to validate a double-click, in pixels.
     float MouseDragThreshold = 6.0f;            // Distance threshold before considering we are dragging.
