@@ -1,46 +1,6 @@
 // dear imgui, v1.89.3 WIP
 // (main code and documentation)
 
-/*
-Index of this file:
-
-CODE
-(search for "[SECTION]" in the code to find them)
-
-// [SECTION] INCLUDES
-// [SECTION] FORWARD DECLARATIONS
-// [SECTION] CONTEXT AND MEMORY ALLOCATORS
-// [SECTION] USER FACING STRUCTURES (ImGuiStyle, ImGuiIO)
-// [SECTION] MISC HELPERS/UTILITIES (Geometry functions)
-// [SECTION] MISC HELPERS/UTILITIES (String, Format, Hash functions)
-// [SECTION] MISC HELPERS/UTILITIES (File functions)
-// [SECTION] MISC HELPERS/UTILITIES (ImText* functions)
-// [SECTION] MISC HELPERS/UTILITIES (Color functions)
-// [SECTION] ImGuiStorage
-// [SECTION] ImGuiTextFilter
-// [SECTION] ImGuiTextBuffer, ImGuiTextIndex
-// [SECTION] ImGuiListClipper
-// [SECTION] STYLING
-// [SECTION] RENDER HELPERS
-// [SECTION] INITIALIZATION, SHUTDOWN
-// [SECTION] MAIN CODE (most of the code! lots of stuff, needs tidying up!)
-// [SECTION] INPUTS
-// [SECTION] ERROR CHECKING
-// [SECTION] LAYOUT
-// [SECTION] SCROLLING
-// [SECTION] TOOLTIPS
-// [SECTION] POPUPS
-// [SECTION] KEYBOARD/GAMEPAD NAVIGATION
-// [SECTION] DRAG AND DROP
-// [SECTION] SETTINGS
-// [SECTION] LOCALIZATION
-// [SECTION] VIEWPORTS, PLATFORM WINDOWS
-// [SECTION] PLATFORM DEPENDENT HELPERS
-// [SECTION] METRICS/DEBUGGER WINDOW
-// [SECTION] DEBUG LOG WINDOW
-// [SECTION] OTHER DEBUG TOOLS (ITEM PICKER, STACK TOOL)
-*/
-
 //-------------------------------------------------------------------------
 // [SECTION] INCLUDES
 //-------------------------------------------------------------------------
@@ -56,6 +16,7 @@ CODE
 #include <bitset>
 #include <algorithm>
 #include <ranges>
+#include <format>
 
 namespace stdr = std::ranges;
 namespace stdv = std::views;
@@ -156,11 +117,11 @@ static ImGuiWindow*     CreateNewWindow(const char* name, ImGuiWindowFlags flags
 static ImVec2           CalcNextScrollFromScrollTargetAndClamp(ImGuiWindow* window);
 
 // Settings
-static void             WindowSettingsHandler_ClearAll(ImGuiContext*, ImGuiSettingsHandler*);
-static void*            WindowSettingsHandler_ReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name);
-static void             WindowSettingsHandler_ReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line);
-static void             WindowSettingsHandler_ApplyAll(ImGuiContext*, ImGuiSettingsHandler*);
-static void             WindowSettingsHandler_WriteAll(ImGuiContext*, ImGuiSettingsHandler*, ImGuiTextBuffer* buf);
+static void  WindowSettingsHandler_ClearAll(ImGuiContext*, ImGuiSettingsHandler*);
+static void* WindowSettingsHandler_ReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name);
+static void  WindowSettingsHandler_ReadLine(ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line);
+static void  WindowSettingsHandler_ApplyAll(ImGuiContext*, ImGuiSettingsHandler*);
+static void  WindowSettingsHandler_WriteAll(ImGuiContext*, ImGuiSettingsHandler*, std::vector<char>& buf);
 
 // Platform Dependents default implementation for IO functions
 static const char*      GetClipboardTextFn_DefaultImpl(void* user_data);
@@ -10446,11 +10407,10 @@ void ImGui::LoadIniSettingsFromMemory(const char* ini_data, size_t ini_size)
     // For our convenience and to make the code simpler, we'll also write zero-terminators within the buffer. So let's create a writable copy..
     if (ini_size == 0)
         ini_size = strlen(ini_data);
-    g.SettingsIniData.Buf.resize((int)ini_size + 1);
-    char* const buf = g.SettingsIniData.Buf.Data;
-    char* const buf_end = buf + ini_size;
-    memcpy(buf, ini_data, ini_size);
-    buf_end[0] = 0;
+
+    g.SettingsIniData.resize(ini_size + 1);
+    std::copy_n(ini_data, ini_size, g.SettingsIniData.begin());
+    g.SettingsIniData.back() = '\0';
 
     // Call pre-read handlers
     // Some types will clear their data (e.g. dock information) some types will allow merge/override (window)
@@ -10464,6 +10424,8 @@ void ImGui::LoadIniSettingsFromMemory(const char* ini_data, size_t ini_size)
     ImGuiSettingsHandler* entry_handler = NULL;
 
     char* line_end = NULL;
+    const auto buf = g.SettingsIniData.data();
+    const auto buf_end = buf + ini_size;
     for (char* line = buf; line < buf_end; line = line_end + 1)
     {
         // Skip new lines markers, then find end of the line
@@ -10499,7 +10461,7 @@ void ImGui::LoadIniSettingsFromMemory(const char* ini_data, size_t ini_size)
     g.SettingsLoaded = true;
 
     // [DEBUG] Restore untouched copy so it can be browsed in Metrics (not strictly necessary)
-    memcpy(buf, ini_data, ini_size);
+    std::copy_n(ini_data, ini_size, g.SettingsIniData.begin());
 
     // Call post-read handlers
     for (auto& handler : g.SettingsHandlers) {
@@ -10530,15 +10492,14 @@ const char* ImGui::SaveIniSettingsToMemory(size_t* out_size)
 {
     ImGuiContext& g = *GImGui;
     g.SettingsDirtyTimer = 0.0f;
-    g.SettingsIniData.Buf.resize(0);
-    g.SettingsIniData.Buf.push_back(0);
+    g.SettingsIniData.clear();
     for (auto& handler : g.SettingsHandlers) {
-        handler.WriteAllFn(&g, &handler, &g.SettingsIniData);
+        handler.WriteAllFn(&g, &handler, g.SettingsIniData);
     }
     if (out_size) {
         *out_size = (size_t)g.SettingsIniData.size();
     }
-    return g.SettingsIniData.c_str();
+    return g.SettingsIniData.data();
 }
 
 ImGuiWindowSettings* ImGui::CreateNewWindowSettings(const char* name)
@@ -10623,9 +10584,15 @@ static void WindowSettingsHandler_ReadLine(ImGuiContext*, ImGuiSettingsHandler*,
     ImGuiWindowSettings* settings = (ImGuiWindowSettings*)entry;
     int x, y;
     int i;
-    if (sscanf(line, "Pos=%i,%i", &x, &y) == 2)         { settings->Pos = ImVec2ih((short)x, (short)y); }
-    else if (sscanf(line, "Size=%i,%i", &x, &y) == 2)   { settings->Size = ImVec2ih((short)x, (short)y); }
-    else if (sscanf(line, "Collapsed=%d", &i) == 1)     { settings->Collapsed = (i != 0); }
+    if (sscanf(line, "Pos=%i,%i", &x, &y) == 2) {
+        settings->Pos = ImVec2ih((short)x, (short)y);
+    }
+    else if (sscanf(line, "Size=%i,%i", &x, &y) == 2) {
+        settings->Size = ImVec2ih((short)x, (short)y);
+    }
+    else if (sscanf(line, "Collapsed=%d", &i) == 1) {
+        settings->Collapsed = (i != 0);
+    }
 }
 
 // Apply to existing windows (if any)
@@ -10641,7 +10608,7 @@ static void WindowSettingsHandler_ApplyAll(ImGuiContext* ctx, ImGuiSettingsHandl
         }
 }
 
-static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf)
+static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, std::vector<char>& buf)
 {
     // Gather data from windows that were active during this session
     // (if a window wasn't opened in this session we preserve its settings)
@@ -10666,17 +10633,18 @@ static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandl
     }
 
     // Write to text buffer
-    buf->reserve(buf->size() + g.SettingsWindows.size() * 6); // ballpark reserve
     for (ImGuiWindowSettings* settings = g.SettingsWindows.begin(); settings != NULL; settings = g.SettingsWindows.next_chunk(settings))
     {
         if (settings->WantDelete)
             continue;
         const char* settings_name = settings->GetName();
-        buf->appendf("[%s][%s]\n", handler->TypeName, settings_name);
-        buf->appendf("Pos=%d,%d\n", settings->Pos.x, settings->Pos.y);
-        buf->appendf("Size=%d,%d\n", settings->Size.x, settings->Size.y);
-        buf->appendf("Collapsed=%d\n", settings->Collapsed);
-        buf->append("\n");
+
+        auto itr = std::back_inserter(buf);
+        itr = std::format_to(itr, "[{}][{}]\n", handler->TypeName, settings_name);
+        itr = std::format_to(itr, "Pos={},{}\n", settings->Pos.x, settings->Pos.y);
+        itr = std::format_to(itr, "Size={},{}\n", settings->Size.x, settings->Size.y);
+        itr = std::format_to(itr, "Collapsed={:d}\n", settings->Collapsed);
+        itr = '\n';
     }
 }
 
@@ -11400,7 +11368,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
 
         if (TreeNode("SettingsIniData", "Settings unpacked data (.ini): %d bytes", g.SettingsIniData.size()))
         {
-            InputTextMultiline("##Ini", (char*)(void*)g.SettingsIniData.c_str(), g.SettingsIniData.Buf.Size, ImVec2(-FLT_MIN, GetTextLineHeight() * 20), ImGuiInputTextFlags_ReadOnly);
+            InputTextMultiline("##Ini", g.SettingsIniData.data(), g.SettingsIniData.size(), ImVec2(-FLT_MIN, GetTextLineHeight() * 20), ImGuiInputTextFlags_ReadOnly);
             TreePop();
         }
         TreePop();

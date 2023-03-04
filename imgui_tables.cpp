@@ -3350,7 +3350,7 @@ static void TableSettingsHandler_ReadLine(ImGuiContext*, ImGuiSettingsHandler*, 
     }
 }
 
-static void TableSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* buf)
+static void TableSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, std::vector<char>& buf)
 {
     ImGuiContext& g = *ctx;
     for (ImGuiTableSettings* settings = g.SettingsTables.begin(); settings != NULL; settings = g.SettingsTables.next_chunk(settings))
@@ -3367,10 +3367,13 @@ static void TableSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandle
         if (!save_size && !save_visible && !save_order && !save_sort)
             continue;
 
-        buf->reserve(buf->size() + 30 + settings->ColumnsCount * 50); // ballpark reserve
-        buf->appendf("[%s][0x%08X,%d]\n", handler->TypeName, settings->ID, settings->ColumnsCount);
+        buf.reserve(buf.size() + 30 + settings->ColumnsCount * 50); // ballpark reserve
+
+        auto itr = std::back_inserter(buf);
+
+        itr = std::format_to(itr, "[{}][{:#08x},{}]\n", handler->TypeName, settings->ID, settings->ColumnsCount);
         if (settings->RefScale != 0.0f)
-            buf->appendf("RefScale=%g\n", settings->RefScale);
+            itr = std::format_to(itr, "RefScale={}\n", settings->RefScale);
         ImGuiTableColumnSettings* column = settings->GetColumnSettings();
         for (int column_n = 0; column_n < settings->ColumnsCount; column_n++, column++)
         {
@@ -3378,16 +3381,22 @@ static void TableSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandle
             bool save_column = column->UserID != 0 || save_size || save_visible || save_order || (save_sort && column->SortOrder != -1);
             if (!save_column)
                 continue;
-            buf->appendf("Column %-2d", column_n);
-            if (column->UserID != 0)                    buf->appendf(" UserID=%08X", column->UserID);
-            if (save_size && column->IsStretch)         buf->appendf(" Weight=%.4f", column->WidthOrWeight);
-            if (save_size && !column->IsStretch)        buf->appendf(" Width=%d", (int)column->WidthOrWeight);
-            if (save_visible)                           buf->appendf(" Visible=%d", column->IsEnabled);
-            if (save_order)                             buf->appendf(" Order=%d", column->DisplayOrder);
-            if (save_sort && column->SortOrder != -1)   buf->appendf(" Sort=%d%c", column->SortOrder, (column->SortDirection == ImGuiSortDirection_Ascending) ? 'v' : '^');
-            buf->append("\n");
+            itr = std::format_to(itr, "Column {}", column_n);
+            if (column->UserID != 0)
+                itr = std::format_to(itr, " UserID={:#08x}", column->UserID);
+            if (save_size && column->IsStretch)
+                itr = std::format_to(itr, " Weight={:.4f}", column->WidthOrWeight);
+            if (save_size && !column->IsStretch)
+                itr = std::format_to(itr, " Width={}", (int)column->WidthOrWeight);
+            if (save_visible)
+                itr = std::format_to(itr, " Visible={}", (std::uint8_t)column->IsEnabled);
+            if (save_order)
+                itr = std::format_to(itr, " Order={}", column->DisplayOrder);
+            if (save_sort && column->SortOrder != -1)
+                itr = std::format_to(itr, " Sort={}{}", column->SortOrder, (column->SortDirection == ImGuiSortDirection_Ascending) ? 'v' : '^');
+            itr = '\n';
         }
-        buf->append("\n");
+        itr = '\n';
     }
 }
 

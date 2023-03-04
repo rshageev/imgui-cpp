@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <ranges>
 #include <map>
+#include <format>
 
 namespace stdr = std::ranges;
 namespace stdv = std::views;
@@ -1342,7 +1343,7 @@ struct ImGuiSettingsHandler
     void* (*ReadOpenFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler, const char* name) = nullptr;             // Read: Called when entering into a new ini entry e.g. "[Window][Name]"
     void (*ReadLineFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler, void* entry, const char* line) = nullptr; // Read: Called for every line of text within an ini entry
     void (*ApplyAllFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler) = nullptr;                                // Read: Called after reading (in registration order)
-    void (*WriteAllFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler, ImGuiTextBuffer* out_buf) = nullptr;      // Write: Output every entries into 'out_buf'
+    void (*WriteAllFn)(ImGuiContext* ctx, ImGuiSettingsHandler* handler, std::vector<char>& out_buf) = nullptr;      // Write: Output every entries into 'out_buf'
 };
 
 //-----------------------------------------------------------------------------
@@ -1669,7 +1670,7 @@ struct ImGuiContext
     // Settings
     bool SettingsLoaded = false;
     float SettingsDirtyTimer = 0.0f;                    // Save .ini Settings to memory when time reaches zero
-    ImGuiTextBuffer SettingsIniData;                    // In memory .ini settings
+    std::vector<char> SettingsIniData;                  // In memory .ini settings
     std::vector<ImGuiSettingsHandler> SettingsHandlers; // List of .ini settings handlers
     ImChunkStream<ImGuiWindowSettings> SettingsWindows; // ImGuiWindow .ini settings entries
     ImChunkStream<ImGuiTableSettings> SettingsTables;   // ImGuiTable .ini settings entries
