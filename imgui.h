@@ -1946,27 +1946,6 @@ struct ImGuiTextFilter
     int CountGrep = 0;
 };
 
-// Helper: Growable text buffer for logging/accumulating text
-// (this could be called 'ImGuiTextBuilder' / 'ImGuiStringBuilder')
-struct ImGuiTextBuffer
-{
-    ImVector<char> Buf;
-    static char EmptyString[1];
-
-    ImGuiTextBuffer() {}
-    inline char         operator[](int i) const { IM_ASSERT(Buf.Data != NULL); return Buf.Data[i]; }
-    const char*         begin() const           { return Buf.Data ? &Buf.front() : EmptyString; }
-    const char*         end() const             { return Buf.Data ? &Buf.back() : EmptyString; }   // Buf is zero-terminated, so end() will point on the zero-terminator
-    int                 size() const            { return Buf.Size ? Buf.Size - 1 : 0; }
-    bool                empty() const           { return Buf.Size <= 1; }
-    void                clear()                 { Buf.clear(); }
-    void                reserve(int capacity)   { Buf.reserve(capacity); }
-    const char*         c_str() const           { return Buf.Data ? Buf.Data : EmptyString; }
-    void      append(const char* str, const char* str_end = NULL);
-    void      appendf(const char* fmt, ...) IM_FMTARGS(2);
-    void      appendfv(const char* fmt, va_list args) IM_FMTLIST(2);
-};
-
 // Helper: Key->Value storage
 // Typically you don't have to worry about this since a storage is held within each Window.
 // We use it to e.g. store collapse state for a tree (Int 0/1)

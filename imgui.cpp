@@ -1176,63 +1176,6 @@ bool ImGuiTextFilter::PassFilter(std::string_view text_view) const
 }
 
 //-----------------------------------------------------------------------------
-// [SECTION] ImGuiTextBuffer, ImGuiTextIndex
-//-----------------------------------------------------------------------------
-
-// On some platform vsnprintf() takes va_list by reference and modifies it.
-// va_copy is the 'correct' way to copy a va_list but Visual Studio prior to 2013 doesn't have it.
-#ifndef va_copy
-#if defined(__GNUC__) || defined(__clang__)
-#define va_copy(dest, src) __builtin_va_copy(dest, src)
-#else
-#define va_copy(dest, src) (dest = src)
-#endif
-#endif
-
-char ImGuiTextBuffer::EmptyString[1] = { 0 };
-
-void ImGuiTextBuffer::append(const char* str, const char* str_end)
-{
-    int len = str_end ? (int)(str_end - str) : (int)strlen(str);
-
-    // Add zero-terminator the first time
-    const int write_off = (Buf.Size != 0) ? Buf.Size : 1;
-    const int needed_sz = write_off + len;
-    if (write_off + len >= Buf.Capacity)
-    {
-        int new_capacity = Buf.Capacity * 2;
-        Buf.reserve(needed_sz > new_capacity ? needed_sz : new_capacity);
-    }
-
-    Buf.resize(needed_sz);
-    memcpy(&Buf[write_off - 1], str, (size_t)len);
-    Buf[write_off - 1 + len] = 0;
-}
-
-void ImGuiTextBuffer::appendf(const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    appendfv(fmt, args);
-    va_end(args);
-}
-
-// Helper: Text buffer for logging/accumulating text
-void ImGuiTextBuffer::appendfv(const char* fmt, va_list args)
-{
-    va_list args_copy;
-    va_copy(args_copy, args);
-
-    std::string str = ImFormatStringToStringV(fmt, args);
-
-    for (char ch : str) {
-        Buf.push_back(ch);
-    }
-
-    va_end(args_copy);
-}
-
-//-----------------------------------------------------------------------------
 // [SECTION] ImGuiListClipper
 // This is currently not as flexible/powerful as it should be and really confusing/spaghetti, mostly because we changed
 // the API mid-way through development and support two ways to using the clipper, needs some rework (see TODO)
