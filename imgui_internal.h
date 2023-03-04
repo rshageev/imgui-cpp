@@ -2001,7 +2001,7 @@ struct ImGuiTableColumn
     float ContentMaxXUnfrozen = 0.0f;
     float ContentMaxXHeadersUsed = 0.0f;         // Contents maximum position for headers rows (regardless of freezing). TableHeader() automatically softclip itself + report ideal desired size, to avoid creating extraneous draw calls
     float ContentMaxXHeadersIdeal = 0.0f;
-    ImS16 NameOffset = -1;                                   // Offset into parent ColumnsNames[]
+    std::string Name;
     ImGuiTableColumnIdx DisplayOrder = -1;                   // Index within Table's IndexToDisplayOrder[] (column may be reordered by users)
     ImGuiTableColumnIdx IndexWithinEnabledSet = -1;          // Index within enabled/visible set (<= IndexToDisplayOrder)
     ImGuiTableColumnIdx PrevEnabledColumn = -1;              // Index of prev enabled/visible column within Columns[], -1 if first enabled/visible column
@@ -2102,7 +2102,6 @@ struct ImGuiTable
     ImRect HostBackupInnerClipRect;                     // Backup of InnerWindow->ClipRect during PushTableBackground()/PopTableBackground()
     ImGuiWindow* OuterWindow = nullptr;                 // Parent window for the table
     ImGuiWindow* InnerWindow = nullptr;                 // Window holding the table data (== OuterWindow or a child window)
-    ImGuiTextBuffer ColumnsNames;                       // Contiguous buffer holding columns names
     ImDrawListSplitter* DrawSplitter = nullptr;         // Shortcut to TempData->DrawSplitter while in table. Isolate draw commands per columns to avoid switching clip rect constantly
     ImGuiTableInstanceData InstanceDataFirst;
     ImVector<ImGuiTableInstanceData> InstanceDataExtra; // FIXME-OPT: Using a small-vector pattern would be good.

@@ -531,11 +531,6 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     // Because we cannot safely assert in EndTable() when no rows have been created, this seems like our best option.
     inner_window->SkipItems = true;
 
-    // Clear names
-    // At this point the ->NameOffset field of each column will be invalid until TableUpdateLayout() or the first call to TableSetupColumn()
-    if (table->ColumnsNames.Buf.Size > 0)
-        table->ColumnsNames.Buf.resize(0);
-
     // Apply queued resizing/reordering/hiding requests
     TableBeginApplyRequests(table);
 
@@ -705,7 +700,7 @@ void ImGui::TableUpdateLayout(ImGuiTable* table)
         if (table->DeclColumnsCount <= column_n)
         {
             TableSetupColumnFlags(table, column, ImGuiTableColumnFlags_None);
-            column->NameOffset = -1;
+            column->Name = "";
             column->UserID = 0;
             column->InitStretchWeightOrWidth = -1.0f;
         }
@@ -1429,11 +1424,8 @@ void ImGui::TableSetupColumn(const char* label, ImGuiTableColumnFlags flags, flo
     }
 
     // Store name (append with zero-terminator in contiguous buffer)
-    column->NameOffset = -1;
-    if (label != NULL && label[0] != 0)
-    {
-        column->NameOffset = (ImS16)table->ColumnsNames.size();
-        table->ColumnsNames.append(label, label + strlen(label) + 1);
+    if (label) {
+        column->Name = label;
     }
 }
 
@@ -1501,11 +1493,8 @@ const char* ImGui::TableGetColumnName(int column_n)
 const char* ImGui::TableGetColumnName(const ImGuiTable* table, int column_n)
 {
     if (table->IsLayoutLocked == false && column_n >= table->DeclColumnsCount)
-        return ""; // NameOffset is invalid at this point
-    const ImGuiTableColumn* column = &table->Columns[column_n];
-    if (column->NameOffset == -1)
         return "";
-    return &table->ColumnsNames.Buf[column->NameOffset];
+    return table->Columns[column_n].Name.c_str();
 }
 
 // Change user accessible enabled/disabled state of a column (often perceived as "showing/hiding" from users point of view)
