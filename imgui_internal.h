@@ -235,15 +235,6 @@ namespace ImStb
 #define IM_MEMALIGN(_OFF,_ALIGN)        (((_OFF) + ((_ALIGN) - 1)) & ~((_ALIGN) - 1))           // Memory align e.g. IM_ALIGN(0,4)=0, IM_ALIGN(1,4)=4, IM_ALIGN(4,4)=4, IM_ALIGN(5,4)=8
 #define IM_F32_TO_INT8_UNBOUND(_VAL)    ((int)((_VAL) * 255.0f + ((_VAL)>=0 ? 0.5f : -0.5f)))   // Unsaturated, for display purpose
 #define IM_F32_TO_INT8_SAT(_VAL)        ((int)(ImSaturate(_VAL) * 255.0f + 0.5f))               // Saturated, always output 0..255
-#define IM_FLOOR(_VAL)                  ((float)(int)(_VAL))                                    // ImFloor() is not inlined in MSVC debug builds
-#define IM_ROUND(_VAL)                  ((float)(int)((_VAL) + 0.5f))                           //
-
-// Enforce cdecl calling convention for functions called by the standard library, in case compilation settings changed the default to e.g. __vectorcall
-#ifdef _MSC_VER
-#define IMGUI_CDECL __cdecl
-#else
-#define IMGUI_CDECL
-#endif
 
 // Warnings
 #if defined(_MSC_VER) && !defined(__clang__)
@@ -304,11 +295,6 @@ template<class T>
 ImGuiID ImHash(T& data, ImGuiID seed = 0) {
     return ImHashData(std::addressof(data), sizeof(T), seed);
 }
-
-// Helpers: Sorting
-#ifndef ImQsort
-static inline void ImQsort(void* base, size_t count, size_t size_of_element, int(IMGUI_CDECL *compare_func)(void const*, void const*)) { if (count > 1) qsort(base, count, size_of_element, compare_func); }
-#endif
 
 // Helpers: Bit manipulation
 static inline bool      ImIsPowerOfTwo(int v)           { return v != 0 && (v & (v - 1)) == 0; }
@@ -375,23 +361,11 @@ void* ImFileLoadToMemory(const char* filename, const char* mode, size_t* out_fil
 // Helpers: Maths
 // - Wrapper for standard libs functions. (Note that imgui_demo.cpp does _not_ use them to keep the code easy to copy)
 #ifndef IMGUI_DISABLE_DEFAULT_MATH_FUNCTIONS
-#define ImFabs(X)           fabsf(X)
-#define ImSqrt(X)           sqrtf(X)
 #define ImFmod(X, Y)        fmodf((X), (Y))
-#define ImCos(X)            cosf(X)
-#define ImSin(X)            sinf(X)
-#define ImAcos(X)           acosf(X)
 #define ImAtan2(Y, X)       atan2f((Y), (X))
-#define ImAtof(STR)         atof(STR)
-//#define ImFloorStd(X)     floorf(X)           // We use our own, see ImFloor() and ImFloorSigned()
 #define ImCeil(X)           ceilf(X)
 inline float  ImPow(float x, float y)    { return powf(x, y); }          // DragBehaviorT/SliderBehaviorT uses ImPow with either float/double and need the precision
 inline double ImPow(double x, double y)  { return pow(x, y); }
-inline float  ImLog(float x)             { return logf(x); }             // DragBehaviorT/SliderBehaviorT uses ImLog with either float/double and need the precision
-inline double ImLog(double x)            { return log(x); }
-inline int    ImAbs(int x)               { return x < 0 ? -x : x; }
-inline float  ImAbs(float x)             { return fabsf(x); }
-inline double ImAbs(double x)            { return fabs(x); }
 inline float  ImSign(float x)            { return (x < 0.0f) ? -1.0f : (x > 0.0f) ? 1.0f : 0.0f; } // Sign operator - returns -1, 0 or 1 based on sign of argument
 inline double ImSign(double x)           { return (x < 0.0) ? -1.0 : (x > 0.0) ? 1.0 : 0.0; }
 inline float  ImRsqrt(float x)           { return 1.0f / sqrtf(x); }
@@ -407,8 +381,6 @@ template<typename T>
 T ImClamp(T v, T mn, T mx) { return (v < mn) ? mn : (v > mx) ? mx : v; }
 template<typename T>
 T ImLerp(T a, T b, float t) { return (T)(a + (b - a) * t); }
-template<typename T>
-void ImSwap(T& a, T& b) { T tmp = a; a = b; b = tmp; }
 
 template<typename T>
 T ImAddClampOverflow(T a, T b, T mn, T mx) {
@@ -424,20 +396,48 @@ T ImSubClampOverflow(T a, T b, T mn, T mx) {
 }
 
 // - Misc maths helpers
-inline float  ImSaturate(float f)                                        { return (f < 0.0f) ? 0.0f : (f > 1.0f) ? 1.0f : f; }
-inline float  ImLengthSqr(const ImVec2& lhs)                             { return (lhs.x * lhs.x) + (lhs.y * lhs.y); }
-inline float  ImLengthSqr(const ImVec4& lhs)                             { return (lhs.x * lhs.x) + (lhs.y * lhs.y) + (lhs.z * lhs.z) + (lhs.w * lhs.w); }
-inline float  ImInvLength(const ImVec2& lhs, float fail_value)           { float d = (lhs.x * lhs.x) + (lhs.y * lhs.y); if (d > 0.0f) return ImRsqrt(d); return fail_value; }
-inline float  ImFloor(float f)                                           { return (float)(int)(f); }
-inline float  ImFloorSigned(float f)                                     { return (float)((f >= 0 || (float)(int)f == f) ? (int)f : (int)f - 1); } // Decent replacement for floorf()
-inline ImVec2 ImFloorSigned(const ImVec2& v)                             { return ImVec2(ImFloorSigned(v.x), ImFloorSigned(v.y)); }
-inline int    ImModPositive(int a, int b)                                { return (a + b) % b; }
-inline float  ImDot(const ImVec2& a, const ImVec2& b)                    { return a.x * b.x + a.y * b.y; }
-inline ImVec2 ImRotate(const ImVec2& v, float cos_a, float sin_a)        { return ImVec2(v.x * cos_a - v.y * sin_a, v.x * sin_a + v.y * cos_a); }
-inline float  ImLinearSweep(float current, float target, float speed)    { if (current < target) return ImMin(current + speed, target); if (current > target) return ImMax(current - speed, target); return current; }
-inline ImVec2 ImMul(const ImVec2& lhs, const ImVec2& rhs)                { return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y); }
-inline bool   ImIsFloatAboveGuaranteedIntegerPrecision(float f)          { return f <= -16777216 || f >= 16777216; }
-inline float  ImExponentialMovingAverage(float avg, float sample, int n) { avg -= avg / n; avg += sample / n; return avg; }
+inline float ImSaturate(float f) {
+    return (f < 0.0f) ? 0.0f : (f > 1.0f) ? 1.0f : f;
+}
+inline float ImLengthSqr(const ImVec2& lhs) {
+    return (lhs.x * lhs.x) + (lhs.y * lhs.y);
+}
+inline float ImLengthSqr(const ImVec4& lhs) {
+    return (lhs.x * lhs.x) + (lhs.y * lhs.y) + (lhs.z * lhs.z) + (lhs.w * lhs.w);
+}
+inline float ImFloor(float f) {
+    return (float)(int)(f);
+}
+inline float ImFloorSigned(float f) {
+    return (float)((f >= 0 || (float)(int)f == f) ? (int)f : (int)f - 1); // Decent replacement for floorf()
+} 
+inline ImVec2 ImFloorSigned(const ImVec2& v) {
+    return ImVec2(ImFloorSigned(v.x), ImFloorSigned(v.y));
+}
+inline float ImDot(const ImVec2& a, const ImVec2& b) {
+    return a.x * b.x + a.y * b.y;
+}
+inline ImVec2 ImRotate(const ImVec2& v, float cos_a, float sin_a) {
+    return ImVec2(v.x * cos_a - v.y * sin_a, v.x * sin_a + v.y * cos_a);
+}
+inline float ImLinearSweep(float current, float target, float speed) {
+    if (current < target)
+        return ImMin(current + speed, target);
+    if (current > target)
+        return ImMax(current - speed, target);
+    return current;
+}
+inline ImVec2 ImMul(const ImVec2& lhs, const ImVec2& rhs) {
+    return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y);
+}
+inline bool ImIsFloatAboveGuaranteedIntegerPrecision(float f) {
+    return f <= -16777216 || f >= 16777216;
+}
+inline float ImExponentialMovingAverage(float avg, float sample, int n) {
+    avg -= avg / n;
+    avg += sample / n;
+    return avg;
+}
 
 // Helpers: Geometry
 ImVec2 ImBezierCubicCalc(const ImVec2& p1, const ImVec2& p2, const ImVec2& p3, const ImVec2& p4, float t);
@@ -449,7 +449,7 @@ bool   ImTriangleContainsPoint(const ImVec2& a, const ImVec2& b, const ImVec2& c
 ImVec2 ImTriangleClosestPoint(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& p);
 void   ImTriangleBarycentricCoords(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& p, float& out_u, float& out_v, float& out_w);
 inline float ImTriangleArea(const ImVec2& a, const ImVec2& b, const ImVec2& c) {
-    return ImFabs((a.x * (b.y - c.y)) + (b.x * (c.y - a.y)) + (c.x * (a.y - b.y))) * 0.5f;
+    return std::abs((a.x * (b.y - c.y)) + (b.x * (c.y - a.y)) + (c.x * (a.y - b.y))) * 0.5f;
 }
 ImGuiDir ImGetDirQuadrantFromDelta(float dx, float dy);
 
@@ -504,7 +504,7 @@ struct ImRect
     void        TranslateY(float dy)                { Min.y += dy; Max.y += dy; }
     void        ClipWith(const ImRect& r)           { Min = ImMax(Min, r.Min); Max = ImMin(Max, r.Max); }                   // Simple version, may lead to an inverted rectangle, which is fine for Contains/Overlaps test but not for display.
     void        ClipWithFull(const ImRect& r)       { Min = ImClamp(Min, r.Min, r.Max); Max = ImClamp(Max, r.Min, r.Max); } // Full version, ensure both points are fully clipped.
-    void        Floor()                             { Min.x = IM_FLOOR(Min.x); Min.y = IM_FLOOR(Min.y); Max.x = IM_FLOOR(Max.x); Max.y = IM_FLOOR(Max.y); }
+    void        Floor()                             { Min.x = std::floor(Min.x); Min.y = std::floor(Min.y); Max.x = std::floor(Max.x); Max.y = std::floor(Max.y); }
     bool        IsInverted() const                  { return Min.x > Max.x || Min.y > Max.y; }
     ImVec4      ToVec4() const                      { return ImVec4(Min.x, Min.y, Max.x, Max.y); }
 };
@@ -645,11 +645,11 @@ struct ImChunkStream
 #define IM_ROUNDUP_TO_EVEN(_V)                                  ((((_V) + 1) / 2) * 2)
 #define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN                     4
 #define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX                     512
-#define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD,_MAXERROR)    ImClamp(IM_ROUNDUP_TO_EVEN((int)ImCeil(IM_PI / ImAcos(1 - ImMin((_MAXERROR), (_RAD)) / (_RAD)))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
+#define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC(_RAD,_MAXERROR)    ImClamp(IM_ROUNDUP_TO_EVEN((int)ImCeil(IM_PI / std::acos(1 - ImMin((_MAXERROR), (_RAD)) / (_RAD)))), IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MIN, IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_MAX)
 
 // Raw equation from IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC rewritten for 'r' and 'error'.
-#define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N,_MAXERROR)    ((_MAXERROR) / (1 - ImCos(IM_PI / ImMax((float)(_N), IM_PI))))
-#define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N,_RAD)     ((1 - ImCos(IM_PI / ImMax((float)(_N), IM_PI))) / (_RAD))
+#define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_R(_N,_MAXERROR)    ((_MAXERROR) / (1 - std::cos(IM_PI / ImMax((float)(_N), IM_PI))))
+#define IM_DRAWLIST_CIRCLE_AUTO_SEGMENT_CALC_ERROR(_N,_RAD)     ((1 - std::cos(IM_PI / ImMax((float)(_N), IM_PI))) / (_RAD))
 
 // ImDrawList: Lookup table size for adaptive arc drawing, cover full circle.
 #ifndef IM_DRAWLIST_ARCFAST_TABLE_SIZE
