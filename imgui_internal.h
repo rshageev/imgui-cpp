@@ -121,7 +121,6 @@ struct ImGuiOldColumnData;          // Storage data for a single column for lega
 struct ImGuiOldColumns;             // Storage data for a columns set for legacy Columns() api
 struct ImGuiPopupData;              // Storage for current popup stack
 struct ImGuiSettingsHandler;        // Storage for one type registered in the .ini file
-struct ImGuiStackSizes;             // Storage of stack sizes for debugging/asserting
 struct ImGuiStyleMod;               // Stacked style modifier, backup of modified data so we can restore it
 struct ImGuiTabBar;                 // Storage for a tab bar
 struct ImGuiTabItem;                // Storage for a tab item (within a tab bar)
@@ -1052,28 +1051,11 @@ struct ImGuiLastItemData
     ImRect DisplayRect;        // Display rectangle (only if ImGuiItemStatusFlags_HasDisplayRect is set)
 };
 
-struct ImGuiStackSizes
-{
-    size_t SizeOfIDStack = 0;
-    size_t SizeOfColorStack = 0;
-    size_t SizeOfStyleVarStack = 0;
-    size_t SizeOfFontStack = 0;
-    size_t SizeOfFocusScopeStack = 0;
-    size_t SizeOfGroupStack = 0;
-    size_t SizeOfItemFlagsStack = 0;
-    size_t SizeOfBeginPopupStack = 0;
-    size_t SizeOfDisabledStack = 0;
-
-    void SetToCurrentState();
-    void CompareWithCurrentState();
-};
-
 // Data saved for each window pushed into the stack
 struct ImGuiWindowStackData
 {
     ImGuiWindow* Window = nullptr;
     ImGuiLastItemData ParentLastItemDataBackup;
-    ImGuiStackSizes StackSizesOnBegin;      // Store size of various stacks for asserting
 };
 
 struct ImGuiShrinkWidthItem

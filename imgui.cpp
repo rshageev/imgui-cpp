@@ -4592,7 +4592,6 @@ bool ImGui::Begin(const char* name, bool* p_open, ImGuiWindowFlags flags)
     ImGuiWindowStackData window_stack_data;
     window_stack_data.Window = window;
     window_stack_data.ParentLastItemDataBackup = g.LastItemData;
-    window_stack_data.StackSizesOnBegin.SetToCurrentState();
     g.CurrentWindowStack.push_back(window_stack_data);
     if (flags & ImGuiWindowFlags_ChildMenu)
         g.BeginMenuCount++;
@@ -5217,7 +5216,6 @@ void ImGui::End()
         g.BeginMenuCount--;
     if (window->Flags & ImGuiWindowFlags_Popup)
         g.BeginPopupStack.pop_back();
-    g.CurrentWindowStack.back().StackSizesOnBegin.CompareWithCurrentState();
     g.CurrentWindowStack.pop_back();
     SetCurrentWindow(g.CurrentWindowStack.empty() ? nullptr : g.CurrentWindowStack.back().Window);
 }
@@ -7274,46 +7272,6 @@ static void ImGui::ErrorCheckEndFrameSanityChecks()
 
     IM_ASSERT_USER_ERROR(g.GroupStack.empty(), "Missing EndGroup call!");
 }
-
-// Save current stack sizes for later compare
-void ImGuiStackSizes::SetToCurrentState()
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    SizeOfIDStack = window->IDStack.size();
-    SizeOfColorStack = g.ColorStack.size();
-    SizeOfStyleVarStack = g.StyleVarStack.size();
-    SizeOfFontStack = g.FontStack.size();
-    SizeOfFocusScopeStack = g.FocusScopeStack.size();
-    SizeOfGroupStack = g.GroupStack.size();
-    SizeOfItemFlagsStack = g.ItemFlagsStack.size();
-    SizeOfBeginPopupStack = g.BeginPopupStack.size();
-    SizeOfDisabledStack = g.DisabledStackSize;
-}
-
-// Compare to detect usage errors
-void ImGuiStackSizes::CompareWithCurrentState()
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    IM_UNUSED(window);
-
-    // Window stacks
-    // NOT checking: DC.ItemWidth, DC.TextWrapPos (per window) to allow user to conveniently push once and not pop (they are cleared on Begin)
-    IM_ASSERT(SizeOfIDStack         == window->IDStack.size()     && "PushID/PopID or TreeNode/TreePop Mismatch!");
-
-    // Global stacks
-    // For color, style and font stacks there is an incentive to use Push/Begin/Pop/.../End patterns, so we relax our checks a little to allow them.
-    IM_ASSERT(SizeOfGroupStack      == g.GroupStack.size()        && "BeginGroup/EndGroup Mismatch!");
-    IM_ASSERT(SizeOfBeginPopupStack == g.BeginPopupStack.size()   && "BeginPopup/EndPopup or BeginMenu/EndMenu Mismatch!");
-    IM_ASSERT(SizeOfDisabledStack   == g.DisabledStackSize      && "BeginDisabled/EndDisabled Mismatch!");
-    IM_ASSERT(SizeOfItemFlagsStack  >= g.ItemFlagsStack.size()    && "PushItemFlag/PopItemFlag Mismatch!");
-    IM_ASSERT(SizeOfColorStack      >= g.ColorStack.size()        && "PushStyleColor/PopStyleColor Mismatch!");
-    IM_ASSERT(SizeOfStyleVarStack   >= g.StyleVarStack.size()     && "PushStyleVar/PopStyleVar Mismatch!");
-    IM_ASSERT(SizeOfFontStack       >= g.FontStack.size()         && "PushFont/PopFont Mismatch!");
-    IM_ASSERT(SizeOfFocusScopeStack == g.FocusScopeStack.size()   && "PushFocusScope/PopFocusScope Mismatch!");
-}
-
 
 //-----------------------------------------------------------------------------
 // [SECTION] LAYOUT
