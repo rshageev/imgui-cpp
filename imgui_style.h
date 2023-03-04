@@ -1,6 +1,7 @@
 #pragma once
 
 #include "imgui_types.h"
+#include "imgui_math.h"
 #include "imgui_color.h"
 
 #include <array>

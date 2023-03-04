@@ -157,6 +157,7 @@
     <ClInclude Include="..\..\imgui_internal.h" />
     <ClInclude Include="..\..\backends\imgui_impl_dx12.h" />
     <ClInclude Include="..\..\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\..\imgui_math.h" />
     <ClInclude Include="..\..\imgui_style.h" />
     <ClInclude Include="..\..\imgui_types.h" />
     <ClInclude Include="..\..\utils\fps_counter.h" />

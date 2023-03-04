@@ -178,6 +178,7 @@
     <ClInclude Include="..\..\imgui_internal.h" />
     <ClInclude Include="..\..\backends\imgui_impl_sdl2.h" />
     <ClInclude Include="..\..\backends\imgui_impl_opengl2.h" />
+    <ClInclude Include="..\..\imgui_math.h" />
     <ClInclude Include="..\..\imgui_style.h" />
     <ClInclude Include="..\..\imgui_types.h" />
     <ClInclude Include="..\..\utils\fps_counter.h" />

@@ -75,6 +75,9 @@
     <ClInclude Include="..\..\imgui_color.h">
       <Filter>imgui</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\imgui_math.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.txt" />

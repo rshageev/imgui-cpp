@@ -30,6 +30,7 @@ Index of this file:
 #include "imconfig.h"
 
 #include "imgui_types.h"
+#include "imgui_math.h"
 #include "imgui_color.h"
 #include "imgui_style.h"
 
