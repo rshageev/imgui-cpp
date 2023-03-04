@@ -22,10 +22,6 @@ Index of this file:
 
 */
 
-#if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
 
@@ -47,8 +43,6 @@ namespace stdv = std::views;
 #pragma warning (disable: 4127)     // condition expression is constant
 #pragma warning (disable: 4505)     // unreferenced local function has been removed (stb stuff)
 #pragma warning (disable: 4996)     // 'This function or variable may be unsafe': strcpy, strdup, sprintf, vsnprintf, sscanf, fopen
-#pragma warning (disable: 26451)    // [Static Analyzer] Arithmetic overflow : Using operator 'xxx' on a 4 byte value and then casting the result to a 8 byte value. Cast the value to the wider type before calling operator 'xxx' to avoid overflow(io.2).
-#pragma warning (disable: 26812)    // [Static Analyzer] The enum type 'xxx' is unscoped. Prefer 'enum class' over 'enum' (Enum.3). [MSVC Static Analyzer)
 #endif
 
 // Clang/GCC warnings with -Weverything
@@ -93,10 +87,9 @@ namespace IMGUI_STB_NAMESPACE
 
 #ifdef _MSC_VER
 #pragma warning (push)
-#pragma warning (disable: 4456)                             // declaration of 'xx' hides previous local declaration
-#pragma warning (disable: 6011)                             // (stb_rectpack) Dereferencing NULL pointer 'cur->next'.
-#pragma warning (disable: 6385)                             // (stb_truetype) Reading invalid data from 'buffer':  the readable size is '_Old_3`kernel_width' bytes, but '3' bytes may be read.
-#pragma warning (disable: 28182)                            // (stb_rectpack) Dereferencing NULL pointer. 'cur' contains the same NULL value as 'cur->next' did.
+#pragma warning (disable: 6011)     // (stb_rectpack) Dereferencing NULL pointer 'cur->next'.
+#pragma warning (disable: 6385)     // (stb_truetype) Reading invalid data from 'buffer':  the readable size is '_Old_3`kernel_width' bytes, but '3' bytes may be read.
+#pragma warning (disable: 28182)    // (stb_rectpack) Dereferencing NULL pointer. 'cur' contains the same NULL value as 'cur->next' did.
 #endif
 
 #if defined(__clang__)
@@ -167,16 +160,6 @@ namespace IMGUI_STB_NAMESPACE
 } // namespace ImStb
 using namespace IMGUI_STB_NAMESPACE;
 #endif
-
-//-----------------------------------------------------------------------------
-// [SECTION] Style functions
-//-----------------------------------------------------------------------------
-
-
-
-
-
-
 
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawList

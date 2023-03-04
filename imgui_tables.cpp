@@ -1,32 +1,6 @@
 // dear imgui, v1.89.3 WIP
 // (tables and columns code)
 
-/*
-
-Index of this file:
-
-// [SECTION] Commentary
-// [SECTION] Header mess
-// [SECTION] Tables: Main code
-// [SECTION] Tables: Simple accessors
-// [SECTION] Tables: Row changes
-// [SECTION] Tables: Columns changes
-// [SECTION] Tables: Columns width management
-// [SECTION] Tables: Drawing
-// [SECTION] Tables: Sorting
-// [SECTION] Tables: Headers
-// [SECTION] Tables: Context Menu
-// [SECTION] Tables: Settings (.ini data)
-// [SECTION] Tables: Garbage Collection
-// [SECTION] Tables: Debugging
-// [SECTION] Columns, BeginColumns, EndColumns, etc.
-
-*/
-
-// Navigating this file:
-// - In Visual Studio IDE: CTRL+comma ("Edit.GoToAll") can follow symbols in comments, whereas CTRL+F12 ("Edit.GoToImplementation") cannot.
-// - With Visual Assist installed: ALT+G ("VAssistX.GoToImplementation") can also follow symbols in comments.
-
 //-----------------------------------------------------------------------------
 // [SECTION] Commentary
 //-----------------------------------------------------------------------------
@@ -182,10 +156,6 @@ Index of this file:
 //-----------------------------------------------------------------------------
 // [SECTION] Header mess
 //-----------------------------------------------------------------------------
-
-#if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
-#define _CRT_SECURE_NO_WARNINGS
-#endif
 
 #include "imgui.h"
 #ifndef IMGUI_DISABLE

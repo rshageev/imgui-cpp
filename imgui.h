@@ -4,25 +4,6 @@
 // (Integer encoded as XYYZZ for use in #if preprocessor conditionals, e.g. '#if IMGUI_VERSION_NUM > 12345')
 #define IMGUI_VERSION               "1.89.3 WIP"
 #define IMGUI_VERSION_NUM           18928
-#define IMGUI_HAS_TABLE
-
-/*
-Index of this file:
-// [SECTION] Header mess
-// [SECTION] Forward declarations and basic types
-// [SECTION] Dear ImGui end-user API functions
-// [SECTION] Flags & Enumerations
-// [SECTION] Helpers: Memory allocations macros, ImVector<>
-// [SECTION] ImGuiStyle
-// [SECTION] ImGuiIO
-// [SECTION] Misc data structures (ImGuiInputTextCallbackData, ImGuiSizeCallbackData, ImGuiPayload, ImGuiTableSortSpecs, ImGuiTableColumnSortSpecs)
-// [SECTION] Helpers (ImGuiOnceUponAFrame, ImGuiTextFilter, ImGuiTextBuffer, ImGuiStorage, ImGuiListClipper, ImColor)
-// [SECTION] Drawing API (ImDrawCallback, ImDrawCmd, ImDrawIdx, ImDrawVert, ImDrawChannel, ImDrawListSplitter, ImDrawFlags, ImDrawListFlags, ImDrawList, ImDrawData)
-// [SECTION] Font API (ImFontConfig, ImFontGlyph, ImFontGlyphRangesBuilder, ImFontAtlasFlags, ImFontAtlas, ImFont)
-// [SECTION] Viewports (ImGuiViewportFlags, ImGuiViewport)
-// [SECTION] Platform Dependent Interfaces (ImGuiPlatformImeData)
-// [SECTION] Obsolete functions and types
-*/
 
 #pragma once
 
@@ -111,7 +92,6 @@ struct ImFontBuilderIO;             // Opaque interface to a font builder (stb_t
 struct ImFontConfig;                // Configuration data when adding a font or merging fonts
 struct ImFontGlyph;                 // A single font glyph (code point + coordinates within in ImFontAtlas + offset)
 struct ImFontGlyphRangesBuilder;    // Helper to build glyph ranges from text/string data
-struct ImColor;                     // Helper functions to create a color that can be converted to either u32 or float4 (*OBSOLETE* please avoid using)
 struct ImGuiContext;                // Dear ImGui context (opaque structure, unless including imgui_internal.h)
 struct ImGuiIO;                     // Main configuration and I/O between your application and ImGui
 struct ImGuiInputTextCallbackData;  // Shared state of InputText() when using custom ImGuiInputTextCallback (rare/advanced use)
@@ -120,7 +100,6 @@ struct ImGuiOnceUponAFrame;         // Helper for running a block of code not mo
 struct ImGuiPayload;                // User data payload for drag and drop operations
 struct ImGuiSizeCallbackData;       // Callback data when using SetNextWindowSizeConstraints() (rare/advanced use)
 struct ImGuiStorage;                // Helper for key->value storage
-struct ImGuiStyle;                  // Runtime data for styling/colors
 struct ImGuiTableSortSpecs;         // Sorting specifications for a table (often handling sort specs for a single column, occasionally more)
 struct ImGuiTableColumnSortSpecs;   // Sorting specification for one column of a table
 struct ImGuiTextBuffer;             // Helper to hold and append into a text buffer (~string builder)

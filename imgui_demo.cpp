@@ -1,83 +1,6 @@
 // dear imgui, v1.89.3 WIP
 // (demo code)
 
-// Help:
-// - Read FAQ at http://dearimgui.org/faq
-// - Newcomers, read 'Programmer guide' in imgui.cpp for notes on how to setup Dear ImGui in your codebase.
-// - Call and read ImGui::ShowDemoWindow() in imgui_demo.cpp. All applications in examples/ are doing that.
-// Read imgui.cpp for more details, documentation and comments.
-// Get the latest version at https://github.com/ocornut/imgui
-
-// -------------------------------------------------
-// PLEASE DO NOT REMOVE THIS FILE FROM YOUR PROJECT!
-// -------------------------------------------------
-// Message to the person tempted to delete this file when integrating Dear ImGui into their codebase:
-// Think again! It is the most useful reference code that you and other coders will want to refer to and call.
-// Have the ImGui::ShowDemoWindow() function wired in an always-available debug menu of your game/app!
-// Also include Metrics! ItemPicker! DebugLog! and other debug features.
-// Removing this file from your project is hindering access to documentation for everyone in your team,
-// likely leading you to poorer usage of the library.
-// Everything in this file will be stripped out by the linker if you don't call ImGui::ShowDemoWindow().
-// If you want to link core Dear ImGui in your shipped builds but want a thorough guarantee that the demo will not be
-// linked, you can setup your imconfig.h with #define IMGUI_DISABLE_DEMO_WINDOWS and those functions will be empty.
-// In another situation, whenever you have Dear ImGui available you probably want this to be available for reference.
-// Thank you,
-// -Your beloved friend, imgui_demo.cpp (which you won't delete)
-
-// Message to beginner C/C++ programmers about the meaning of the 'static' keyword:
-// In this demo code, we frequently use 'static' variables inside functions. A static variable persists across calls,
-// so it is essentially like a global variable but declared inside the scope of the function. We do this as a way to
-// gather code and data in the same place, to make the demo source code faster to read, faster to write, and smaller
-// in size. It also happens to be a convenient way of storing simple UI related information as long as your function
-// doesn't need to be reentrant or used in multiple threads. This might be a pattern you will want to use in your code,
-// but most of the real data you would be editing is likely going to be stored outside your functions.
-
-// The Demo code in this file is designed to be easy to copy-and-paste into your application!
-// Because of this:
-// - We never omit the ImGui:: prefix when calling functions, even though most code here is in the same namespace.
-// - We try to declare static variables in the local scope, as close as possible to the code using them.
-// - We never use any of the helpers/facilities used internally by Dear ImGui, unless available in the public API.
-
-// Navigating this file:
-// - In Visual Studio IDE: CTRL+comma ("Edit.GoToAll") can follow symbols in comments, whereas CTRL+F12 ("Edit.GoToImplementation") cannot.
-// - With Visual Assist installed: ALT+G ("VAssistX.GoToImplementation") can also follow symbols in comments.
-
-/*
-
-Index of this file:
-
-// [SECTION] Forward Declarations
-// [SECTION] Helpers
-// [SECTION] Demo Window / ShowDemoWindow()
-// - ShowDemoWindow()
-// - sub section: ShowDemoWindowWidgets()
-// - sub section: ShowDemoWindowLayout()
-// - sub section: ShowDemoWindowPopups()
-// - sub section: ShowDemoWindowTables()
-// - sub section: ShowDemoWindowInputs()
-// [SECTION] About Window / ShowAboutWindow()
-// [SECTION] Style Editor / ShowStyleEditor()
-// [SECTION] User Guide / ShowUserGuide()
-// [SECTION] Example App: Main Menu Bar / ShowExampleAppMainMenuBar()
-// [SECTION] Example App: Debug Console / ShowExampleAppConsole()
-// [SECTION] Example App: Debug Log / ShowExampleAppLog()
-// [SECTION] Example App: Simple Layout / ShowExampleAppLayout()
-// [SECTION] Example App: Property Editor / ShowExampleAppPropertyEditor()
-// [SECTION] Example App: Long Text / ShowExampleAppLongText()
-// [SECTION] Example App: Auto Resize / ShowExampleAppAutoResize()
-// [SECTION] Example App: Constrained Resize / ShowExampleAppConstrainedResize()
-// [SECTION] Example App: Simple overlay / ShowExampleAppSimpleOverlay()
-// [SECTION] Example App: Fullscreen window / ShowExampleAppFullscreen()
-// [SECTION] Example App: Manipulating window titles / ShowExampleAppWindowTitles()
-// [SECTION] Example App: Custom Rendering using ImDrawList API / ShowExampleAppCustomRendering()
-// [SECTION] Example App: Documents Handling / ShowExampleAppDocuments()
-
-*/
-
-#if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
 #include "imgui.h"
 #ifndef IMGUI_DISABLE
 
@@ -95,13 +18,6 @@ Index of this file:
 
 namespace stdr = std::ranges;
 namespace stdv = std::views;
-
-// Visual Studio warnings
-#ifdef _MSC_VER
-#pragma warning (disable: 4127)     // condition expression is constant
-#pragma warning (disable: 4996)     // 'This function or variable may be unsafe': strcpy, strdup, sprintf, vsnprintf, sscanf, fopen
-#pragma warning (disable: 26451)    // [Static Analyzer] Arithmetic overflow : Using operator 'xxx' on a 4 byte value and then casting the result to an 8 byte value. Cast the value to the wider type before calling operator 'xxx' to avoid overflow(io.2).
-#endif
 
 // Clang/GCC warnings with -Weverything
 #if defined(__clang__)
@@ -133,14 +49,6 @@ namespace stdv = std::views;
 #define IM_NEWLINE  "\r\n"
 #else
 #define IM_NEWLINE  "\n"
-#endif
-
-// Helpers
-#if defined(_MSC_VER) && !defined(snprintf)
-#define snprintf    _snprintf
-#endif
-#if defined(_MSC_VER) && !defined(vsnprintf)
-#define vsnprintf   _vsnprintf
 #endif
 
 // Format specifiers, printing 64-bit hasn't been decently standardized...

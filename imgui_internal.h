@@ -1,39 +1,6 @@
 // dear imgui, v1.89.3 WIP
 // (internal structures/api)
 
-/*
-
-Index of this file:
-
-// [SECTION] Header mess
-// [SECTION] Forward declarations
-// [SECTION] Context pointer
-// [SECTION] STB libraries includes
-// [SECTION] Macros
-// [SECTION] Generic helpers
-// [SECTION] ImDrawList support
-// [SECTION] Widgets support: flags, enums, data structures
-// [SECTION] Inputs support
-// [SECTION] Clipper support
-// [SECTION] Navigation support
-// [SECTION] Columns support
-// [SECTION] Multi-select support
-// [SECTION] Docking support
-// [SECTION] Viewport support
-// [SECTION] Settings support
-// [SECTION] Localization support
-// [SECTION] Metrics, Debug tools
-// [SECTION] Generic context hooks
-// [SECTION] ImGuiContext (main imgui context)
-// [SECTION] ImGuiWindowTempData, ImGuiWindow
-// [SECTION] Tab bar, Tab item support
-// [SECTION] Table support
-// [SECTION] ImGui internal API
-// [SECTION] ImFontAtlas internal API
-// [SECTION] Test Engine specific hooks (imgui_test_engine)
-
-*/
-
 #pragma once
 #ifndef IMGUI_DISABLE
 
@@ -63,7 +30,6 @@ namespace stdv = std::views;
 #pragma warning (push)
 #pragma warning (disable: 4251)     // class 'xxx' needs to have dll-interface to be used by clients of struct 'xxx' // when IMGUI_API is set to__declspec(dllexport)
 #pragma warning (disable: 26812)    // The enum type 'xxx' is unscoped. Prefer 'enum class' over 'enum' (Enum.3). [MSVC Static Analyzer)
-#pragma warning (disable: 26495)    // [Static Analyzer] Variable 'XXX' is uninitialized. Always initialize a member variable (type.6).
 #if defined(_MSC_VER) && _MSC_VER >= 1922 // MSVC 2019 16.2 or later
 #pragma warning (disable: 5054)     // operator '|': deprecated between enumerations of different types
 #endif
@@ -100,7 +66,6 @@ namespace stdv = std::views;
 // [SECTION] Forward declarations
 //-----------------------------------------------------------------------------
 
-struct ImBitVector;                 // Store 1-bit per value
 struct ImRect;                      // An axis-aligned rectangle (2 points)
 struct ImDrawDataBuilder;           // Helper to build a ImDrawData instance
 struct ImDrawListSharedData;        // Data shared between all ImDrawList instances
@@ -261,30 +226,6 @@ namespace ImStb
 #endif
 #endif // #ifndef IM_DEBUG_BREAK
 
-//-----------------------------------------------------------------------------
-// [SECTION] Generic helpers
-// Note that the ImXXX helpers functions are lower-level than ImGui functions.
-// ImGui functions or the ImGui context are never called/used from other ImXXX functions.
-//-----------------------------------------------------------------------------
-// - Helpers: Hashing
-// - Helpers: Sorting
-// - Helpers: Bit manipulation
-// - Helpers: String
-// - Helpers: Formatting
-// - Helpers: UTF-8 <> wchar conversions
-// - Helpers: ImVec2/ImVec4 operators
-// - Helpers: Maths
-// - Helpers: Geometry
-// - Helper: ImVec1
-// - Helper: ImVec2ih
-// - Helper: ImRect
-// - Helper: ImBitArray
-// - Helper: ImBitVector
-// - Helper: ImSpan<>, ImSpanAllocator<>
-// - Helper: ImPool<>
-// - Helper: ImChunkStream<>
-// - Helper: ImGuiTextIndex
-//-----------------------------------------------------------------------------
 
 // Helpers: Hashing
 ImGuiID ImHashData(const void* data, size_t data_size, ImGuiID seed = 0);
