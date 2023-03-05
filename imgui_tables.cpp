@@ -3439,8 +3439,6 @@ void ImGui::TableRemove(ImGuiTable* table)
 // - DebugNodeTable() [Internal]
 //-------------------------------------------------------------------------
 
-#ifndef IMGUI_DISABLE_DEBUG_TOOLS
-
 static const char* DebugNodeTableGetSizingPolicyDesc(ImGuiTableFlags sizing_policy)
 {
     sizing_policy &= ImGuiTableFlags_SizingMask_;
@@ -3532,13 +3530,6 @@ void ImGui::DebugNodeTableSettings(ImGuiTableSettings* settings)
     }
     TreePop();
 }
-
-#else // #ifndef IMGUI_DISABLE_DEBUG_TOOLS
-
-void ImGui::DebugNodeTable(ImGuiTable*) {}
-void ImGui::DebugNodeTableSettings(ImGuiTableSettings*) {}
-
-#endif
 
 // [Internal] Small optimization to avoid calls to PopClipRect/SetCurrentChannel/PushClipRect in sequences,
 // they would meddle many times with the underlying ImDrawCmd.

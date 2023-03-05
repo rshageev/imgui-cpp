@@ -268,11 +268,9 @@ void ImGui::ShowDemoWindow(bool* p_open)
         if (ImGui::BeginMenu("Tools"))
         {
             IMGUI_DEMO_MARKER("Menu/Tools");
-#ifndef IMGUI_DISABLE_DEBUG_TOOLS
+
             const bool has_debug_tools = true;
-#else
-            const bool has_debug_tools = false;
-#endif
+
             ImGui::MenuItem("Metrics/Debugger", NULL, &show_app_metrics, has_debug_tools);
             ImGui::MenuItem("Debug Log", NULL, &show_app_debug_log, has_debug_tools);
             ImGui::MenuItem("Stack Tool", NULL, &show_app_stack_tool, has_debug_tools);
