@@ -2205,11 +2205,8 @@ struct ImDrawList
     ImDrawListFlags Flags = ImDrawListFlags_None; // Flags, you may poke into these to adjust anti-aliasing settings per-primitive.
 
     // [Internal, used while building lists]
-    unsigned int _VtxCurrentIdx = 0;          // [Internal] generally == VtxBuffer.Size unless we are past 64K vertices, in which case this gets reset to 0.
     ImDrawListSharedData* _Data = nullptr;    // Pointer to shared draw data (you can use ImGui::GetDrawListSharedData() to get the one from current ImGui context)
     const char* _OwnerName = nullptr;         // Pointer to owner window's name for debugging
-    ImDrawVert* _VtxWritePtr = nullptr;       // [Internal] point within VtxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
-    ImDrawIdx* _IdxWritePtr = nullptr;        // [Internal] point within IdxBuffer.Data after each add command (to avoid using the ImVector<> operators too much)
     std::vector<ImVec4> _ClipRectStack;       // [Internal]
     std::vector<ImTextureID> _TextureIdStack; // [Internal]
     std::vector<ImVec2> _Path;                // [Internal] current path building
@@ -2322,8 +2319,6 @@ struct ImDrawList
 
     // Advanced: Primitives allocations
     // - We render triangles (three vertices)
-    // - All primitives needs to be reserved via PrimReserve() beforehand.
-    void PrimReserve(int idx_count, int vtx_count);
     void PrimRect(const ImVec2& a, const ImVec2& b, ImCol col);      // Axis aligned rectangle (composed of two triangles)
     void PrimRectUV(const ImVec2& a, const ImVec2& b, const ImVec2& uv_a, const ImVec2& uv_b, ImCol col);
     void PrimQuadUV(const ImVec2& a, const ImVec2& b, const ImVec2& c, const ImVec2& d, const ImVec2& uv_a, const ImVec2& uv_b, const ImVec2& uv_c, const ImVec2& uv_d, ImCol col);
@@ -2333,25 +2328,27 @@ struct ImDrawList
     {
         const auto vert_count = std::ranges::size(vertices);
         const auto idx_count = std::ranges::size(indices);
-        PrimReserve((int)idx_count, (int)vert_count);
+
+        CmdBuffer.back().ElemCount += idx_count;
+
+        const auto base_idx = static_cast<ImDrawIdx>(VtxBuffer.size());
         for (auto i : indices) {
-            *_IdxWritePtr++ = i + _VtxCurrentIdx;
+            IdxBuffer.push_back(i + base_idx);
         }
         for (const auto& v : vertices) {
-            *_VtxWritePtr++ = v;
+            VtxBuffer.push_back(v);
         }
-        _VtxCurrentIdx += vert_count;
     }
 
     template<class Vs>
     void AddGeometry(const Vs& vertices)
     {
         const auto vert_count = std::ranges::size(vertices);
-        PrimReserve((int)vert_count, (int)vert_count);
+        CmdBuffer.back().ElemCount += vert_count;
+
         for (const auto& v : vertices) {
-            *_IdxWritePtr++ = static_cast<ImDrawIdx>(_VtxCurrentIdx);
-            *_VtxWritePtr++ = v;
-            _VtxCurrentIdx++;
+            IdxBuffer.push_back(static_cast<ImDrawIdx>(VtxBuffer.size()));
+            VtxBuffer.push_back(v);
         }
     }
 

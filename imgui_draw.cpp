@@ -201,9 +201,6 @@ void ImDrawList::_ResetForNewFrame()
     VtxBuffer.resize(0);
     Flags = _Data->InitialFlags;
     _CmdHeader = {};
-    _VtxCurrentIdx = 0;
-    _VtxWritePtr = NULL;
-    _IdxWritePtr = NULL;
     _ClipRectStack.clear();
     _TextureIdStack.clear();
     _Path.resize(0);
@@ -218,9 +215,6 @@ void ImDrawList::_ClearFreeMemory()
     IdxBuffer.clear();
     VtxBuffer.clear();
     Flags = ImDrawListFlags_None;
-    _VtxCurrentIdx = 0;
-    _VtxWritePtr = NULL;
-    _IdxWritePtr = NULL;
     _ClipRectStack.clear();
     _TextureIdStack.clear();
     _Path.clear();
@@ -406,23 +400,6 @@ void ImDrawList::PopTextureID()
     _TextureIdStack.pop_back();
     _CmdHeader.TextureId = _TextureIdStack.empty() ? (ImTextureID)NULL : _TextureIdStack.back();
     _OnChangedTextureID();
-}
-
-// Reserve space for a number of vertices and indices.
-// You must finish filling your reserved data before calling PrimReserve() again, as it may reallocate or
-// submit the intermediate results. PrimUnreserve() can be used to release unused allocations.
-void ImDrawList::PrimReserve(int idx_count, int vtx_count)
-{
-    ImDrawCmd* draw_cmd = &CmdBuffer.back();
-    draw_cmd->ElemCount += idx_count;
-
-    int vtx_buffer_old_size = VtxBuffer.Size;
-    VtxBuffer.resize(vtx_buffer_old_size + vtx_count);
-    _VtxWritePtr = VtxBuffer.Data + vtx_buffer_old_size;
-
-    int idx_buffer_old_size = IdxBuffer.Size;
-    IdxBuffer.resize(idx_buffer_old_size + idx_count);
-    _IdxWritePtr = IdxBuffer.Data + idx_buffer_old_size;
 }
 
 void ImDrawList::PrimRect(const ImVec2& a, const ImVec2& c, ImCol col)
@@ -1578,7 +1555,6 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
             idx_write += sz;
         }
     }
-    draw_list->_IdxWritePtr = idx_write;
 
     // Ensure there's always a non-callback draw command trailing the command-buffer
     if (draw_list->CmdBuffer.Size == 0 || draw_list->CmdBuffer.back().UserCallback != NULL)
@@ -1609,8 +1585,6 @@ void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
 
     draw_list->CmdBuffer.swap(_Channels.Data[idx]._CmdBuffer);
     draw_list->IdxBuffer.swap(_Channels.Data[idx]._IdxBuffer);
-
-    draw_list->_IdxWritePtr = draw_list->IdxBuffer.Data + draw_list->IdxBuffer.Size;
 
     // If current command is used with different settings we need to add a new command
     ImDrawCmd* curr_cmd = (draw_list->CmdBuffer.size() == 0) ? NULL : &draw_list->CmdBuffer.back();
