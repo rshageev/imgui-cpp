@@ -1668,7 +1668,7 @@ struct ImGuiContext
     std::vector<char> SettingsIniData;                  // In memory .ini settings
     std::vector<ImGuiSettingsHandler> SettingsHandlers; // List of .ini settings handlers
     std::vector<ImGuiWindowSettings> SettingsWindows; // ImGuiWindow .ini settings entries
-    ImChunkStream<ImGuiTableSettings> SettingsTables;   // ImGuiTable .ini settings entries
+    std::vector<ImGuiTableSettings> SettingsTables;   // ImGuiTable .ini settings entries
     ImVector<ImGuiContextHook> Hooks;                   // Hooks for extensions (e.g. test engine)
     ImGuiID HookIdNext = 0;                             // Next available HookId
 
@@ -2189,8 +2189,7 @@ struct ImGuiTableSettings
     ImGuiTableColumnIdx ColumnsCount = 0;
     ImGuiTableColumnIdx ColumnsCountMax = 0; // Maximum number of columns this settings instance can store, we can recycle a settings instance with lower number of columns but not higher
     bool WantApply = false; // Set when loaded from .ini data (to enable merging/loading .ini data into an already running context)
-
-    ImGuiTableColumnSettings* GetColumnSettings() { return (ImGuiTableColumnSettings*)(this + 1); }
+    std::vector<ImGuiTableColumnSettings> ColumnSettings;
 };
 
 //-----------------------------------------------------------------------------
@@ -2549,7 +2548,7 @@ namespace ImGui
     ImGuiTableSettings*   TableGetBoundSettings(ImGuiTable* table);
     void                  TableSettingsAddSettingsHandler();
     ImGuiTableSettings*   TableSettingsCreate(ImGuiID id, int columns_count);
-    ImGuiTableSettings*   TableSettingsFindByID(ImGuiID id);
+    int TableSettingsFindByID(ImGuiID id);
 
     // Tab Bars
     inline ImGuiTabBar* GetCurrentTabBar() {

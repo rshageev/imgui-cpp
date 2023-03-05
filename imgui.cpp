@@ -11268,8 +11268,8 @@ void ImGui::ShowMetricsWindow(bool* p_open)
 
         if (TreeNode("SettingsTables", "Settings packed data: Tables: %d bytes", g.SettingsTables.size()))
         {
-            for (ImGuiTableSettings* settings = g.SettingsTables.begin(); settings != NULL; settings = g.SettingsTables.next_chunk(settings))
-                DebugNodeTableSettings(settings);
+            for (auto& settings : g.SettingsTables)
+                DebugNodeTableSettings(&settings);
             TreePop();
         }
 

@@ -3106,40 +3106,32 @@ void ImGui::TableDrawContextMenu(ImGuiTable* table)
 //-------------------------------------------------------------------------
 
 // Clear and initialize empty settings instance
-static void TableSettingsInit(ImGuiTableSettings* settings, ImGuiID id, int columns_count, int columns_count_max)
+static void TableSettingsInit(ImGuiTableSettings& settings, ImGuiID id, int columns_count, int columns_count_max)
 {
-    IM_PLACEMENT_NEW(settings) ImGuiTableSettings();
-    ImGuiTableColumnSettings* settings_column = settings->GetColumnSettings();
-    for (int n = 0; n < columns_count_max; n++, settings_column++)
-        IM_PLACEMENT_NEW(settings_column) ImGuiTableColumnSettings();
-    settings->ID = id;
-    settings->ColumnsCount = (ImGuiTableColumnIdx)columns_count;
-    settings->ColumnsCountMax = (ImGuiTableColumnIdx)columns_count_max;
-    settings->WantApply = true;
-}
-
-static size_t TableSettingsCalcChunkSize(int columns_count)
-{
-    return sizeof(ImGuiTableSettings) + (size_t)columns_count * sizeof(ImGuiTableColumnSettings);
+    settings.ColumnSettings.resize(columns_count_max);
+    settings.ID = id;
+    settings.ColumnsCount = (ImGuiTableColumnIdx)columns_count;
+    settings.ColumnsCountMax = (ImGuiTableColumnIdx)columns_count_max;
+    settings.WantApply = true;
 }
 
 ImGuiTableSettings* ImGui::TableSettingsCreate(ImGuiID id, int columns_count)
 {
     ImGuiContext& g = *GImGui;
-    ImGuiTableSettings* settings = g.SettingsTables.alloc_chunk(TableSettingsCalcChunkSize(columns_count));
+    auto& settings = g.SettingsTables.emplace_back();
     TableSettingsInit(settings, id, columns_count, columns_count);
-    return settings;
+    return &settings;
 }
 
 // Find existing settings
-ImGuiTableSettings* ImGui::TableSettingsFindByID(ImGuiID id)
+int ImGui::TableSettingsFindByID(ImGuiID id)
 {
-    // FIXME-OPT: Might want to store a lookup map for this?
     ImGuiContext& g = *GImGui;
-    for (ImGuiTableSettings* settings = g.SettingsTables.begin(); settings != NULL; settings = g.SettingsTables.next_chunk(settings))
-        if (settings->ID == id)
-            return settings;
-    return NULL;
+    auto itr = stdr::find(g.SettingsTables, id, &ImGuiTableSettings::ID);
+    if (itr != stdr::end(g.SettingsTables)) {
+        return (int)(std::distance(stdr::begin(g.SettingsTables), itr));
+    }
+    return -1;
 }
 
 // Get settings for a given table, NULL if none
@@ -3148,11 +3140,11 @@ ImGuiTableSettings* ImGui::TableGetBoundSettings(ImGuiTable* table)
     if (table->SettingsOffset != -1)
     {
         ImGuiContext& g = *GImGui;
-        ImGuiTableSettings* settings = g.SettingsTables.ptr_from_offset(table->SettingsOffset);
-        IM_ASSERT(settings->ID == table->ID);
-        if (settings->ColumnsCountMax >= table->ColumnsCount)
-            return settings; // OK
-        settings->ID = 0; // Invalidate storage, we won't fit because of a count change
+        ImGuiTableSettings& settings = g.SettingsTables[table->SettingsOffset];
+        IM_ASSERT(settings.ID == table->ID);
+        if (settings.ColumnsCountMax >= table->ColumnsCount)
+            return &settings; // OK
+        settings.ID = 0; // Invalidate storage, we won't fit because of a count change
     }
     return NULL;
 }
@@ -3178,41 +3170,43 @@ void ImGui::TableSaveSettings(ImGuiTable* table)
     if (settings == NULL)
     {
         settings = TableSettingsCreate(table->ID, table->ColumnsCount);
-        table->SettingsOffset = g.SettingsTables.offset_from_ptr(settings);
+        table->SettingsOffset = g.SettingsTables.size() - 1;
     }
     settings->ColumnsCount = (ImGuiTableColumnIdx)table->ColumnsCount;
 
     // Serialize ImGuiTable/ImGuiTableColumn into ImGuiTableSettings/ImGuiTableColumnSettings
     IM_ASSERT(settings->ID == table->ID);
     IM_ASSERT(settings->ColumnsCount == table->ColumnsCount && settings->ColumnsCountMax >= settings->ColumnsCount);
-    ImGuiTableColumn* column = table->Columns.data();
-    ImGuiTableColumnSettings* column_settings = settings->GetColumnSettings();
 
     bool save_ref_scale = false;
     settings->SaveFlags = ImGuiTableFlags_None;
-    for (int n = 0; n < table->ColumnsCount; n++, column++, column_settings++)
+    for (int n = 0; n < table->ColumnsCount; n++)
     {
-        const float width_or_weight = (column->Flags & ImGuiTableColumnFlags_WidthStretch) ? column->StretchWeight : column->WidthRequest;
-        column_settings->WidthOrWeight = width_or_weight;
-        column_settings->Index = (ImGuiTableColumnIdx)n;
-        column_settings->DisplayOrder = column->DisplayOrder;
-        column_settings->SortOrder = column->SortOrder;
-        column_settings->SortDirection = column->SortDirection;
-        column_settings->IsEnabled = column->IsUserEnabled;
-        column_settings->IsStretch = (column->Flags & ImGuiTableColumnFlags_WidthStretch) ? 1 : 0;
-        if ((column->Flags & ImGuiTableColumnFlags_WidthStretch) == 0)
+        const auto& column = table->Columns[n];
+        auto& column_settings = settings->ColumnSettings[n];
+
+        const float width_or_weight = (column.Flags & ImGuiTableColumnFlags_WidthStretch) ? column.StretchWeight : column.WidthRequest;
+        column_settings.WidthOrWeight = width_or_weight;
+        column_settings.Index = (ImGuiTableColumnIdx)n;
+        column_settings.DisplayOrder = column.DisplayOrder;
+        column_settings.SortOrder = column.SortOrder;
+        column_settings.SortDirection = column.SortDirection;
+        column_settings.IsEnabled = column.IsUserEnabled;
+        column_settings.IsStretch = (column.Flags & ImGuiTableColumnFlags_WidthStretch) ? 1 : 0;
+        if ((column.Flags & ImGuiTableColumnFlags_WidthStretch) == 0) {
             save_ref_scale = true;
+        }
 
         // We skip saving some data in the .ini file when they are unnecessary to restore our state.
         // Note that fixed width where initial width was derived from auto-fit will always be saved as InitStretchWeightOrWidth will be 0.0f.
         // FIXME-TABLE: We don't have logic to easily compare SortOrder to DefaultSortOrder yet so it's always saved when present.
-        if (width_or_weight != column->InitStretchWeightOrWidth)
+        if (width_or_weight != column.InitStretchWeightOrWidth)
             settings->SaveFlags |= ImGuiTableFlags_Resizable;
-        if (column->DisplayOrder != n)
+        if (column.DisplayOrder != n)
             settings->SaveFlags |= ImGuiTableFlags_Reorderable;
-        if (column->SortOrder != -1)
+        if (column.SortOrder != -1)
             settings->SaveFlags |= ImGuiTableFlags_Sortable;
-        if (column->IsUserEnabled != ((column->Flags & ImGuiTableColumnFlags_DefaultHide) == 0))
+        if (column.IsUserEnabled != ((column.Flags & ImGuiTableColumnFlags_DefaultHide) == 0))
             settings->SaveFlags |= ImGuiTableFlags_Hideable;
     }
     settings->SaveFlags &= table->Flags;
@@ -3232,12 +3226,13 @@ void ImGui::TableLoadSettings(ImGuiTable* table)
     ImGuiTableSettings* settings;
     if (table->SettingsOffset == -1)
     {
-        settings = TableSettingsFindByID(table->ID);
-        if (settings == NULL)
+        auto idx = TableSettingsFindByID(table->ID);
+        if (idx == -1)
             return;
+        settings = &g.SettingsTables[idx];
         if (settings->ColumnsCount != table->ColumnsCount) // Allow settings if columns count changed. We could otherwise decide to return...
             table->IsSettingsDirty = true;
-        table->SettingsOffset = g.SettingsTables.offset_from_ptr(settings);
+        table->SettingsOffset = idx;
     }
     else
     {
@@ -3248,42 +3243,46 @@ void ImGui::TableLoadSettings(ImGuiTable* table)
     table->RefScale = settings->RefScale;
 
     // Serialize ImGuiTableSettings/ImGuiTableColumnSettings into ImGuiTable/ImGuiTableColumn
-    ImGuiTableColumnSettings* column_settings = settings->GetColumnSettings();
     ImU64 display_order_mask = 0;
-    for (int data_n = 0; data_n < settings->ColumnsCount; data_n++, column_settings++)
+    for (int data_n = 0; data_n < settings->ColumnsCount; data_n++)
     {
-        int column_n = column_settings->Index;
+        const auto& column_settings = settings->ColumnSettings[data_n];
+
+        int column_n = column_settings.Index;
         if (column_n < 0 || column_n >= table->ColumnsCount)
             continue;
 
         ImGuiTableColumn* column = &table->Columns[column_n];
         if (settings->SaveFlags & ImGuiTableFlags_Resizable)
         {
-            if (column_settings->IsStretch)
-                column->StretchWeight = column_settings->WidthOrWeight;
+            if (column_settings.IsStretch)
+                column->StretchWeight = column_settings.WidthOrWeight;
             else
-                column->WidthRequest = column_settings->WidthOrWeight;
+                column->WidthRequest = column_settings.WidthOrWeight;
             column->AutoFitQueue = 0x00;
         }
         if (settings->SaveFlags & ImGuiTableFlags_Reorderable)
-            column->DisplayOrder = column_settings->DisplayOrder;
+            column->DisplayOrder = column_settings.DisplayOrder;
         else
             column->DisplayOrder = (ImGuiTableColumnIdx)column_n;
         display_order_mask |= (ImU64)1 << column->DisplayOrder;
-        column->IsUserEnabled = column->IsUserEnabledNextFrame = column_settings->IsEnabled;
-        column->SortOrder = column_settings->SortOrder;
-        column->SortDirection = column_settings->SortDirection;
+        column->IsUserEnabled = column->IsUserEnabledNextFrame = column_settings.IsEnabled;
+        column->SortOrder = column_settings.SortOrder;
+        column->SortDirection = column_settings.SortDirection;
     }
 
     // Validate and fix invalid display order data
     const ImU64 expected_display_order_mask = (settings->ColumnsCount == 64) ? ~0 : ((ImU64)1 << settings->ColumnsCount) - 1;
-    if (display_order_mask != expected_display_order_mask)
-        for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
+    if (display_order_mask != expected_display_order_mask) {
+        for (int column_n = 0; column_n < table->ColumnsCount; column_n++) {
             table->Columns[column_n].DisplayOrder = (ImGuiTableColumnIdx)column_n;
+        }
+    }
 
     // Rebuild index
-    for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
+    for (int column_n = 0; column_n < table->ColumnsCount; column_n++) {
         table->DisplayOrderToIndex[table->Columns[column_n].DisplayOrder] = (ImGuiTableColumnIdx)column_n;
+    }
 }
 
 static void TableSettingsHandler_ClearAll(ImGuiContext* ctx, ImGuiSettingsHandler*)
@@ -3305,21 +3304,23 @@ static void TableSettingsHandler_ApplyAll(ImGuiContext* ctx, ImGuiSettingsHandle
     }
 }
 
-static void* TableSettingsHandler_ReadOpen(ImGuiContext*, ImGuiSettingsHandler*, const char* name)
+static void* TableSettingsHandler_ReadOpen(ImGuiContext* ctx, ImGuiSettingsHandler*, const char* name)
 {
     ImGuiID id = 0;
     int columns_count = 0;
     if (sscanf(name, "0x%08X,%d", &id, &columns_count) < 2)
         return NULL;
 
-    if (ImGuiTableSettings* settings = ImGui::TableSettingsFindByID(id))
+    const auto idx = ImGui::TableSettingsFindByID(id);
+    if (idx != -1)
     {
-        if (settings->ColumnsCountMax >= columns_count)
+        auto& settings = ctx->SettingsTables[idx];
+        if (settings.ColumnsCountMax >= columns_count)
         {
-            TableSettingsInit(settings, id, columns_count, settings->ColumnsCountMax); // Recycle
-            return settings;
+            TableSettingsInit(settings, id, columns_count, settings.ColumnsCountMax); // Recycle
+            return &settings;
         }
-        settings->ID = 0; // Invalidate storage, we won't fit because of a count change
+        settings.ID = 0; // Invalidate storage, we won't fit because of a count change
     }
     return ImGui::TableSettingsCreate(id, columns_count);
 }
@@ -3339,61 +3340,90 @@ static void TableSettingsHandler_ReadLine(ImGuiContext*, ImGuiSettingsHandler*, 
             return;
         line = ImStrSkipBlank(line + r);
         char c = 0;
-        ImGuiTableColumnSettings* column = settings->GetColumnSettings() + column_n;
-        column->Index = (ImGuiTableColumnIdx)column_n;
-        if (sscanf(line, "UserID=0x%08X%n", (ImU32*)&n, &r)==1) { line = ImStrSkipBlank(line + r); column->UserID = (ImGuiID)n; }
-        if (sscanf(line, "Width=%d%n", &n, &r) == 1)            { line = ImStrSkipBlank(line + r); column->WidthOrWeight = (float)n; column->IsStretch = 0; settings->SaveFlags |= ImGuiTableFlags_Resizable; }
-        if (sscanf(line, "Weight=%f%n", &f, &r) == 1)           { line = ImStrSkipBlank(line + r); column->WidthOrWeight = f; column->IsStretch = 1; settings->SaveFlags |= ImGuiTableFlags_Resizable; }
-        if (sscanf(line, "Visible=%d%n", &n, &r) == 1)          { line = ImStrSkipBlank(line + r); column->IsEnabled = (ImU8)n; settings->SaveFlags |= ImGuiTableFlags_Hideable; }
-        if (sscanf(line, "Order=%d%n", &n, &r) == 1)            { line = ImStrSkipBlank(line + r); column->DisplayOrder = (ImGuiTableColumnIdx)n; settings->SaveFlags |= ImGuiTableFlags_Reorderable; }
-        if (sscanf(line, "Sort=%d%c%n", &n, &c, &r) == 2)       { line = ImStrSkipBlank(line + r); column->SortOrder = (ImGuiTableColumnIdx)n; column->SortDirection = (c == '^') ? ImGuiSortDirection_Descending : ImGuiSortDirection_Ascending; settings->SaveFlags |= ImGuiTableFlags_Sortable; }
+        auto& column = settings->ColumnSettings[column_n];
+        column.Index = (ImGuiTableColumnIdx)column_n;
+        if (sscanf(line, "UserID=0x%08X%n", (ImU32*)&n, &r)==1) {
+            line = ImStrSkipBlank(line + r);
+            column.UserID = (ImGuiID)n;
+        }
+        if (sscanf(line, "Width=%d%n", &n, &r) == 1) {
+            line = ImStrSkipBlank(line + r);
+            column.WidthOrWeight = (float)n;
+            column.IsStretch = 0;
+            settings->SaveFlags |= ImGuiTableFlags_Resizable;
+        }
+        if (sscanf(line, "Weight=%f%n", &f, &r) == 1) {
+            line = ImStrSkipBlank(line + r);
+            column.WidthOrWeight = f;
+            column.IsStretch = 1;
+            settings->SaveFlags |= ImGuiTableFlags_Resizable;
+        }
+        if (sscanf(line, "Visible=%d%n", &n, &r) == 1) {
+            line = ImStrSkipBlank(line + r);
+            column.IsEnabled = (ImU8)n;
+            settings->SaveFlags |= ImGuiTableFlags_Hideable;
+        }
+        if (sscanf(line, "Order=%d%n", &n, &r) == 1) {
+            line = ImStrSkipBlank(line + r);
+            column.DisplayOrder = (ImGuiTableColumnIdx)n;
+            settings->SaveFlags |= ImGuiTableFlags_Reorderable;
+        }
+        if (sscanf(line, "Sort=%d%c%n", &n, &c, &r) == 2) {
+            line = ImStrSkipBlank(line + r);
+            column.SortOrder = (ImGuiTableColumnIdx)n;
+            column.SortDirection = (c == '^') ? ImGuiSortDirection_Descending : ImGuiSortDirection_Ascending;
+            settings->SaveFlags |= ImGuiTableFlags_Sortable;
+        }
     }
 }
 
 static void TableSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, std::vector<char>& buf)
 {
     ImGuiContext& g = *ctx;
-    for (ImGuiTableSettings* settings = g.SettingsTables.begin(); settings != NULL; settings = g.SettingsTables.next_chunk(settings))
+    for (const auto& settings : g.SettingsTables)
     {
-        if (settings->ID == 0) // Skip ditched settings
+        if (settings.ID == 0) // Skip ditched settings
             continue;
 
         // TableSaveSettings() may clear some of those flags when we establish that the data can be stripped
         // (e.g. Order was unchanged)
-        const bool save_size    = (settings->SaveFlags & ImGuiTableFlags_Resizable) != 0;
-        const bool save_visible = (settings->SaveFlags & ImGuiTableFlags_Hideable) != 0;
-        const bool save_order   = (settings->SaveFlags & ImGuiTableFlags_Reorderable) != 0;
-        const bool save_sort    = (settings->SaveFlags & ImGuiTableFlags_Sortable) != 0;
+        const bool save_size    = (settings.SaveFlags & ImGuiTableFlags_Resizable) != 0;
+        const bool save_visible = (settings.SaveFlags & ImGuiTableFlags_Hideable) != 0;
+        const bool save_order   = (settings.SaveFlags & ImGuiTableFlags_Reorderable) != 0;
+        const bool save_sort    = (settings.SaveFlags & ImGuiTableFlags_Sortable) != 0;
         if (!save_size && !save_visible && !save_order && !save_sort)
             continue;
 
-        buf.reserve(buf.size() + 30 + settings->ColumnsCount * 50); // ballpark reserve
+        buf.reserve(buf.size() + 30 + settings.ColumnsCount * 50); // ballpark reserve
 
         auto itr = std::back_inserter(buf);
 
-        itr = std::format_to(itr, "[{}][{:#08x},{}]\n", handler->TypeName, settings->ID, settings->ColumnsCount);
-        if (settings->RefScale != 0.0f)
-            itr = std::format_to(itr, "RefScale={}\n", settings->RefScale);
-        ImGuiTableColumnSettings* column = settings->GetColumnSettings();
-        for (int column_n = 0; column_n < settings->ColumnsCount; column_n++, column++)
+        itr = std::format_to(itr, "[{}][{:#08x},{}]\n", handler->TypeName, settings.ID, settings.ColumnsCount);
+        if (settings.RefScale != 0.0f) {
+            itr = std::format_to(itr, "RefScale={}\n", settings.RefScale);
+        }
+
+        for (int column_n = 0; column_n < settings.ColumnsCount; column_n++)
         {
+            const auto& column = settings.ColumnSettings[column_n];
             // "Column 0  UserID=0x42AD2D21 Width=100 Visible=1 Order=0 Sort=0v"
-            bool save_column = column->UserID != 0 || save_size || save_visible || save_order || (save_sort && column->SortOrder != -1);
+            bool save_column = column.UserID != 0 || save_size || save_visible || save_order || (save_sort && column.SortOrder != -1);
             if (!save_column)
                 continue;
+
             itr = std::format_to(itr, "Column {}", column_n);
-            if (column->UserID != 0)
-                itr = std::format_to(itr, " UserID={:#08x}", column->UserID);
-            if (save_size && column->IsStretch)
-                itr = std::format_to(itr, " Weight={:.4f}", column->WidthOrWeight);
-            if (save_size && !column->IsStretch)
-                itr = std::format_to(itr, " Width={}", (int)column->WidthOrWeight);
+            if (column.UserID != 0)
+                itr = std::format_to(itr, " UserID={:#08x}", column.UserID);
+            if (save_size && column.IsStretch)
+                itr = std::format_to(itr, " Weight={:.4f}", column.WidthOrWeight);
+            if (save_size && !column.IsStretch)
+                itr = std::format_to(itr, " Width={}", (int)column.WidthOrWeight);
             if (save_visible)
-                itr = std::format_to(itr, " Visible={}", (std::uint8_t)column->IsEnabled);
+                itr = std::format_to(itr, " Visible={}", (std::uint8_t)column.IsEnabled);
             if (save_order)
-                itr = std::format_to(itr, " Order={}", column->DisplayOrder);
-            if (save_sort && column->SortOrder != -1)
-                itr = std::format_to(itr, " Sort={}{}", column->SortOrder, (column->SortDirection == ImGuiSortDirection_Ascending) ? 'v' : '^');
+                itr = std::format_to(itr, " Order={}", column.DisplayOrder);
+            if (save_sort && column.SortOrder != -1)
+                itr = std::format_to(itr, " Sort={}{}", column.SortOrder, (column.SortDirection == ImGuiSortDirection_Ascending) ? 'v' : '^');
             itr = '\n';
         }
         itr = '\n';
@@ -3521,12 +3551,12 @@ void ImGui::DebugNodeTableSettings(ImGuiTableSettings* settings)
     BulletText("ColumnsCount: %d (max %d)", settings->ColumnsCount, settings->ColumnsCountMax);
     for (int n = 0; n < settings->ColumnsCount; n++)
     {
-        ImGuiTableColumnSettings* column_settings = &settings->GetColumnSettings()[n];
-        ImGuiSortDirection sort_dir = (column_settings->SortOrder != -1) ? (ImGuiSortDirection)column_settings->SortDirection : ImGuiSortDirection_None;
+        const auto& column_settings = settings->ColumnSettings[n];
+        ImGuiSortDirection sort_dir = (column_settings.SortOrder != -1) ? (ImGuiSortDirection)column_settings.SortDirection : ImGuiSortDirection_None;
         BulletText("Column %d Order %d SortOrder %d %s Vis %d %s %7.3f UserID 0x%08X",
-            n, column_settings->DisplayOrder, column_settings->SortOrder,
+            n, column_settings.DisplayOrder, column_settings.SortOrder,
             (sort_dir == ImGuiSortDirection_Ascending) ? "Asc" : (sort_dir == ImGuiSortDirection_Descending) ? "Des" : "---",
-            column_settings->IsEnabled, column_settings->IsStretch ? "Weight" : "Width ", column_settings->WidthOrWeight, column_settings->UserID);
+            column_settings.IsEnabled, column_settings.IsStretch ? "Weight" : "Width ", column_settings.WidthOrWeight, column_settings.UserID);
     }
     TreePop();
 }
