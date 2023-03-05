@@ -1324,14 +1324,13 @@ struct ImGuiViewportP : public ImGuiViewport
 // (this is designed to be stored in a ImChunkStream buffer, with the variable-length Name following our structure)
 struct ImGuiWindowSettings
 {
+    std::string Name;
     ImGuiID ID = 0;
     ImVec2ih Pos;
     ImVec2ih Size;
     bool Collapsed = false;
     bool WantApply = false;  // Set when loaded from .ini data (to enable merging/loading .ini data into an already running context)
-    bool WantDelete = false; // Set to invalidate/delete the settings entry
-
-    char* GetName()  { return (char*)(this + 1); }
+    bool WantDelete = false; // Set to invalidate/delete the settings entry   
 };
 
 struct ImGuiSettingsHandler
@@ -1672,7 +1671,7 @@ struct ImGuiContext
     float SettingsDirtyTimer = 0.0f;                    // Save .ini Settings to memory when time reaches zero
     std::vector<char> SettingsIniData;                  // In memory .ini settings
     std::vector<ImGuiSettingsHandler> SettingsHandlers; // List of .ini settings handlers
-    ImChunkStream<ImGuiWindowSettings> SettingsWindows; // ImGuiWindow .ini settings entries
+    std::vector<ImGuiWindowSettings> SettingsWindows; // ImGuiWindow .ini settings entries
     ImChunkStream<ImGuiTableSettings> SettingsTables;   // ImGuiTable .ini settings entries
     ImVector<ImGuiContextHook> Hooks;                   // Hooks for extensions (e.g. test engine)
     ImGuiID HookIdNext = 0;                             // Next available HookId
@@ -1844,7 +1843,6 @@ struct ImGuiWindow
     float LastTimeActive = -1.0f;  // Last timestamp the window was Active (using float as we don't need high precision there)
     float ItemWidthDefault = 0.0f;
     ImGuiStorage StateStorage;
-    int SettingsOffset = -1;       // Offset into SettingsWindows[] (offsets are always valid as we only grow the array from the back)
 
     ImDrawList* DrawList = nullptr;                        // == &DrawListInst (for backward compatibility reason with code using imgui_internal.h we keep this a pointer)
     ImDrawList DrawListInst;
@@ -2280,7 +2278,7 @@ namespace ImGui
     ImGuiSettingsHandler* FindSettingsHandler(const char* type_name);
 
     // Settings - Windows
-    ImGuiWindowSettings* CreateNewWindowSettings(const char* name);
+    ImGuiWindowSettings* CreateNewWindowSettings(std::string_view name);
     ImGuiWindowSettings* FindWindowSettingsByID(ImGuiID id);
     ImGuiWindowSettings* FindWindowSettingsByWindow(ImGuiWindow* window);
     void ClearWindowSettings(const char* name);
@@ -2692,7 +2690,7 @@ namespace ImGui
     void          DebugNodeTableSettings(ImGuiTableSettings* settings);
     void          DebugNodeInputTextState(ImGuiInputTextState* state);
     void          DebugNodeWindow(ImGuiWindow* window, const char* label);
-    void          DebugNodeWindowSettings(ImGuiWindowSettings* settings);
+    void          DebugNodeWindowSettings(const ImGuiWindowSettings& settings);
     void          DebugNodeWindowsList(std::vector<ImGuiWindow*>& windows, const char* label);
     void          DebugNodeWindowsListByBeginStackParent(std::span<ImGuiWindow*> windows, ImGuiWindow* parent_in_begin_stack);
     void          DebugNodeViewport(ImGuiViewportP* viewport);

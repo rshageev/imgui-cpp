@@ -95,9 +95,6 @@ namespace stdv = std::views;
 #pragma GCC diagnostic ignored "-Wclass-memaccess"          // [__GNUC__ >= 8] warning: 'memset/memcpy' clearing/writing an object of type 'xxxx' with no trivial copy-assignment; use assignment or value-initialization instead
 #endif
 
-// Debug options
-#define IMGUI_DEBUG_INI_SETTINGS    0   // Save additional comments in .ini file (particularly helps for Docking, but makes saving slower)
-
 // When using CTRL+TAB (or Gamepad Square+L/R) we delay the visual a little in order to reduce visual noise doing a fast switch.
 static const float NAV_WINDOWING_HIGHLIGHT_DELAY            = 0.20f;    // Time before the highlight and screen dimming starts fading in
 static const float NAV_WINDOWING_LIST_APPEAR_DELAY          = 0.15f;    // Time before the window list starts to appear
@@ -3804,9 +3801,9 @@ static ImGuiWindow* CreateNewWindow(const char* name, ImGuiWindowFlags flags)
     window->Flags = flags;
 
     ImGuiWindowSettings* settings = NULL;
-    if (!(flags & ImGuiWindowFlags_NoSavedSettings))
-        if ((settings = ImGui::FindWindowSettingsByWindow(window)) != 0)
-            window->SettingsOffset = g.SettingsWindows.offset_from_ptr(settings);
+    if (!(flags & ImGuiWindowFlags_NoSavedSettings)) {
+        settings = ImGui::FindWindowSettingsByWindow(window);
+    }
 
     InitOrLoadWindowSettings(window, settings);
 
@@ -10445,26 +10442,15 @@ const char* ImGui::SaveIniSettingsToMemory(size_t* out_size)
     return g.SettingsIniData.data();
 }
 
-ImGuiWindowSettings* ImGui::CreateNewWindowSettings(const char* name)
+ImGuiWindowSettings* ImGui::CreateNewWindowSettings(std::string_view name)
 {
     ImGuiContext& g = *GImGui;
 
-#if !IMGUI_DEBUG_INI_SETTINGS
-    // Skip to the "###" marker if any. We don't skip past to match the behavior of GetID()
-    // Preserve the full string when IMGUI_DEBUG_INI_SETTINGS is set to make .ini inspection easier.
-    if (const char* p = strstr(name, "###"))
-        name = p;
-#endif
-    const size_t name_len = strlen(name);
+    auto& settings = g.SettingsWindows.emplace_back();
+    settings.Name = name;
+    settings.ID = ImHashStr(name);
 
-    // Allocate chunk
-    const size_t chunk_size = sizeof(ImGuiWindowSettings) + name_len + 1;
-    ImGuiWindowSettings* settings = g.SettingsWindows.alloc_chunk(chunk_size);
-    IM_PLACEMENT_NEW(settings) ImGuiWindowSettings();
-    settings->ID = ImHashStr(name);
-    memcpy(settings->GetName(), name, name_len + 1);   // Store with zero terminator
-
-    return settings;
+    return &settings;
 }
 
 // We don't provide a FindWindowSettingsByName() because Docking system doesn't always hold on names.
@@ -10472,25 +10458,18 @@ ImGuiWindowSettings* ImGui::CreateNewWindowSettings(const char* name)
 ImGuiWindowSettings* ImGui::FindWindowSettingsByID(ImGuiID id)
 {
     ImGuiContext& g = *GImGui;
-    for (ImGuiWindowSettings* settings = g.SettingsWindows.begin(); settings != NULL; settings = g.SettingsWindows.next_chunk(settings))
-        if (settings->ID == id)
-            return settings;
-    return NULL;
+    auto itr = stdr::find(g.SettingsWindows, id, &ImGuiWindowSettings::ID);
+    return (itr != stdr::end(g.SettingsWindows)) ? &(*itr) : nullptr;
 }
 
-// This is faster if you are holding on a Window already as we don't need to perform a search.
 ImGuiWindowSettings* ImGui::FindWindowSettingsByWindow(ImGuiWindow* window)
 {
-    ImGuiContext& g = *GImGui;
-    if (window->SettingsOffset != -1)
-        return g.SettingsWindows.ptr_from_offset(window->SettingsOffset);
     return FindWindowSettingsByID(window->ID);
 }
 
 // This will revert window to its initial state, including enabling the ImGuiCond_FirstUseEver/ImGuiCond_Once conditions once more.
 void ImGui::ClearWindowSettings(const char* name)
 {
-    //IMGUI_DEBUG_LOG("ClearWindowSettings('%s')\n", name);
     ImGuiWindow* window = FindWindowByName(name);
     if (window != NULL)
     {
@@ -10504,8 +10483,6 @@ void ImGui::ClearWindowSettings(const char* name)
 static void WindowSettingsHandler_ClearAll(ImGuiContext* ctx, ImGuiSettingsHandler*)
 {
     ImGuiContext& g = *ctx;
-    for (ImGuiWindow* window : g.Windows)
-        window->SettingsOffset = -1;
     g.SettingsWindows.clear();
 }
 
@@ -10514,7 +10491,7 @@ static void* WindowSettingsHandler_ReadOpen(ImGuiContext*, ImGuiSettingsHandler*
     ImGuiID id = ImHashStr(name);
     ImGuiWindowSettings* settings = ImGui::FindWindowSettingsByID(id);
     if (settings)
-        *settings = ImGuiWindowSettings(); // Clear existing if recycling previous entry
+        *settings = ImGuiWindowSettings{}; // Clear existing if recycling previous entry
     else
         settings = ImGui::CreateNewWindowSettings(name);
     settings->ID = id;
@@ -10542,13 +10519,13 @@ static void WindowSettingsHandler_ReadLine(ImGuiContext*, ImGuiSettingsHandler*,
 static void WindowSettingsHandler_ApplyAll(ImGuiContext* ctx, ImGuiSettingsHandler*)
 {
     ImGuiContext& g = *ctx;
-    for (ImGuiWindowSettings* settings = g.SettingsWindows.begin(); settings != NULL; settings = g.SettingsWindows.next_chunk(settings))
-        if (settings->WantApply)
-        {
-            if (ImGuiWindow* window = ImGui::FindWindowByID(settings->ID))
-                ApplyWindowSettings(window, settings);
-            settings->WantApply = false;
+    for (auto& settings : g.SettingsWindows) {
+        if (settings.WantApply) {
+            if (ImGuiWindow* window = ImGui::FindWindowByID(settings.ID))
+                ApplyWindowSettings(window, &settings);
+            settings.WantApply = false;
         }
+    }
 }
 
 static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandler* handler, std::vector<char>& buf)
@@ -10562,10 +10539,8 @@ static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandl
             continue;
 
         ImGuiWindowSettings* settings = ImGui::FindWindowSettingsByWindow(window);
-        if (!settings)
-        {
+        if (!settings) {
             settings = ImGui::CreateNewWindowSettings(window->Name);
-            window->SettingsOffset = g.SettingsWindows.offset_from_ptr(settings);
         }
         IM_ASSERT(settings->ID == window->ID);
         settings->Pos = ImVec2ih(window->Pos);
@@ -10576,17 +10551,16 @@ static void WindowSettingsHandler_WriteAll(ImGuiContext* ctx, ImGuiSettingsHandl
     }
 
     // Write to text buffer
-    for (ImGuiWindowSettings* settings = g.SettingsWindows.begin(); settings != NULL; settings = g.SettingsWindows.next_chunk(settings))
+    for (auto& settings : g.SettingsWindows)
     {
-        if (settings->WantDelete)
+        if (settings.WantDelete)
             continue;
-        const char* settings_name = settings->GetName();
 
         auto itr = std::back_inserter(buf);
-        itr = std::format_to(itr, "[{}][{}]\n", handler->TypeName, settings_name);
-        itr = std::format_to(itr, "Pos={},{}\n", settings->Pos.x, settings->Pos.y);
-        itr = std::format_to(itr, "Size={},{}\n", settings->Size.x, settings->Size.y);
-        itr = std::format_to(itr, "Collapsed={:d}\n", settings->Collapsed);
+        itr = std::format_to(itr, "[{}][{}]\n", handler->TypeName, settings.Name);
+        itr = std::format_to(itr, "Pos={},{}\n", settings.Pos.x, settings.Pos.y);
+        itr = std::format_to(itr, "Size={},{}\n", settings.Size.x, settings.Size.y);
+        itr = std::format_to(itr, "Collapsed={:d}\n", settings.Collapsed);
         itr = '\n';
     }
 }
@@ -11294,8 +11268,9 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         }
         if (TreeNode("SettingsWindows", "Settings packed data: Windows: %d bytes", g.SettingsWindows.size()))
         {
-            for (ImGuiWindowSettings* settings = g.SettingsWindows.begin(); settings != NULL; settings = g.SettingsWindows.next_chunk(settings))
+            for (const auto& settings : g.SettingsWindows) {
                 DebugNodeWindowSettings(settings);
+            }
             TreePop();
         }
 
@@ -11864,13 +11839,13 @@ void ImGui::DebugNodeWindow(ImGuiWindow* window, const char* label)
     TreePop();
 }
 
-void ImGui::DebugNodeWindowSettings(ImGuiWindowSettings* settings)
+void ImGui::DebugNodeWindowSettings(const ImGuiWindowSettings& settings)
 {
-    if (settings->WantDelete)
+    if (settings.WantDelete)
         BeginDisabled();
     Text("0x%08X \"%s\" Pos (%d,%d) Size (%d,%d) Collapsed=%d",
-        settings->ID, settings->GetName(), settings->Pos.x, settings->Pos.y, settings->Size.x, settings->Size.y, settings->Collapsed);
-    if (settings->WantDelete)
+        settings.ID, settings.Name.c_str(), settings.Pos.x, settings.Pos.y, settings.Size.x, settings.Size.y, settings.Collapsed);
+    if (settings.WantDelete)
         EndDisabled();
 }
 
@@ -12259,7 +12234,7 @@ void ImGui::DebugNodeFont(ImFont*) {}
 void ImGui::DebugNodeStorage(ImGuiStorage*, const char*) {}
 void ImGui::DebugNodeTabBar(ImGuiTabBar*, const char*) {}
 void ImGui::DebugNodeWindow(ImGuiWindow*, const char*) {}
-void ImGui::DebugNodeWindowSettings(ImGuiWindowSettings*) {}
+void ImGui::DebugNodeWindowSettings(const ImGuiWindowSettings&) {}
 void ImGui::DebugNodeWindowsList(std::vector<ImGuiWindow*>&, const char*) {}
 void ImGui::DebugNodeViewport(ImGuiViewportP*) {}
 
