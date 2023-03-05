@@ -653,10 +653,10 @@ static bool CheckShader(GLuint handle, const char* desc)
         fprintf(stderr, "ERROR: ImGui_ImplOpenGL3_CreateDeviceObjects: failed to compile %s! With GLSL: %s\n", desc, bd->GlslVersionString);
     if (log_length > 1)
     {
-        ImVector<char> buf;
-        buf.resize((int)(log_length + 1));
-        glGetShaderInfoLog(handle, log_length, nullptr, (GLchar*)buf.begin());
-        fprintf(stderr, "%s\n", buf.begin());
+        std::string buf;
+        buf.resize(log_length, '\0');
+        glGetShaderInfoLog(handle, log_length, nullptr, (GLchar*)buf.data());
+        fprintf(stderr, "%s\n", buf.c_str());
     }
     return (GLboolean)status == GL_TRUE;
 }
@@ -672,10 +672,10 @@ static bool CheckProgram(GLuint handle, const char* desc)
         fprintf(stderr, "ERROR: ImGui_ImplOpenGL3_CreateDeviceObjects: failed to link %s! With GLSL %s\n", desc, bd->GlslVersionString);
     if (log_length > 1)
     {
-        ImVector<char> buf;
-        buf.resize((int)(log_length + 1));
-        glGetProgramInfoLog(handle, log_length, nullptr, (GLchar*)buf.begin());
-        fprintf(stderr, "%s\n", buf.begin());
+        std::string buf;
+        buf.resize(log_length, '\0');
+        glGetProgramInfoLog(handle, log_length, nullptr, (GLchar*)buf.data());
+        fprintf(stderr, "%s\n", buf.c_str());
     }
     return (GLboolean)status == GL_TRUE;
 }
