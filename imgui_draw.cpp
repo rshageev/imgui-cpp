@@ -193,9 +193,6 @@ void ImDrawListSharedData::SetCircleTessellationMaxError(float max_error)
 // Initialize before use in a new frame. We always have a command ready in the buffer.
 void ImDrawList::_ResetForNewFrame()
 {
-    if (_Splitter._Count > 1)
-        _Splitter.Merge(this);
-
     CmdBuffer.resize(0);
     IdxBuffer.resize(0);
     VtxBuffer.resize(0);
@@ -204,7 +201,6 @@ void ImDrawList::_ResetForNewFrame()
     _ClipRectStack.clear();
     _TextureIdStack.clear();
     _Path.resize(0);
-    _Splitter.Clear();
     CmdBuffer.push_back(ImDrawCmd());
     _FringeScale = 1.0f;
 }
@@ -218,7 +214,6 @@ void ImDrawList::_ClearFreeMemory()
     _ClipRectStack.clear();
     _TextureIdStack.clear();
     _Path.clear();
-    _Splitter.ClearFreeMemory();
 }
 
 ImDrawList* ImDrawList::CloneOutput() const

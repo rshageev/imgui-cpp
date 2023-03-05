@@ -2208,7 +2208,6 @@ struct ImDrawList
     std::vector<ImTextureID> _TextureIdStack; // [Internal]
     std::vector<ImVec2> _Path;                // [Internal] current path building
     ImDrawCmdHeader _CmdHeader;               // [Internal] template of active commands. Fields should match those of CmdBuffer.back().
-    ImDrawListSplitter _Splitter;             // [Internal] for channels api (note: prefer using your own persistent instance of ImDrawListSplitter!)
     float _FringeScale = 0.0f;                // [Internal] anti-alias fringe is scaled by this value, this helps to keep things sharp while zooming at vertex buffer content
 
     // If you want to create ImDrawList instances, pass them ImGui::GetDrawListSharedData() or create and use your own ImDrawListSharedData (so you can use ImDrawList without ImGui)
@@ -2303,16 +2302,6 @@ struct ImDrawList
     void AddCallback(ImDrawCallback callback, void* callback_data);  // Your rendering function must check for 'UserCallback' in ImDrawCmd and call the function instead of rendering triangles.
     void AddDrawCmd();                                               // This is useful if you need to forcefully create a new draw call (to allow for dependent rendering / blending). Otherwise primitives are merged into the same draw-call as much as possible
     ImDrawList* CloneOutput() const;                                 // Create a clone of the CmdBuffer/IdxBuffer/VtxBuffer.
-
-    // Advanced: Channels
-    // - Use to split render into layers. By switching channels to can render out-of-order (e.g. submit FG primitives before BG primitives)
-    // - Use to minimize draw calls (e.g. if going back-and-forth between multiple clipping rectangles, prefer to append into separate channels then merge at the end)
-    // - FIXME-OBSOLETE: This API shouldn't have been in ImDrawList in the first place!
-    //   Prefer using your own persistent instance of ImDrawListSplitter as you can stack them.
-    //   Using the ImDrawList::ChannelsXXXX you cannot stack a split over another.
-    void ChannelsSplit(int count)  { _Splitter.Split(this, count); }
-    void ChannelsMerge()           { _Splitter.Merge(this); }
-    void ChannelsSetCurrent(int n) { _Splitter.SetCurrentChannel(this, n); }
 
     // Advanced: Primitives allocations
     // - We render triangles (three vertices)
