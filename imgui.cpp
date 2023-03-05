@@ -1483,38 +1483,6 @@ ImCol ImGui::GetColor(ImCol col)
     return col;
 }
 
-void ImGui::PushStyleColor(ImGuiCol idx, ImColorf col)
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiColorMod backup;
-    backup.Col = idx;
-    backup.BackupValue = g.Style.Colors[idx];
-    g.ColorStack.push_back(backup);
-    g.Style.Colors[idx] = col;
-}
-
-void ImGui::PushStyleColor(ImGuiCol idx, ImCol col)
-{
-    PushStyleColor(idx, ColorConvertToFloat(col));
-}
-
-void ImGui::PopStyleColor(size_t count)
-{
-    ImGuiContext& g = *GImGui;
-    if (g.ColorStack.size() < count)
-    {
-        IM_ASSERT_USER_ERROR(g.ColorStack.size() > count, "Calling PopStyleColor() too many times: stack underflow.");
-        count = g.ColorStack.size();
-    }
-    while (count > 0)
-    {
-        ImGuiColorMod& backup = g.ColorStack.back();
-        g.Style.Colors[backup.Col] = backup.BackupValue;
-        g.ColorStack.pop_back();
-        count--;
-    }
-}
-
 struct ImGuiStyleVarInfo
 {
     ImGuiDataType   Type;
@@ -2054,7 +2022,6 @@ void ImGui::Shutdown()
 
     g.KeysRoutingTable.Clear();
 
-    g.ColorStack.clear();
     g.StyleVarStack.clear();
     g.FontStack.clear();
     g.OpenPopupStack.clear();
@@ -3676,14 +3643,14 @@ void ImGui::EndChild()
 bool ImGui::BeginChildFrame(ImGuiID id, const ImVec2& size, ImGuiWindowFlags extra_flags)
 {
     ImGuiContext& g = *GImGui;
-    const ImGuiStyle& style = g.Style;
-    PushStyleColor(ImGuiCol_ChildBg, style.Colors[ImGuiCol_FrameBg]);
+    ImGuiStyle& style = g.Style;
+    style.PushColor(ImGuiCol_ChildBg, style.Colors[ImGuiCol_FrameBg]);
     PushStyleVar(ImGuiStyleVar_ChildRounding, style.FrameRounding);
     PushStyleVar(ImGuiStyleVar_ChildBorderSize, style.FrameBorderSize);
     PushStyleVar(ImGuiStyleVar_WindowPadding, style.FramePadding);
     bool ret = BeginChild(id, size, true, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysUseWindowPadding | extra_flags);
     PopStyleVar(3);
-    PopStyleColor();
+    style.PopColor();
     return ret;
 }
 
@@ -11719,9 +11686,13 @@ void ImGui::DebugNodeTabBar(ImGuiTabBar* tab_bar, const char* label)
             tab_n > 0 ? ", " : "", tab->GetName());
     }
     p += ImFormatString(p, buf_end - p, (tab_bar->Tabs.size() > 3) ? " ... }" : " } ");
-    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled)); }
+    if (!is_active) {
+        GetStyle().PushColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled));
+    }
     bool open = TreeNode(label, "%s", buf);
-    if (!is_active) { PopStyleColor(); }
+    if (!is_active) {
+        GetStyle().PopColor();
+    }
     if (is_active && IsItemHovered())
     {
         ImDrawList* draw_list = GetForegroundDrawList();
@@ -11778,9 +11749,13 @@ void ImGui::DebugNodeWindow(ImGuiWindow* window, const char* label)
     ImGuiContext& g = *GImGui;
     const bool is_active = window->WasActive;
     ImGuiTreeNodeFlags tree_node_flags = (window == g.NavWindow) ? ImGuiTreeNodeFlags_Selected : ImGuiTreeNodeFlags_None;
-    if (!is_active) { PushStyleColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled)); }
+    if (!is_active) {
+        g.Style.PushColor(ImGuiCol_Text, GetStyleColorf(ImGuiCol_TextDisabled));
+    }
     const bool open = TreeNodeEx(label, tree_node_flags, "%s '%s'%s", label, window->Name, is_active ? "" : " *Inactive*");
-    if (!is_active) { PopStyleColor(); }
+    if (!is_active) {
+        g.Style.PopColor();
+    }
     if (IsItemHovered() && is_active)
         GetForegroundDrawList(window)->AddRect(window->Pos, window->Pos + window->Size, ImCol(255, 255, 0, 255));
     if (!open)

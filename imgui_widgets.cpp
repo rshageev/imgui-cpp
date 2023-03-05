@@ -249,9 +249,9 @@ void ImGui::TextColored(const ImColorf& col, const char* fmt, ...)
 
 void ImGui::TextColoredV(const ImColorf& col, const char* fmt, va_list args)
 {
-    PushStyleColor(ImGuiCol_Text, col);
+    GetStyle().PushColor(ImGuiCol_Text, col);
     TextV(fmt, args);
-    PopStyleColor();
+    GetStyle().PopColor();
 }
 
 void ImGui::TextDisabled(const char* fmt, ...)
@@ -265,9 +265,9 @@ void ImGui::TextDisabled(const char* fmt, ...)
 void ImGui::TextDisabledV(const char* fmt, va_list args)
 {
     ImGuiContext& g = *GImGui;
-    PushStyleColor(ImGuiCol_Text, g.Style.Colors[ImGuiCol_TextDisabled]);
+    g.Style.PushColor(ImGuiCol_Text, g.Style.Colors[ImGuiCol_TextDisabled]);
     TextV(fmt, args);
-    PopStyleColor();
+    g.Style.PopColor();
 }
 
 void ImGui::TextWrapped(const char* fmt, ...)
@@ -3933,7 +3933,7 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
 
     ImGuiContext& g = *GImGui;
     ImGuiIO& io = g.IO;
-    const ImGuiStyle& style = g.Style;
+    ImGuiStyle& style = g.Style;
 
     const bool RENDER_SELECTION_WHEN_INACTIVE = false;
     const bool is_multiline = (flags & ImGuiInputTextFlags_Multiline) != 0;
@@ -3973,13 +3973,13 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
 
         // We reproduce the contents of BeginChildFrame() in order to provide 'label' so our window internal data are easier to read/debug.
         // FIXME-NAV: Pressing NavActivate will trigger general child activation right before triggering our own below. Harmless but bizarre.
-        PushStyleColor(ImGuiCol_ChildBg, style.Colors[ImGuiCol_FrameBg]);
+        style.PushColor(ImGuiCol_ChildBg, style.Colors[ImGuiCol_FrameBg]);
         PushStyleVar(ImGuiStyleVar_ChildRounding, style.FrameRounding);
         PushStyleVar(ImGuiStyleVar_ChildBorderSize, style.FrameBorderSize);
         PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0)); // Ensure no clip rect so mouse hover can reach FramePadding edges
         bool child_visible = BeginChildEx(label, id, frame_bb.GetSize(), true, ImGuiWindowFlags_NoMove);
         PopStyleVar(3);
-        PopStyleColor();
+        style.PopColor();
         if (!child_visible)
         {
             EndChild();
@@ -7235,9 +7235,9 @@ bool ImGui::MenuItemEx(const char* label, const char* icon, const char* shortcut
                 RenderText(pos + ImVec2(offsets->OffsetIcon, 0.0f), icon);
             if (shortcut_w > 0.0f)
             {
-                PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]);
+                style.PushColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]);
                 RenderText(pos + ImVec2(offsets->OffsetShortcut + stretch_w, 0.0f), shortcut, NULL, false);
-                PopStyleColor();
+                style.PopColor();
             }
             if (selected) {
                 RenderCheckMark(window->DrawList, pos + ImVec2(offsets->OffsetMark + stretch_w + g.FontSize * 0.40f, g.FontSize * 0.134f * 0.5f), GetColor(ImGuiCol_Text), g.FontSize * 0.866f);
@@ -7904,8 +7904,8 @@ static ImGuiTabItem* ImGui::TabBarScrollingButtons(ImGuiTabBar* tab_bar)
     ImColorf arrow_col = g.Style.Colors[ImGuiCol_Text];
     arrow_col.a *= 0.5f;
 
-    PushStyleColor(ImGuiCol_Text, arrow_col);
-    PushStyleColor(ImGuiCol_Button, ImColorf::BlackTransparent);
+    g.Style.PushColor(ImGuiCol_Text, arrow_col);
+    g.Style.PushColor(ImGuiCol_Button, ImColorf::BlackTransparent);
     const float backup_repeat_delay = g.IO.KeyRepeatDelay;
     const float backup_repeat_rate = g.IO.KeyRepeatRate;
     g.IO.KeyRepeatDelay = 0.250f;
@@ -7917,7 +7917,7 @@ static ImGuiTabItem* ImGui::TabBarScrollingButtons(ImGuiTabBar* tab_bar)
     window->DC.CursorPos = ImVec2(x + arrow_button_size.x, tab_bar->BarRect.Min.y);
     if (ArrowButtonEx("##>", ImGuiDir_Right, arrow_button_size, ImGuiButtonFlags_PressedOnClick | ImGuiButtonFlags_Repeat))
         select_dir = +1;
-    PopStyleColor(2);
+    g.Style.PopColor(2);
     g.IO.KeyRepeatRate = backup_repeat_rate;
     g.IO.KeyRepeatDelay = backup_repeat_delay;
 
@@ -7966,10 +7966,10 @@ static ImGuiTabItem* ImGui::TabBarTabListPopupButton(ImGuiTabBar* tab_bar)
 
     ImColorf arrow_col = g.Style.Colors[ImGuiCol_Text];
     arrow_col.a *= 0.5f;
-    PushStyleColor(ImGuiCol_Text, arrow_col);
-    PushStyleColor(ImGuiCol_Button, ImColorf::BlackTransparent);
+    g.Style.PushColor(ImGuiCol_Text, arrow_col);
+    g.Style.PushColor(ImGuiCol_Button, ImColorf::BlackTransparent);
     bool open = BeginCombo("##v", NULL, ImGuiComboFlags_NoPreview | ImGuiComboFlags_HeightLargest);
-    PopStyleColor(2);
+    g.Style.PopColor(2);
 
     ImGuiTabItem* tab_to_select = NULL;
     if (open)

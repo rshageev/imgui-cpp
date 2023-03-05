@@ -70,7 +70,6 @@ namespace stdv = std::views;
 struct ImRect;                      // An axis-aligned rectangle (2 points)
 struct ImDrawDataBuilder;           // Helper to build a ImDrawData instance
 struct ImDrawListSharedData;        // Data shared between all ImDrawList instances
-struct ImGuiColorMod;               // Stacked color modifier, backup of modified data so we can restore it
 struct ImGuiContext;                // Main Dear ImGui context
 struct ImGuiContextHook;            // Hook for extensions like ImGuiTestEngine
 struct ImGuiDataTypeInfo;           // Type information associated to a ImGuiDataType enum
@@ -754,13 +753,6 @@ enum ImGuiDataTypePrivate_
     ImGuiDataType_String = ImGuiDataType_COUNT + 1,
     ImGuiDataType_Pointer,
     ImGuiDataType_ID,
-};
-
-// Stacked color modifier, backup of modified data so we can restore it
-struct ImGuiColorMod
-{
-    ImGuiCol Col;
-    ImColorf BackupValue;
 };
 
 // Stacked style modifier, backup of modified data so we can restore it. Data type inferred from the variable.
@@ -1493,7 +1485,6 @@ struct ImGuiContext
     ImGuiNextWindowData     NextWindowData;         // Storage for SetNextWindow** functions
 
     // Shared stacks
-    std::vector<ImGuiColorMod> ColorStack;          // Stack for PushStyleColor()/PopStyleColor() - inherited by Begin()
     std::vector<ImGuiStyleMod> StyleVarStack;       // Stack for PushStyleVar()/PopStyleVar() - inherited by Begin()
     std::vector<ImFont*> FontStack;                 // Stack for PushFont()/PopFont() - inherited by Begin()
     std::vector<ImGuiID> FocusScopeStack;           // Stack for PushFocusScope()/PopFocusScope() - inherited by BeginChild(), pushed into by Begin()

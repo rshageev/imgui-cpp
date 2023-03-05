@@ -290,9 +290,6 @@ namespace ImGui
     void PopFont();
 
     // modify a style color. always use this if you modify the style after NewFrame().
-    void PushStyleColor(ImGuiCol idx, ImColorf col);
-    void PushStyleColor(ImGuiCol idx, ImCol col);
-    void PopStyleColor(size_t count = 1);
     void PushStyleVar(ImGuiStyleVar idx, float val);         // modify a style float variable. always use this if you modify the style after NewFrame().
     void PushStyleVar(ImGuiStyleVar idx, const ImVec2& val); // modify a style ImVec2 variable. always use this if you modify the style after NewFrame().
     void PopStyleVar(size_t count = 1);

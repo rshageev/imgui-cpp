@@ -5,6 +5,7 @@
 #include "imgui_color.h"
 
 #include <array>
+#include <vector>
 
 // Enumeration for PushStyleColor() / PopStyleColor()
 using ImGuiCol = int;
@@ -287,8 +288,9 @@ enum ImGuiStyleVar_
 };
 
 
-struct ImGuiStyle
+class ImGuiStyle
 {
+public:
     float Alpha = 1.0f;                      // Global alpha applies to everything in Dear ImGui.
     float DisabledAlpha = 0.6f;              // Additional alpha multiplier applied by BeginDisabled(). Multiply over current value of Alpha.
     ImVec2 WindowPadding = {8,8};            // Padding within a window.
@@ -334,4 +336,16 @@ struct ImGuiStyle
     ColorScheme Colors = Style::Dark;
 
     void ScaleAllSizes(float scale_factor);
+
+    void PushColor(ImGuiCol idx, ImColorf col);
+    void PushColor(ImGuiCol idx, ImCol col);
+    void PopColor(size_t count = 1);
+
+private:
+    struct ImGuiColorMod
+    {
+        ImGuiCol Col;
+        ImColorf BackupValue;
+    };
+    std::vector<ImGuiColorMod> ColorStack;
 };

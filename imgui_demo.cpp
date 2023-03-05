@@ -458,11 +458,11 @@ static void ShowDemoWindowWidgets()
             if (i > 0)
                 ImGui::SameLine();
             ImGui::PushID(i);
-            ImGui::PushStyleColor(ImGuiCol_Button, ImColorf::FromHSV(i / 7.0f, 0.6f, 0.6f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(i / 7.0f, 0.7f, 0.7f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColorf::FromHSV(i / 7.0f, 0.8f, 0.8f));
+            ImGui::GetStyle().PushColor(ImGuiCol_Button, ImColorf::FromHSV(i / 7.0f, 0.6f, 0.6f));
+            ImGui::GetStyle().PushColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(i / 7.0f, 0.7f, 0.7f));
+            ImGui::GetStyle().PushColor(ImGuiCol_ButtonActive, ImColorf::FromHSV(i / 7.0f, 0.8f, 0.8f));
             ImGui::Button("Click");
-            ImGui::PopStyleColor(3);
+            ImGui::GetStyle().PopColor(3);
             ImGui::PopID();
         }
 
@@ -2021,14 +2021,14 @@ static void ShowDemoWindowWidgets()
         {
             if (i > 0) ImGui::SameLine();
             ImGui::PushID(i);
-            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImColorf::FromHSV(i / 7.0f, 0.5f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImColorf::FromHSV(i / 7.0f, 0.6f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImColorf::FromHSV(i / 7.0f, 0.7f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImColorf::FromHSV(i / 7.0f, 0.9f, 0.9f));
+            ImGui::GetStyle().PushColor(ImGuiCol_FrameBg, ImColorf::FromHSV(i / 7.0f, 0.5f, 0.5f));
+            ImGui::GetStyle().PushColor(ImGuiCol_FrameBgHovered, ImColorf::FromHSV(i / 7.0f, 0.6f, 0.5f));
+            ImGui::GetStyle().PushColor(ImGuiCol_FrameBgActive, ImColorf::FromHSV(i / 7.0f, 0.7f, 0.5f));
+            ImGui::GetStyle().PushColor(ImGuiCol_SliderGrab, ImColorf::FromHSV(i / 7.0f, 0.9f, 0.9f));
             ImGui::VSliderFloat("##v", ImVec2(18, 160), &values[i], 0.0f, 1.0f, "");
             if (ImGui::IsItemActive() || ImGui::IsItemHovered())
                 ImGui::SetTooltip("%.3f", values[i]);
-            ImGui::PopStyleColor(4);
+            ImGui::GetStyle().PopColor(4);
             ImGui::PopID();
         }
         ImGui::PopID();
@@ -2480,7 +2480,7 @@ static void ShowDemoWindowLayout()
             ImGui::DragInt("Offset X", &offset_x, 1.0f, -1000, 1000);
 
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (float)offset_x);
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImCol(255, 0, 0, 100));
+            ImGui::GetStyle().PushColor(ImGuiCol_ChildBg, ImCol(255, 0, 0, 100));
             ImGui::BeginChild("Red", ImVec2(200, 100), true, ImGuiWindowFlags_None);
             for (int n = 0; n < 50; n++)
                 ImGui::Text("Some test %d", n);
@@ -2488,7 +2488,7 @@ static void ShowDemoWindowLayout()
             bool child_is_hovered = ImGui::IsItemHovered();
             ImVec2 child_rect_min = ImGui::GetItemRectMin();
             ImVec2 child_rect_max = ImGui::GetItemRectMax();
-            ImGui::PopStyleColor();
+            ImGui::GetStyle().PopColor();
             ImGui::Text("Hovered: %d", child_is_hovered);
             ImGui::Text("Rect of child window is: (%.0f,%.0f) (%.0f,%.0f)", child_rect_min.x, child_rect_min.y, child_rect_max.x, child_rect_max.y);
         }
@@ -2983,11 +2983,11 @@ static void ShowDemoWindowLayout()
                 sprintf(num_buf, "%d", n);
                 const char* label = (!(n % 15)) ? "FizzBuzz" : (!(n % 3)) ? "Fizz" : (!(n % 5)) ? "Buzz" : num_buf;
                 float hue = n * 0.05f;
-                ImGui::PushStyleColor(ImGuiCol_Button, ImColorf::FromHSV(hue, 0.6f, 0.6f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(hue, 0.7f, 0.7f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImColorf::FromHSV(hue, 0.8f, 0.8f));
+                ImGui::GetStyle().PushColor(ImGuiCol_Button, ImColorf::FromHSV(hue, 0.6f, 0.6f));
+                ImGui::GetStyle().PushColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(hue, 0.7f, 0.7f));
+                ImGui::GetStyle().PushColor(ImGuiCol_ButtonActive, ImColorf::FromHSV(hue, 0.8f, 0.8f));
                 ImGui::Button(label, ImVec2(40.0f + sinf((float)(line + n)) * 20.0f, 0.0f));
-                ImGui::PopStyleColor(3);
+                ImGui::GetStyle().PopColor(3);
                 ImGui::PopID();
             }
         }
@@ -4055,7 +4055,7 @@ static void ShowDemoWindowTables()
             static char text_bufs[3 * 5][16]; // Mini text storage for 3x5 cells
             static bool init = true;
             if (!show_widget_frame_bg) {
-                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImColorf::BlackTransparent);
+                ImGui::GetStyle().PushColor(ImGuiCol_FrameBg, ImColorf::BlackTransparent);
             }
             for (int cell = 0; cell < 3 * 5; cell++)
             {
@@ -4067,8 +4067,9 @@ static void ShowDemoWindowTables()
                 ImGui::InputText("##cell", text_bufs[cell], IM_ARRAYSIZE(text_bufs[cell]));
                 ImGui::PopID();
             }
-            if (!show_widget_frame_bg)
-                ImGui::PopStyleColor();
+            if (!show_widget_frame_bg) {
+                ImGui::GetStyle().PopColor();
+            }
             init = false;
             ImGui::EndTable();
         }
@@ -6248,11 +6249,12 @@ struct ExampleAppConsole
                     has_color = true;
                 }
                 if (has_color) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, color);
+                    ImGui::GetStyle().PushColor(ImGuiCol_Text, color);
                 }
                 ImGui::TextUnformatted(item.data(), item.data() + item.size());
-                if (has_color)
-                    ImGui::PopStyleColor();
+                if (has_color) {
+                    ImGui::GetStyle().PopColor();
+                }
             }
 
             // Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
@@ -7328,9 +7330,9 @@ struct MyDocument
     {
         ImGui::PushID(doc);
         ImGui::Text("Document \"%s\"", doc->Name);
-        ImGui::PushStyleColor(ImGuiCol_Text, doc->Color);
+        ImGui::GetStyle().PushColor(ImGuiCol_Text, doc->Color);
         ImGui::TextWrapped("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
-        ImGui::PopStyleColor();
+        ImGui::GetStyle().PopColor();
         if (ImGui::Button("Modify", ImVec2(100, 0)))
             doc->Dirty = true;
         ImGui::SameLine();

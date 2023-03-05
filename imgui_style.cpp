@@ -26,3 +26,25 @@ void ImGuiStyle::ScaleAllSizes(float scale_factor)
     DisplaySafeAreaPadding = ImFloor(DisplaySafeAreaPadding * scale_factor);
     MouseCursorScale = std::floor(MouseCursorScale * scale_factor);
 }
+
+
+void ImGuiStyle::PushColor(ImGuiCol idx, ImColorf col)
+{
+    ColorStack.push_back({ idx, Colors[idx] });
+    Colors[idx] = col;
+}
+
+void ImGuiStyle::PushColor(ImGuiCol idx, ImCol col)
+{
+    PushColor(idx, ImGui::ColorConvertToFloat(col));
+}
+
+void ImGuiStyle::PopColor(size_t count)
+{
+    while (count > 0) {
+        const auto& [idx, col] = ColorStack.back();
+        Colors[idx] = col;
+        ColorStack.pop_back();
+        --count;
+    }
+}
