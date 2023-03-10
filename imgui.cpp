@@ -1191,14 +1191,7 @@ static void ImGuiListClipper_SortAndFuseRanges(std::vector<ImGuiListClipperRange
     if (ranges.size() - offset <= 1)
         return;
 
-    // Helper to order ranges and fuse them together if possible (bubble sort is fine as we are only sorting 2-3 entries)
-    for (int sort_end = ranges.size() - offset - 1; sort_end > 0; --sort_end) {
-        for (int i = offset; i < sort_end + offset; ++i) {
-            if (ranges[i].Min > ranges[i + 1].Min) {
-                std::swap(ranges[i], ranges[i + 1]);
-            }
-        }
-    }
+    stdr::sort(ranges, std::less<>{}, &ImGuiListClipperRange::Min);
 
     // Now fuse ranges together as much as possible.
     for (int i = 1 + offset; i < ranges.size(); i++)
@@ -7994,7 +7987,7 @@ void ImGui::OpenPopupEx(ImGuiID id, ImGuiPopupFlags popup_flags)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* parent_window = g.CurrentWindow;
-    const int current_stack_size = g.BeginPopupStack.size();
+    const auto current_stack_size = g.BeginPopupStack.size();
 
     if (popup_flags & ImGuiPopupFlags_NoOpenOverExistingPopup) {
         if (IsPopupOpen((ImGuiID)0, ImGuiPopupFlags_AnyPopupId)) {
@@ -8034,11 +8027,6 @@ void ImGui::OpenPopupEx(ImGuiID id, ImGuiPopupFlags popup_flags)
             ClosePopupToLevel(current_stack_size, false);
             g.OpenPopupStack.push_back(popup_ref);
         }
-
-        // When reopening a popup we first refocus its parent, otherwise if its parent is itself a popup it would get closed by ClosePopupsOverWindow().
-        // This is equivalent to what ClosePopupToLevel() does.
-        //if (g.OpenPopupStack[current_stack_size].PopupId == id)
-        //    FocusWindow(parent_window);
     }
 }
 

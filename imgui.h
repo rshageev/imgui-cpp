@@ -2312,10 +2312,7 @@ struct ImDrawList
     template<class Vs, class Is>
     void AddGeometry(const Vs& vertices, const Is& indices)
     {
-        const auto vert_count = std::ranges::size(vertices);
-        const auto idx_count = std::ranges::size(indices);
-
-        CmdBuffer.back().ElemCount += idx_count;
+        CmdBuffer.back().ElemCount += std::ranges::size(indices);
 
         const auto base_idx = static_cast<ImDrawIdx>(VtxBuffer.size());
         for (auto i : indices) {
@@ -2329,8 +2326,7 @@ struct ImDrawList
     template<class Vs>
     void AddGeometry(const Vs& vertices)
     {
-        const auto vert_count = std::ranges::size(vertices);
-        CmdBuffer.back().ElemCount += vert_count;
+        CmdBuffer.back().ElemCount += std::ranges::size(vertices);
 
         for (const auto& v : vertices) {
             IdxBuffer.push_back(static_cast<ImDrawIdx>(VtxBuffer.size()));

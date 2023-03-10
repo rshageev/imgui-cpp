@@ -15,6 +15,7 @@
 #include <ranges>
 #include <functional>
 #include <format>
+#include <numeric>
 
 namespace stdr = std::ranges;
 namespace stdv = std::views;
@@ -1081,9 +1082,8 @@ static void ShowDemoWindowWidgets()
             static int selected = -1;
             for (int n = 0; n < 5; n++)
             {
-                char buf[32];
-                sprintf(buf, "Object %d", n);
-                if (ImGui::Selectable(buf, selected == n))
+                std::string buf = std::format("Object {}", n);
+                if (ImGui::Selectable(buf.c_str(), selected == n))
                     selected = n;
             }
             ImGui::TreePop();
@@ -1095,9 +1095,8 @@ static void ShowDemoWindowWidgets()
             static bool selection[5] = { false, false, false, false, false };
             for (int n = 0; n < 5; n++)
             {
-                char buf[32];
-                sprintf(buf, "Object %d", n);
-                if (ImGui::Selectable(buf, selection[n]))
+                std::string buf = std::format("Object {}", n);
+                if (ImGui::Selectable(buf.c_str(), selection[n]))
                 {
                     if (!ImGui::GetIO().KeyCtrl)    // Clear selection when CTRL is not held
                         memset(selection, 0, sizeof(selection));
@@ -1126,10 +1125,9 @@ static void ShowDemoWindowWidgets()
             {
                 for (int i = 0; i < 10; i++)
                 {
-                    char label[32];
-                    sprintf(label, "Item %d", i);
+                    std::string label = std::format("Item {}", i);
                     ImGui::TableNextColumn();
-                    ImGui::Selectable(label, &selected[i]); // FIXME-TABLE: Selection overlap
+                    ImGui::Selectable(label.c_str(), &selected[i]); // FIXME-TABLE: Selection overlap
                 }
                 ImGui::EndTable();
             }
@@ -1138,11 +1136,10 @@ static void ShowDemoWindowWidgets()
             {
                 for (int i = 0; i < 10; i++)
                 {
-                    char label[32];
-                    sprintf(label, "Item %d", i);
+                    std::string label = std::format("Item {}", i);
                     ImGui::TableNextRow();
                     ImGui::TableNextColumn();
-                    ImGui::Selectable(label, &selected[i], ImGuiSelectableFlags_SpanAllColumns);
+                    ImGui::Selectable(label.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
                     ImGui::TableNextColumn();
                     ImGui::Text("Some other contents");
                     ImGui::TableNextColumn();
@@ -1198,11 +1195,10 @@ static void ShowDemoWindowWidgets()
                 for (int x = 0; x < 3; x++)
                 {
                     ImVec2 alignment = ImVec2((float)x / 2.0f, (float)y / 2.0f);
-                    char name[32];
-                    sprintf(name, "(%.1f,%.1f)", alignment.x, alignment.y);
+                    std::string name = std::format("({:.1f},{}:.1f)", alignment.x, alignment.y);
                     if (x > 0) ImGui::SameLine();
                     ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, alignment);
-                    ImGui::Selectable(name, &selected[3 * y + x], ImGuiSelectableFlags_None, ImVec2(80, 80));
+                    ImGui::Selectable(name.c_str(), &selected[3 * y + x], ImGuiSelectableFlags_None, ImVec2(80, 80));
                     ImGui::PopStyleVar();
                 }
             }
@@ -1558,13 +1554,9 @@ static void ShowDemoWindowWidgets()
         // Plots can display overlay texts
         // (in this example, we will display an average value)
         {
-            float average = 0.0f;
-            for (int n = 0; n < IM_ARRAYSIZE(values); n++)
-                average += values[n];
-            average /= (float)IM_ARRAYSIZE(values);
-            char overlay[32];
-            sprintf(overlay, "avg %f", average);
-            ImGui::PlotLines("Lines", values, IM_ARRAYSIZE(values), values_offset, overlay, -1.0f, 1.0f, ImVec2(0, 80.0f));
+            const float average = std::accumulate(std::begin(values), std::end(values), 0.0f) / std::size(values);
+            std::string overlay = std::format("avg {}", average);
+            ImGui::PlotLines("Lines", values, IM_ARRAYSIZE(values), values_offset, overlay.c_str(), -1.0f, 1.0f, ImVec2(0, 80.0f));
         }
 
         // Use functions to generate output
@@ -1603,9 +1595,8 @@ static void ShowDemoWindowWidgets()
         ImGui::Text("Progress Bar");
 
         float progress_saturated = std::clamp(progress, 0.0f, 1.0f);
-        char buf[32];
-        sprintf(buf, "%d/%d", (int)(progress_saturated * 1753), 1753);
-        ImGui::ProgressBar(progress, ImVec2(0.f, 0.f), buf);
+        std::string buf = std::format("{}/{}", (int)(progress_saturated * 1753), 1753);
+        ImGui::ProgressBar(progress, ImVec2(0.f, 0.f), buf.c_str());
         ImGui::TreePop();
     }
 
@@ -2454,10 +2445,9 @@ static void ShowDemoWindowLayout()
             {
                 for (int i = 0; i < 100; i++)
                 {
-                    char buf[32];
-                    sprintf(buf, "%03d", i);
+                    std::string buf = std::format("{:3}", i);
                     ImGui::TableNextColumn();
-                    ImGui::Button(buf, ImVec2(-FLT_MIN, 0.0f));
+                    ImGui::Button(buf.c_str(), ImVec2(-FLT_MIN, 0.0f));
                 }
                 ImGui::EndTable();
             }
@@ -2979,9 +2969,8 @@ static void ShowDemoWindowLayout()
             {
                 if (n > 0) ImGui::SameLine();
                 ImGui::PushID(n + line * 1000);
-                char num_buf[16];
-                sprintf(num_buf, "%d", n);
-                const char* label = (!(n % 15)) ? "FizzBuzz" : (!(n % 3)) ? "Fizz" : (!(n % 5)) ? "Buzz" : num_buf;
+                std::string num_buf = std::to_string(n);
+                const char* label = (!(n % 15)) ? "FizzBuzz" : (!(n % 3)) ? "Fizz" : (!(n % 5)) ? "Buzz" : num_buf.c_str();
                 float hue = n * 0.05f;
                 ImGui::GetStyle().PushColor(ImGuiCol_Button, ImColorf::FromHSV(hue, 0.6f, 0.6f));
                 ImGui::GetStyle().PushColor(ImGuiCol_ButtonHovered, ImColorf::FromHSV(hue, 0.7f, 0.7f));
@@ -3784,12 +3773,11 @@ static void ShowDemoWindowTables()
                 for (int column = 0; column < 3; column++)
                 {
                     ImGui::TableSetColumnIndex(column);
-                    char buf[32];
-                    sprintf(buf, "Hello %d,%d", column, row);
+                    std::string buf = std::format("Hello {}, {}", column, row);
                     if (contents_type == CT_Text)
-                        ImGui::TextUnformatted(buf);
+                        ImGui::TextUnformatted(buf.c_str());
                     else if (contents_type == CT_FillButton)
-                        ImGui::Button(buf, ImVec2(-FLT_MIN, 0.0f));
+                        ImGui::Button(buf.c_str(), ImVec2(-FLT_MIN, 0.0f));
                 }
             }
             ImGui::EndTable();
@@ -4021,9 +4009,8 @@ static void ShowDemoWindowTables()
                     }
                     else
                     {
-                        char buf[32];
-                        sprintf(buf, "Hello %d,%d", column, row);
-                        ImGui::Button(buf, ImVec2(-FLT_MIN, 0.0f));
+                        std::string buf = std::format("Hello {},{}", column, row);
+                        ImGui::Button(buf.c_str(), ImVec2(-FLT_MIN, 0.0f));
                     }
                 }
             }
@@ -4163,16 +4150,15 @@ static void ShowDemoWindowTables()
                 int row = ImGui::TableGetRowIndex();
 
                 ImGui::PushID(cell);
-                char label[32];
                 static char text_buf[32] = "";
-                sprintf(label, "Hello %d,%d", column, row);
+                std::string label = std::format("Hello {},{}", column, row);
                 switch (contents_type)
                 {
-                case CT_ShortText:  ImGui::TextUnformatted(label); break;
+                case CT_ShortText:  ImGui::TextUnformatted(label.c_str()); break;
                 case CT_LongText:   ImGui::Text("Some %s text %d,%d\nOver two lines..", column == 0 ? "long" : "longeeer", column, row); break;
                 case CT_ShowWidth:  ImGui::Text("W: %.1f", ImGui::GetContentRegionAvail().x); break;
-                case CT_Button:     ImGui::Button(label); break;
-                case CT_FillButton: ImGui::Button(label, ImVec2(-FLT_MIN, 0.0f)); break;
+                case CT_Button:     ImGui::Button(label.c_str()); break;
+                case CT_FillButton: ImGui::Button(label.c_str(), ImVec2(-FLT_MIN, 0.0f)); break;
                 case CT_InputText:  ImGui::SetNextItemWidth(-FLT_MIN); ImGui::InputText("##", text_buf, IM_ARRAYSIZE(text_buf)); break;
                 }
                 ImGui::PopID();
@@ -4791,10 +4777,9 @@ static void ShowDemoWindowTables()
                 ImGui::TableNextRow();
                 for (int column = 0; column < 3; column++)
                 {
-                    char buf[32];
-                    sprintf(buf, "Cell %d,%d", column, row);
+                    std::string buf = std::format("Cell {},{}", column, row);
                     ImGui::TableSetColumnIndex(column);
-                    ImGui::Selectable(buf, column_selected[column]);
+                    ImGui::Selectable(buf.c_str(), column_selected[column]);
                 }
             }
             ImGui::EndTable();
@@ -4922,9 +4907,8 @@ static void ShowDemoWindowTables()
         ImGui::CheckboxFlags("ImGuiTableFlags_SizingFixedFit", &flags, ImGuiTableFlags_SizingFixedFit);
         for (int n = 0; n < 3; n++)
         {
-            char buf[32];
-            sprintf(buf, "Synced Table %d", n);
-            bool open = ImGui::CollapsingHeader(buf, ImGuiTreeNodeFlags_DefaultOpen);
+            std::string buf = std::format("Synced Table {}", n);
+            bool open = ImGui::CollapsingHeader(buf.c_str(), ImGuiTreeNodeFlags_DefaultOpen);
             if (open && ImGui::BeginTable("Table", 3, flags, ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 5)))
             {
                 ImGui::TableSetupColumn("One");
@@ -5460,9 +5444,8 @@ static void ShowDemoWindowInputs()
                 "otherwise your backend needs to handle it.");
             for (int i = 0; i < ImGuiMouseCursor_COUNT; i++)
             {
-                char label[32];
-                sprintf(label, "Mouse cursor %d: %s", i, mouse_cursors_names[i]);
-                ImGui::Bullet(); ImGui::Selectable(label, false);
+                std::string label = std::format("Mouse cursor {}: {}", i, mouse_cursors_names[i]);
+                ImGui::Bullet(); ImGui::Selectable(label.c_str(), false);
                 if (ImGui::IsItemHovered())
                     ImGui::SetMouseCursor(i);
             }
@@ -6322,10 +6305,12 @@ struct ExampleAppConsole
         }
         else if (str_equal(command_line, "HISTORY"))
         {
-            int first = History.size() - 10;
+            size_t first = History.size() - 10;
             for (int i = first > 0 ? first : 0; i < History.size(); i++) {
                 AddLog("{:3}: {}\n", i, History[i]);
             }
+            auto last10 = History | stdv::reverse | stdv::take(10) | stdv::reverse;
+
         }
         else
         {
@@ -6631,9 +6616,8 @@ static void ShowExampleAppLayout(bool* p_open)
             for (int i = 0; i < 100; i++)
             {
                 // FIXME: Good candidate to use ImGuiSelectableFlags_SelectOnNav
-                char label[128];
-                sprintf(label, "MyObject %d", i);
-                if (ImGui::Selectable(label, selected == i))
+                std::string label = std::format("MyObject {}", i);
+                if (ImGui::Selectable(label.c_str(), selected == i))
                     selected = i;
             }
             ImGui::EndChild();
@@ -7055,10 +7039,11 @@ static void ShowExampleAppWindowTitles(bool*)
     ImGui::End();
 
     // Using "###" to display a changing title but keep a static identifier "AnimatedTitle"
-    char buf[128];
-    sprintf(buf, "Animated title %c %d###AnimatedTitle", "|/-\\"[(int)(ImGui::GetTime() / 0.25f) & 3], ImGui::GetFrameCount());
+    const char frames[] = R"(|/-\)";
+    const auto current_frame = (int)(ImGui::GetTime() / 0.25f) & 3;
+    std::string buf = std::format("Animated title {} {}###AnimatedTitle", frames[current_frame], ImGui::GetFrameCount());
     ImGui::SetNextWindowPos(ImVec2(base_pos.x + 100, base_pos.y + 300), ImGuiCond_FirstUseEver);
-    ImGui::Begin(buf);
+    ImGui::Begin(buf.c_str());
     ImGui::Text("This window has a changing title.");
     ImGui::End();
 }
@@ -7348,9 +7333,8 @@ struct MyDocument
         if (!ImGui::BeginPopupContextItem())
             return;
 
-        char buf[256];
-        sprintf(buf, "Save %s", doc->Name);
-        if (ImGui::MenuItem(buf, "CTRL+S", false, doc->Open))
+        std::string buf = std::format("Save {}", doc->Name);
+        if (ImGui::MenuItem(buf.c_str(), "CTRL+S", false, doc->Open))
             doc->DoSave();
         if (ImGui::MenuItem("Close", "CTRL+W", false, doc->Open))
             doc->DoQueueClose();
