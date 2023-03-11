@@ -1576,8 +1576,6 @@ void ImGui::ShrinkWidths(std::span<ImGuiShrinkWidthItem> items, float width_exce
 // - BeginCombo()
 // - BeginComboPopup() [Internal]
 // - EndCombo()
-// - BeginComboPreview() [Internal]
-// - EndComboPreview() [Internal]
 // - Combo()
 //-------------------------------------------------------------------------
 
@@ -1640,14 +1638,6 @@ bool ImGui::BeginCombo(const char* label, const char* preview_value, ImGuiComboF
         }
     }
     RenderFrameBorder(bb.Min, bb.Max, style.FrameRounding);
-
-    // Custom preview
-    if (flags & ImGuiComboFlags_CustomPreview)
-    {
-        g.ComboPreviewData.PreviewRect = ImRect(bb.Min.x, bb.Min.y, value_x2, bb.Max.y);
-        IM_ASSERT(preview_value == NULL || preview_value[0] == 0);
-        preview_value = NULL;
-    }
 
     // Render preview and label
     if (preview_value != NULL && !(flags & ImGuiComboFlags_NoPreview)) {
@@ -1731,62 +1721,6 @@ bool ImGui::BeginComboPopup(ImGuiID popup_id, const ImRect& bb, ImGuiComboFlags 
 void ImGui::EndCombo()
 {
     EndPopup();
-}
-
-// Call directly after the BeginCombo/EndCombo block. The preview is designed to only host non-interactive elements
-// (Experimental, see GitHub issues: #1658, #4168)
-bool ImGui::BeginComboPreview()
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    ImGuiComboPreviewData* preview_data = &g.ComboPreviewData;
-
-    if (window->SkipItems || !(g.LastItemData.StatusFlags & ImGuiItemStatusFlags_Visible))
-        return false;
-    IM_ASSERT(g.LastItemData.Rect.Min.x == preview_data->PreviewRect.Min.x && g.LastItemData.Rect.Min.y == preview_data->PreviewRect.Min.y); // Didn't call after BeginCombo/EndCombo block or forgot to pass ImGuiComboFlags_CustomPreview flag?
-    if (!window->ClipRect.Contains(preview_data->PreviewRect)) // Narrower test (optional)
-        return false;
-
-    // FIXME: This could be contained in a PushWorkRect() api
-    preview_data->BackupCursorPos = window->DC.CursorPos;
-    preview_data->BackupCursorMaxPos = window->DC.CursorMaxPos;
-    preview_data->BackupCursorPosPrevLine = window->DC.CursorPosPrevLine;
-    preview_data->BackupPrevLineTextBaseOffset = window->DC.PrevLineTextBaseOffset;
-    preview_data->BackupLayout = window->DC.LayoutType;
-    window->DC.CursorPos = preview_data->PreviewRect.Min + g.Style.FramePadding;
-    window->DC.CursorMaxPos = window->DC.CursorPos;
-    window->DC.LayoutType = ImGuiLayoutType_Horizontal;
-    window->DC.IsSameLine = false;
-    PushClipRect(preview_data->PreviewRect.Min, preview_data->PreviewRect.Max, true);
-
-    return true;
-}
-
-void ImGui::EndComboPreview()
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    ImGuiComboPreviewData* preview_data = &g.ComboPreviewData;
-
-    // FIXME: Using CursorMaxPos approximation instead of correct AABB which we will store in ImDrawCmd in the future
-    ImDrawList* draw_list = window->DrawList;
-    if (window->DC.CursorMaxPos.x < preview_data->PreviewRect.Max.x
-        && window->DC.CursorMaxPos.y < preview_data->PreviewRect.Max.y)
-    {
-        if (draw_list->CmdBuffer.size() > 1) // Unlikely case that the PushClipRect() didn't create a command
-        {
-            draw_list->_CmdHeader.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.size() - 1].Header.ClipRect = draw_list->CmdBuffer[draw_list->CmdBuffer.size() - 2].Header.ClipRect;
-            draw_list->_TryMergeDrawCmds();
-        }
-    }
-    PopClipRect();
-    window->DC.CursorPos = preview_data->BackupCursorPos;
-    window->DC.CursorMaxPos = ImMax(window->DC.CursorMaxPos, preview_data->BackupCursorMaxPos);
-    window->DC.CursorPosPrevLine = preview_data->BackupCursorPosPrevLine;
-    window->DC.PrevLineTextBaseOffset = preview_data->BackupPrevLineTextBaseOffset;
-    window->DC.LayoutType = preview_data->BackupLayout;
-    window->DC.IsSameLine = false;
-    preview_data->PreviewRect = ImRect();
 }
 
 // Getter for the old Combo() API: const char*[]

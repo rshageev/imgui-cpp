@@ -651,12 +651,6 @@ enum ImGuiButtonFlagsPrivate_
     ImGuiButtonFlags_PressedOnDefault_      = ImGuiButtonFlags_PressedOnClickRelease,
 };
 
-// Extend ImGuiComboFlags_
-enum ImGuiComboFlagsPrivate_
-{
-    ImGuiComboFlags_CustomPreview           = 1 << 20,  // enable BeginComboPreview()
-};
-
 // Extend ImGuiSliderFlags_
 enum ImGuiSliderFlagsPrivate_
 {
@@ -763,17 +757,6 @@ struct ImGuiStyleMod
     ImGuiStyleMod(ImGuiStyleVar idx, int v)     { VarIdx = idx; BackupInt[0] = v; }
     ImGuiStyleMod(ImGuiStyleVar idx, float v)   { VarIdx = idx; BackupFloat[0] = v; }
     ImGuiStyleMod(ImGuiStyleVar idx, ImVec2 v)  { VarIdx = idx; BackupFloat[0] = v.x; BackupFloat[1] = v.y; }
-};
-
-// Storage data for BeginComboPreview()/EndComboPreview()
-struct ImGuiComboPreviewData
-{
-    ImRect PreviewRect;
-    ImVec2 BackupCursorPos;
-    ImVec2 BackupCursorMaxPos;
-    ImVec2 BackupCursorPosPrevLine;
-    float BackupPrevLineTextBaseOffset = 0.0f;
-    ImGuiLayoutType BackupLayout = ImGuiLayoutType_Horizontal;
 };
 
 // Stacked storage data for BeginGroup()/EndGroup()
@@ -1610,7 +1593,6 @@ struct ImGuiContext
     ImCol ColorEditSavedColor;                // RGB value with alpha set to 0.
 
     ImColorf ColorPickerRef;                        // Initial/reference color at the time of opening the color picker.
-    ImGuiComboPreviewData ComboPreviewData;
     float SliderGrabClickOffset = 0.0f;
     float SliderCurrentAccum = 0.0f;              // Accumulated slider delta when using navigation controls.
     bool SliderCurrentAccumDirty = false;         // Has the accumulated slider delta changed since last time we tried to apply it?
@@ -2329,8 +2311,6 @@ namespace ImGui
 
     // Combos
     bool BeginComboPopup(ImGuiID popup_id, const ImRect& bb, ImGuiComboFlags flags);
-    bool BeginComboPreview();
-    void EndComboPreview();
 
     // Gamepad/Keyboard Navigation
     void NavInitWindow(ImGuiWindow* window, bool force_reinit);
