@@ -3040,8 +3040,8 @@ static void SetupViewportDrawData(ImGuiViewportP* viewport, std::vector<ImDrawLi
 
     for (ImDrawList* draw_list : draw_lists) {
         draw_list->_PopUnusedDrawCmd();
-        draw_data.TotalVtxCount += draw_list->VtxBuffer.Size;
-        draw_data.TotalIdxCount += draw_list->IdxBuffer.Size;
+        draw_data.TotalVtxCount += draw_list->VtxBuffer.size();
+        draw_data.TotalIdxCount += draw_list->IdxBuffer.size();
     }
 }
 
@@ -11442,8 +11442,9 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
     if (window && !window->WasActive)
         TextDisabled("Warning: owning Window is inactive. This DrawList is not being rendered!");
 
-    for (const ImDrawCmd* pcmd = draw_list->CmdBuffer.Data; pcmd < draw_list->CmdBuffer.Data + cmd_count; pcmd++)
+    for (int i = 0; i < cmd_count; ++i)
     {
+        const ImDrawCmd* pcmd = &draw_list->CmdBuffer[i];
         char buf[300];
         ImFormatString(buf, IM_ARRAYSIZE(buf), "DrawCmd:%5d tris, Tex 0x%p, ClipRect (%4.0f,%4.0f)-(%4.0f,%4.0f)",
             pcmd->ElemCount / 3, (void*)(intptr_t)pcmd->GetTexID(),
@@ -11456,14 +11457,14 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
 
         // Calculate approximate coverage area (touched pixel count)
         // This will be in pixels squared as long there's no post-scaling happening to the renderer output.
-        const ImDrawIdx* idx_buffer = (draw_list->IdxBuffer.Size > 0) ? draw_list->IdxBuffer.Data : NULL;
-        const ImDrawVert* vtx_buffer = draw_list->VtxBuffer.Data;
+        const ImDrawIdx* idx_buffer = (draw_list->IdxBuffer.size() > 0) ? draw_list->IdxBuffer.data() : NULL;
         float total_area = 0.0f;
         for (unsigned int idx_n = pcmd->IdxOffset; idx_n < pcmd->IdxOffset + pcmd->ElemCount; )
         {
             ImVec2 triangle[3];
-            for (int n = 0; n < 3; n++, idx_n++)
-                triangle[n] = vtx_buffer[idx_buffer ? idx_buffer[idx_n] : idx_n].pos;
+            for (int n = 0; n < 3; n++, idx_n++) {
+                triangle[n] = draw_list->VtxBuffer[idx_buffer ? idx_buffer[idx_n] : idx_n].pos;
+            }
             total_area += ImTriangleArea(triangle[0], triangle[1], triangle[2]);
         }
 
@@ -11483,7 +11484,7 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
                 ImVec2 triangle[3];
                 for (int n = 0; n < 3; n++, idx_i++)
                 {
-                    const ImDrawVert& v = vtx_buffer[idx_buffer ? idx_buffer[idx_i] : idx_i];
+                    const ImDrawVert& v = draw_list->VtxBuffer[idx_buffer ? idx_buffer[idx_i] : idx_i];
                     triangle[n] = v.pos;
                     buf_p += ImFormatString(buf_p, buf_end - buf_p, "%s %04d: pos (%8.2f,%8.2f), uv (%.6f,%.6f), col %08X\n",
                         (n == 0) ? "Vert:" : "     ", idx_i, v.pos.x, v.pos.y, v.uv.x, v.uv.y, v.col);
@@ -11515,14 +11516,16 @@ void ImGui::DebugNodeDrawCmdShowMeshAndBoundingBox(ImDrawList* out_draw_list, co
     out_draw_list->Flags &= ~ImDrawListFlags_AntiAliasedLines; // Disable AA on triangle outlines is more readable for very large and thin triangles.
     for (unsigned int idx_n = draw_cmd->IdxOffset, idx_end = draw_cmd->IdxOffset + draw_cmd->ElemCount; idx_n < idx_end; )
     {
-        ImDrawIdx* idx_buffer = (draw_list->IdxBuffer.Size > 0) ? draw_list->IdxBuffer.Data : NULL; // We don't hold on those pointers past iterations as ->AddPolyline() may invalidate them if out_draw_list==draw_list
-        ImDrawVert* vtx_buffer = draw_list->VtxBuffer.Data;
+        const ImDrawIdx* idx_buffer = (draw_list->IdxBuffer.size() > 0) ? draw_list->IdxBuffer.data() : NULL; // We don't hold on those pointers past iterations as ->AddPolyline() may invalidate them if out_draw_list==draw_list
 
         ImVec2 triangle[3];
-        for (int n = 0; n < 3; n++, idx_n++)
-            vtxs_rect.Add((triangle[n] = vtx_buffer[idx_buffer ? idx_buffer[idx_n] : idx_n].pos));
-        if (show_mesh)
+        for (int n = 0; n < 3; n++, idx_n++) {
+            triangle[n] = draw_list->VtxBuffer[idx_buffer ? idx_buffer[idx_n] : idx_n].pos;
+            vtxs_rect.Add(triangle[n]);
+        }
+        if (show_mesh) {
             out_draw_list->AddPolyline(triangle, ImCol(255, 255, 0, 255), ImDrawFlags_Closed, 1.0f); // In yellow: mesh triangles
+        }
     }
     // Draw bounding boxes
     if (show_aabb)

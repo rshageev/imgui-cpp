@@ -255,8 +255,8 @@ void ImGui_ImplDX10_RenderDrawData(ImDrawData* draw_data)
             ctx->PSSetShaderResources(0, 1, &texture_srv);
             ctx->DrawIndexed(cmd.ElemCount, cmd.IdxOffset + global_idx_offset, global_vtx_offset);
         }
-        global_idx_offset += cmd_list->IdxBuffer.Size;
-        global_vtx_offset += cmd_list->VtxBuffer.Size;
+        global_idx_offset += cmd_list->Indices().size();
+        global_vtx_offset += cmd_list->Vertices().size();
     }
 
     // Restore modified DX state

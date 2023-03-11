@@ -544,8 +544,8 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
             // Draw
             vkCmdDrawIndexed(command_buffer, cmd.ElemCount, 1, cmd.IdxOffset + global_idx_offset, cmd.VtxOffset + global_vtx_offset, 0);
         }
-        global_idx_offset += cmd_list->IdxBuffer.Size;
-        global_vtx_offset += cmd_list->VtxBuffer.Size;
+        global_idx_offset += cmd_list->Indices().size();
+        global_vtx_offset += cmd_list->Vertices().size();
     }
 
     // Note: at this point both vkCmdSetViewport() and vkCmdSetScissor() have been called.

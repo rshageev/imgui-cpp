@@ -229,11 +229,7 @@ void ImDrawList::AddDrawCmd()
 // Note that this leaves the ImDrawList in a state unfit for further commands, as most code assume that CmdBuffer.Size > 0
 void ImDrawList::_PopUnusedDrawCmd()
 {
-    while (CmdBuffer.size() > 0)
-    {
-        ImDrawCmd& curr_cmd = CmdBuffer.back();
-        if (curr_cmd.ElemCount != 0)
-            return;// break;
+    while (!CmdBuffer.empty() && CmdBuffer.back().ElemCount == 0) {
         CmdBuffer.pop_back();
     }
 }
@@ -1493,21 +1489,20 @@ void ImGui::ShadeVertsLinearColorGradientKeepAlpha(ImDrawList* draw_list, int ve
 {
     ImVec2 gradient_extent = gradient_p1 - gradient_p0;
     float gradient_inv_length2 = 1.0f / ImLengthSqr(gradient_extent);
-    ImDrawVert* vert_start = draw_list->VtxBuffer.Data + vert_start_idx;
-    ImDrawVert* vert_end = draw_list->VtxBuffer.Data + vert_end_idx;
-
     const int col_delta_r = (int)col1.r - (int)col0.r;
     const int col_delta_g = (int)col1.g - (int)col0.g;
     const int col_delta_b = (int)col1.b - (int)col0.b;
-    for (ImDrawVert* vert = vert_start; vert < vert_end; vert++)
+
+    for (int vert_idx = vert_start_idx; vert_idx < vert_end_idx; ++vert_idx)
     {
-        float d = ImDot(vert->pos - gradient_p0, gradient_extent);
+        auto& vert = draw_list->VtxBuffer[vert_idx];
+        float d = ImDot(vert.pos - gradient_p0, gradient_extent);
         float t = ImClamp(d * gradient_inv_length2, 0.0f, 1.0f);
         const auto r = static_cast<std::uint8_t>(col0.r + col_delta_r * t);
         const auto g = static_cast<std::uint8_t>(col0.g + col_delta_g * t);
         const auto b = static_cast<std::uint8_t>(col0.b + col_delta_b * t);
-        const auto a = ImCol::FromU32(vert->col).a;
-        vert->col = ImCol::ToU32(ImCol(r,g,b,a));
+        const auto a = ImCol::FromU32(vert.col).a;
+        vert.col = ImCol::ToU32(ImCol(r,g,b,a));
     }
 }
 
@@ -1520,19 +1515,21 @@ void ImGui::ShadeVertsLinearUV(ImDrawList* draw_list, int vert_start_idx, int ve
         size.x != 0.0f ? (uv_size.x / size.x) : 0.0f,
         size.y != 0.0f ? (uv_size.y / size.y) : 0.0f);
 
-    ImDrawVert* vert_start = draw_list->VtxBuffer.Data + vert_start_idx;
-    ImDrawVert* vert_end = draw_list->VtxBuffer.Data + vert_end_idx;
     if (clamp)
     {
         const ImVec2 min = ImMin(uv_a, uv_b);
         const ImVec2 max = ImMax(uv_a, uv_b);
-        for (ImDrawVert* vertex = vert_start; vertex < vert_end; ++vertex)
-            vertex->uv = ImClamp(uv_a + ImMul(ImVec2(vertex->pos.x, vertex->pos.y) - a, scale), min, max);
+        for (int vert_idx = vert_start_idx; vert_idx < vert_end_idx; ++vert_idx) {
+            auto& vertex = draw_list->VtxBuffer[vert_idx];
+            vertex.uv = ImClamp(uv_a + ImMul(vertex.pos - a, scale), min, max);
+        }
     }
     else
     {
-        for (ImDrawVert* vertex = vert_start; vertex < vert_end; ++vertex)
-            vertex->uv = uv_a + ImMul(ImVec2(vertex->pos.x, vertex->pos.y) - a, scale);
+        for (int vert_idx = vert_start_idx; vert_idx < vert_end_idx; ++vert_idx) {
+            auto& vertex = draw_list->VtxBuffer[vert_idx];
+            vertex.uv = uv_a + ImMul(vertex.pos - a, scale);
+        }
     }
 }
 

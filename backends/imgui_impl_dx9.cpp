@@ -237,10 +237,10 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
             const LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)cmd.GetTexID();
             bd->pd3dDevice->SetTexture(0, texture);
             bd->pd3dDevice->SetScissorRect(&r);
-            bd->pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, global_vtx_offset, 0, (UINT)cmd_list->VtxBuffer.Size, cmd.IdxOffset + global_idx_offset, cmd.ElemCount / 3);
+            bd->pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, global_vtx_offset, 0, (UINT)cmd_list->Vertices().size(), cmd.IdxOffset + global_idx_offset, cmd.ElemCount / 3);
         }
-        global_idx_offset += cmd_list->IdxBuffer.Size;
-        global_vtx_offset += cmd_list->VtxBuffer.Size;
+        global_idx_offset += cmd_list->Indices().size();
+        global_vtx_offset += cmd_list->Vertices().size();
     }
 
     // Restore the DX9 transform

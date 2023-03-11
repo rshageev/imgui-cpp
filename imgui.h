@@ -1549,6 +1549,7 @@ struct ImVector
     bool empty() const { return Size == 0; }
     int size() const { return Size; }
     T* data() { return Data; }
+    const T* data() const { return Data; }
     int size_in_bytes() const { return Size * (int)sizeof(T); }
     int capacity() const { return Capacity; }
     T& operator[](int i) { IM_ASSERT(i >= 0 && i < Size); return Data[i]; }
@@ -2193,11 +2194,11 @@ struct ImDrawList
     ImDrawList(ImDrawListSharedData* shared_data) : _Data(shared_data) {}
 
     // New C++ API
-    const std::span<ImDrawVert> Vertices() const {
-        return { VtxBuffer.Data, static_cast<size_t>(VtxBuffer.Size) };
+    std::span<const ImDrawVert> Vertices() const {
+        return { VtxBuffer.Data, static_cast<size_t>(VtxBuffer.size())};
     }
-    const std::span<ImDrawIdx> Indices() const {
-        return { IdxBuffer.Data, static_cast<size_t>(IdxBuffer.Size) };
+    std::span<const ImDrawIdx> Indices() const {
+        return { IdxBuffer.Data, static_cast<size_t>(IdxBuffer.size()) };
     }
 
     ~ImDrawList() { _ClearFreeMemory(); }

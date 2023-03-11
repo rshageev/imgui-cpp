@@ -263,8 +263,8 @@ void ImGui_ImplDX12_RenderDrawData(ImDrawData* draw_data, ID3D12GraphicsCommandL
             ctx->RSSetScissorRects(1, &r);
             ctx->DrawIndexedInstanced(cmd.ElemCount, 1, cmd.IdxOffset + global_idx_offset, global_vtx_offset, 0);
         }
-        global_idx_offset += cmd_list->IdxBuffer.Size;
-        global_vtx_offset += cmd_list->VtxBuffer.Size;
+        global_idx_offset += cmd_list->Indices().size();
+        global_vtx_offset += cmd_list->Vertices().size();
     }
 }
 
