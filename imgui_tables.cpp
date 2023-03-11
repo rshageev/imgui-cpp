@@ -2328,8 +2328,7 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
             ImDrawChannel* src_channel = &splitter->_Channels[channel_no];
             // Equivalent of PopUnusedDrawCmd()
             if (src_channel->_CmdBuffer.size() > 0
-                && src_channel->_CmdBuffer.back().ElemCount == 0
-                && src_channel->_CmdBuffer.back().UserCallback == nullptr)
+                && src_channel->_CmdBuffer.back().ElemCount == 0)
             {
                 src_channel->_CmdBuffer.pop_back();
             }

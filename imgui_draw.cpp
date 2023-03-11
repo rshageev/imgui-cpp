@@ -237,32 +237,16 @@ void ImDrawList::AddDrawCmd()
 }
 
 // Pop trailing draw command (used before merging or presenting to user)
-// Note that this leaves the ImDrawList in a state unfit for further commands, as most code assume that CmdBuffer.Size > 0 && CmdBuffer.back().UserCallback == NULL
+// Note that this leaves the ImDrawList in a state unfit for further commands, as most code assume that CmdBuffer.Size > 0
 void ImDrawList::_PopUnusedDrawCmd()
 {
     while (CmdBuffer.size() > 0)
     {
         ImDrawCmd& curr_cmd = CmdBuffer.back();
-        if (curr_cmd.ElemCount != 0 || curr_cmd.UserCallback != NULL)
+        if (curr_cmd.ElemCount != 0)
             return;// break;
         CmdBuffer.pop_back();
     }
-}
-
-void ImDrawList::AddCallback(ImDrawCallback callback, void* callback_data)
-{
-    IM_ASSERT_PARANOID(CmdBuffer.Size > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.back();
-    IM_ASSERT(curr_cmd->UserCallback == NULL);
-    if (curr_cmd->ElemCount != 0)
-    {
-        AddDrawCmd();
-        curr_cmd = &CmdBuffer.back();
-    }
-    curr_cmd->UserCallback = callback;
-    curr_cmd->UserCallbackData = callback_data;
-
-    AddDrawCmd(); // Force a new command after us (see comment below)
 }
 
 static bool ImDrawCmd_AreSequentialIdxOffset(const ImDrawCmd* cmd0, const ImDrawCmd* cmd1) {
@@ -276,9 +260,7 @@ void ImDrawList::_TryMergeDrawCmds()
     ImDrawCmd* curr_cmd = &CmdBuffer.back();
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (curr_cmd->Header == prev_cmd->Header
-        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
-        && curr_cmd->UserCallback == NULL
-        && prev_cmd->UserCallback == NULL)
+        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd))
     {
         prev_cmd->ElemCount += curr_cmd->ElemCount;
         CmdBuffer.pop_back();
@@ -297,15 +279,13 @@ void ImDrawList::_OnChangedClipRect()
         AddDrawCmd();
         return;
     }
-    IM_ASSERT(curr_cmd->UserCallback == NULL);
 
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (curr_cmd->ElemCount == 0
         && CmdBuffer.size() > 1
         && _CmdHeader == prev_cmd->Header
-        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
-        && prev_cmd->UserCallback == NULL)
+        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd))
     {
         CmdBuffer.pop_back();
         return;
@@ -324,15 +304,13 @@ void ImDrawList::_OnChangedTextureID()
         AddDrawCmd();
         return;
     }
-    IM_ASSERT(curr_cmd->UserCallback == NULL);
 
     // Try to merge with previous command if it matches, else use current command
     ImDrawCmd* prev_cmd = curr_cmd - 1;
     if (curr_cmd->ElemCount == 0
         && CmdBuffer.size() > 1
         && _CmdHeader == prev_cmd->Header
-        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd)
-        && prev_cmd->UserCallback == NULL)
+        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd))
     {
         CmdBuffer.pop_back();
         return;
@@ -1503,7 +1481,7 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
         ImDrawChannel& ch = _Channels[i];
 
         // Equivalent of PopUnusedDrawCmd()
-        if (ch._CmdBuffer.size() > 0 && ch._CmdBuffer.back().ElemCount == 0 && ch._CmdBuffer.back().UserCallback == NULL) {
+        if (ch._CmdBuffer.size() > 0 && ch._CmdBuffer.back().ElemCount == 0) {
             ch._CmdBuffer.pop_back();
         }
 
@@ -1512,9 +1490,7 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
             // Do not include ImDrawCmd_AreSequentialIdxOffset() in the compare as we rebuild IdxOffset values ourselves.
             // Manipulating IdxOffset (e.g. by reordering draw commands like done by RenderDimmedBackgroundBehindWindow()) is not supported within a splitter.
             ImDrawCmd* next_cmd = &ch._CmdBuffer[0];
-            if (last_cmd->Header == next_cmd->Header
-                && last_cmd->UserCallback == NULL
-                && next_cmd->UserCallback == NULL)
+            if (last_cmd->Header == next_cmd->Header)
             {
                 // Merge previous channel last draw command with current channel first draw command if matching.
                 last_cmd->ElemCount += next_cmd->ElemCount;
@@ -1551,8 +1527,8 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
         }
     }
 
-    // Ensure there's always a non-callback draw command trailing the command-buffer
-    if (draw_list->CmdBuffer.Size == 0 || draw_list->CmdBuffer.back().UserCallback != NULL)
+    // Ensure there's always a draw command trailing the command-buffer
+    if (draw_list->CmdBuffer.Size == 0)
         draw_list->AddDrawCmd();
 
     // If current command is used with different settings we need to add a new command

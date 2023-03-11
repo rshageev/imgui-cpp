@@ -43,7 +43,6 @@
 //  2019-09-22: OpenGL: Detect default GL loader using __has_include compiler facility.
 //  2019-09-16: OpenGL: Tweak initialization code to allow application calling ImGui_ImplOpenGL3_CreateFontsTexture() before the first NewFrame() call.
 //  2019-05-29: OpenGL: Desktop GL only: Added support for large mesh (64K+ vertices), enable ImGuiBackendFlags_RendererHasVtxOffset flag.
-//  2019-04-30: OpenGL: Added support for special ImDrawCallback_ResetRenderState callback to reset render state.
 //  2019-03-29: OpenGL: Not calling glBindBuffer more than necessary in the render loop.
 //  2019-03-15: OpenGL: Added a GL call + comments in ImGui_ImplOpenGL3_Init() to detect uninitialized GL function loaders early.
 //  2019-03-03: OpenGL: Fix support for ES 2.0 (WebGL 1.0).
@@ -528,31 +527,19 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
 
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            if (cmd.UserCallback != nullptr)
-            {
-                // User callback, registered via ImDrawList::AddCallback()
-                // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
-                    ImGui_ImplOpenGL3_SetupRenderState(draw_data, fb_width, fb_height, vertex_array_object);
-                else
-                    cmd.UserCallback(cmd_list, &cmd);
-            }
-            else
-            {
-                // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min((cmd.Header.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.y - clip_off.y) * clip_scale.y);
-                ImVec2 clip_max((cmd.Header.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.w - clip_off.y) * clip_scale.y);
-                if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                    continue;
+            // Project scissor/clipping rectangles into framebuffer space
+            ImVec2 clip_min((cmd.Header.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.y - clip_off.y) * clip_scale.y);
+            ImVec2 clip_max((cmd.Header.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.w - clip_off.y) * clip_scale.y);
+            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                continue;
 
-                // Apply scissor/clipping rectangle (Y is inverted in OpenGL)
-                GL_CALL(glScissor((int)clip_min.x, (int)((float)fb_height - clip_max.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y)));
+            // Apply scissor/clipping rectangle (Y is inverted in OpenGL)
+            GL_CALL(glScissor((int)clip_min.x, (int)((float)fb_height - clip_max.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y)));
 
-                // Bind texture, Draw
-                GL_CALL(glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)cmd.GetTexID()));
+            // Bind texture, Draw
+            GL_CALL(glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)cmd.GetTexID()));
 
-                GL_CALL(glDrawElements(GL_TRIANGLES, (GLsizei)cmd.ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (void*)(intptr_t)(cmd.IdxOffset * sizeof(ImDrawIdx))));
-            }
+            GL_CALL(glDrawElements(GL_TRIANGLES, (GLsizei)cmd.ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (void*)(intptr_t)(cmd.IdxOffset * sizeof(ImDrawIdx))));
         }
     }
 

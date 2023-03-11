@@ -19,7 +19,6 @@
 //  2019-08-01: DirectX11: Fixed code querying the Geometry Shader state (would generally error with Debug layer enabled).
 //  2019-07-21: DirectX11: Backup, clear and restore Geometry Shader is any is bound when calling ImGui_ImplDX10_RenderDrawData. Clearing Hull/Domain/Compute shaders without backup/restore.
 //  2019-05-29: DirectX11: Added support for large mesh (64K+ vertices), enable ImGuiBackendFlags_RendererHasVtxOffset flag.
-//  2019-04-30: DirectX11: Added support for special ImDrawCallback_ResetRenderState callback to reset render state.
 //  2018-12-03: Misc: Added #pragma comment statement to automatically link with d3dcompiler.lib when using D3DCompile().
 //  2018-11-30: Misc: Setting up io.BackendRendererName so it can be displayed in the About Window.
 //  2018-08-01: DirectX11: Querying for IDXGIFactory instead of IDXGIFactory1 to increase compatibility.
@@ -251,32 +250,20 @@ void ImGui_ImplDX11_RenderDrawData(ImDrawData* draw_data)
     {
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            if (cmd.UserCallback != nullptr)
-            {
-                // User callback, registered via ImDrawList::AddCallback()
-                // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
-                    ImGui_ImplDX11_SetupRenderState(draw_data, ctx);
-                else
-                    cmd.UserCallback(cmd_list, &cmd);
-            }
-            else
-            {
-                // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
-                ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
-                if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                    continue;
+            // Project scissor/clipping rectangles into framebuffer space
+            ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
+            ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
+            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                continue;
 
-                // Apply scissor/clipping rectangle
-                const D3D11_RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
-                ctx->RSSetScissorRects(1, &r);
+            // Apply scissor/clipping rectangle
+            const D3D11_RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
+            ctx->RSSetScissorRects(1, &r);
 
-                // Bind texture, Draw
-                ID3D11ShaderResourceView* texture_srv = (ID3D11ShaderResourceView*)cmd.GetTexID();
-                ctx->PSSetShaderResources(0, 1, &texture_srv);
-                ctx->DrawIndexed(cmd.ElemCount, cmd.IdxOffset + global_idx_offset, global_vtx_offset);
-            }
+            // Bind texture, Draw
+            ID3D11ShaderResourceView* texture_srv = (ID3D11ShaderResourceView*)cmd.GetTexID();
+            ctx->PSSetShaderResources(0, 1, &texture_srv);
+            ctx->DrawIndexed(cmd.ElemCount, cmd.IdxOffset + global_idx_offset, global_vtx_offset);
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;
         global_vtx_offset += cmd_list->VtxBuffer.Size;

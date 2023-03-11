@@ -20,7 +20,6 @@
 //  2021-03-18: DirectX9: Calling IDirect3DStateBlock9::Capture() after CreateStateBlock() as a workaround for state restoring issues (see #3857).
 //  2021-02-18: DirectX9: Change blending equation to preserve alpha in output buffer.
 //  2019-05-29: DirectX9: Added support for large mesh (64K+ vertices), enable ImGuiBackendFlags_RendererHasVtxOffset flag.
-//  2019-04-30: DirectX9: Added support for special ImDrawCallback_ResetRenderState callback to reset render state.
 //  2019-03-29: Misc: Fixed erroneous assert in ImGui_ImplDX9_InvalidateDeviceObjects().
 //  2019-01-16: Misc: Disabled fog before drawing UI's. Fixes issue #2288.
 //  2018-11-30: Misc: Setting up io.BackendRendererName so it can be displayed in the About Window.
@@ -229,30 +228,18 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
     {
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            if (cmd.UserCallback != nullptr)
-            {
-                // User callback, registered via ImDrawList::AddCallback()
-                // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
-                    ImGui_ImplDX9_SetupRenderState(draw_data);
-                else
-                    cmd.UserCallback(cmd_list, &cmd);
-            }
-            else
-            {
-                // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
-                ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
-                if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                    continue;
+            // Project scissor/clipping rectangles into framebuffer space
+            ImVec2 clip_min(cmd.Header.ClipRect.x - clip_off.x, cmd.Header.ClipRect.y - clip_off.y);
+            ImVec2 clip_max(cmd.Header.ClipRect.z - clip_off.x, cmd.Header.ClipRect.w - clip_off.y);
+            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                continue;
 
-                // Apply Scissor/clipping rectangle, Bind texture, Draw
-                const RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
-                const LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)cmd.GetTexID();
-                bd->pd3dDevice->SetTexture(0, texture);
-                bd->pd3dDevice->SetScissorRect(&r);
-                bd->pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, global_vtx_offset, 0, (UINT)cmd_list->VtxBuffer.Size, cmd.IdxOffset + global_idx_offset, cmd.ElemCount / 3);
-            }
+            // Apply Scissor/clipping rectangle, Bind texture, Draw
+            const RECT r = { (LONG)clip_min.x, (LONG)clip_min.y, (LONG)clip_max.x, (LONG)clip_max.y };
+            const LPDIRECT3DTEXTURE9 texture = (LPDIRECT3DTEXTURE9)cmd.GetTexID();
+            bd->pd3dDevice->SetTexture(0, texture);
+            bd->pd3dDevice->SetScissorRect(&r);
+            bd->pd3dDevice->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, global_vtx_offset, 0, (UINT)cmd_list->VtxBuffer.Size, cmd.IdxOffset + global_idx_offset, cmd.ElemCount / 3);
         }
         global_idx_offset += cmd_list->IdxBuffer.Size;
         global_vtx_offset += cmd_list->VtxBuffer.Size;

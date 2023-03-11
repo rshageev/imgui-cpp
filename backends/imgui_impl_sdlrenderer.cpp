@@ -147,47 +147,35 @@ void ImGui_ImplSDLRenderer_RenderDrawData(ImDrawData* draw_data)
 
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
-            if (cmd.UserCallback)
-            {
-                // User callback, registered via ImDrawList::AddCallback()
-                // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
-                if (cmd.UserCallback == ImDrawCallback_ResetRenderState)
-                    ImGui_ImplSDLRenderer_SetupRenderState();
-                else
-                    cmd.UserCallback(cmd_list, &cmd);
-            }
-            else
-            {
-                // Project scissor/clipping rectangles into framebuffer space
-                ImVec2 clip_min((cmd.Header.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.y - clip_off.y) * clip_scale.y);
-                ImVec2 clip_max((cmd.Header.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.w - clip_off.y) * clip_scale.y);
-                if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
-                if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
-                if (clip_max.x > (float)fb_width) { clip_max.x = (float)fb_width; }
-                if (clip_max.y > (float)fb_height) { clip_max.y = (float)fb_height; }
-                if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
-                    continue;
+            // Project scissor/clipping rectangles into framebuffer space
+            ImVec2 clip_min((cmd.Header.ClipRect.x - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.y - clip_off.y) * clip_scale.y);
+            ImVec2 clip_max((cmd.Header.ClipRect.z - clip_off.x) * clip_scale.x, (cmd.Header.ClipRect.w - clip_off.y) * clip_scale.y);
+            if (clip_min.x < 0.0f) { clip_min.x = 0.0f; }
+            if (clip_min.y < 0.0f) { clip_min.y = 0.0f; }
+            if (clip_max.x > (float)fb_width) { clip_max.x = (float)fb_width; }
+            if (clip_max.y > (float)fb_height) { clip_max.y = (float)fb_height; }
+            if (clip_max.x <= clip_min.x || clip_max.y <= clip_min.y)
+                continue;
 
-                SDL_Rect r = { (int)(clip_min.x), (int)(clip_min.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y) };
-                SDL_RenderSetClipRect(bd->SDLRenderer, &r);
+            SDL_Rect r = { (int)(clip_min.x), (int)(clip_min.y), (int)(clip_max.x - clip_min.x), (int)(clip_max.y - clip_min.y) };
+            SDL_RenderSetClipRect(bd->SDLRenderer, &r);
 
-                const float* xy = (const float*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, pos));
-                const float* uv = (const float*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, uv));
+            const float* xy = (const float*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, pos));
+            const float* uv = (const float*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, uv));
 #if SDL_VERSION_ATLEAST(2,0,19)
-                const SDL_Color* color = (const SDL_Color*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.19+
+            const SDL_Color* color = (const SDL_Color*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.19+
 #else
-                const int* color = (const int*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
+            const int* color = (const int*)(const void*)((const char*)(vertices.data()) + IM_OFFSETOF(ImDrawVert, col)); // SDL 2.0.17 and 2.0.18
 #endif
 
-                // Bind texture, Draw
-				SDL_Texture* tex = (SDL_Texture*)cmd.GetTexID();
-                SDL_RenderGeometryRaw(bd->SDLRenderer, tex,
-                    xy, (int)sizeof(ImDrawVert),
-                    color, (int)sizeof(ImDrawVert),
-                    uv, (int)sizeof(ImDrawVert),
-                    vertices.size(),
-                    indices.data() + cmd.IdxOffset, cmd.ElemCount, sizeof(ImDrawIdx));
-            }
+            // Bind texture, Draw
+			SDL_Texture* tex = (SDL_Texture*)cmd.GetTexID();
+            SDL_RenderGeometryRaw(bd->SDLRenderer, tex,
+                xy, (int)sizeof(ImDrawVert),
+                color, (int)sizeof(ImDrawVert),
+                uv, (int)sizeof(ImDrawVert),
+                vertices.size(),
+                indices.data() + cmd.IdxOffset, cmd.ElemCount, sizeof(ImDrawIdx));
         }
     }
 

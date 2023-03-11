@@ -2073,25 +2073,6 @@ private:
 #define IM_DRAWLIST_TEX_LINES_WIDTH_MAX     (63)
 #endif
 
-// ImDrawCallback: Draw callbacks for advanced uses [configurable type: override in imconfig.h]
-// NB: You most likely do NOT need to use draw callbacks just to create your own widget or customized UI rendering,
-// you can poke into the draw list for that! Draw callback may be useful for example to:
-//  A) Change your GPU render state,
-//  B) render a complex 3D scene inside a UI element without an intermediate texture/render target, etc.
-// The expected behavior from your rendering function is 'if (cmd.UserCallback != NULL) { cmd.UserCallback(parent_list, cmd); } else { RenderTriangles() }'
-// If you want to override the signature of ImDrawCallback, you can simply use e.g. '#define ImDrawCallback MyDrawCallback' (in imconfig.h) + update rendering backend accordingly.
-#ifndef ImDrawCallback
-typedef void (*ImDrawCallback)(const ImDrawList* parent_list, const ImDrawCmd* cmd);
-#endif
-
-// Special Draw callback value to request renderer backend to reset the graphics/render state.
-// The renderer backend needs to handle this special value, otherwise it will crash trying to call a function at this address.
-// This is useful for example if you submitted callbacks which you know have altered the render state and you want it to be restored.
-// It is not done by default because they are many perfectly useful way of altering render state for imgui contents (e.g. changing shader/blending settings before an Image call).
-#define ImDrawCallback_ResetRenderState     (ImDrawCallback)(-1)
-
-// Typically, 1 command = 1 GPU draw call (unless command is a callback)
-
 struct ImDrawCmdHeader
 {
     ImVec4 ClipRect;            // Clipping rectangle (x1, y1, x2, y2). Subtract ImDrawData->DisplayPos to get clipping rectangle in "viewport" coordinates
@@ -2106,8 +2087,6 @@ struct ImDrawCmd
     ImDrawCmdHeader Header;
     unsigned int IdxOffset = 0;            // Start offset in index buffer.
     unsigned int ElemCount = 0;            // Number of indices (multiple of 3) to be rendered as triangles. Vertices are stored in the callee ImDrawList's vtx_buffer[] array, indices in idx_buffer[].
-    ImDrawCallback UserCallback = nullptr; // If != NULL, call the function instead of rendering the vertices. clip_rect and texture_id will be set normally.
-    void* UserCallbackData = nullptr;      // The draw callback code can access this.
 
     // Since 1.83: returns ImTextureID associated with this draw call. Warning: DO NOT assume this is always same as 'TextureId' (we will change this function for an upcoming feature)
     ImTextureID GetTexID() const { return Header.TextureId; }
@@ -2299,7 +2278,6 @@ struct ImDrawList
     void PathRect(const ImVec2& rect_min, const ImVec2& rect_max, float rounding = 0.0f, ImDrawFlags flags = 0);
 
     // Advanced
-    void AddCallback(ImDrawCallback callback, void* callback_data);  // Your rendering function must check for 'UserCallback' in ImDrawCmd and call the function instead of rendering triangles.
     void AddDrawCmd();                                               // This is useful if you need to forcefully create a new draw call (to allow for dependent rendering / blending). Otherwise primitives are merged into the same draw-call as much as possible
     ImDrawList* CloneOutput() const;                                 // Create a clone of the CmdBuffer/IdxBuffer/VtxBuffer.
 

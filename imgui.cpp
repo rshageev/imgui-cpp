@@ -2984,9 +2984,7 @@ static void AddDrawListToDrawData(std::vector<ImDrawList*>& out_list, ImDrawList
         return;
     }
 
-    if (draw_list->CmdBuffer.size() == 1
-        && draw_list->CmdBuffer[0].ElemCount == 0
-        && draw_list->CmdBuffer[0].UserCallback == nullptr)
+    if (draw_list->CmdBuffer.size() == 1 && draw_list->CmdBuffer[0].ElemCount == 0)
     {
         return;
     }
@@ -11421,8 +11419,7 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
     ImGuiMetricsConfig* cfg = &g.DebugMetricsConfig;
     int cmd_count = draw_list->CmdBuffer.size();
     if (cmd_count > 0
-        && draw_list->CmdBuffer.back().ElemCount == 0
-        && draw_list->CmdBuffer.back().UserCallback == nullptr)
+        && draw_list->CmdBuffer.back().ElemCount == 0)
     {
         cmd_count--;
     }
@@ -11447,12 +11444,6 @@ void ImGui::DebugNodeDrawList(ImGuiWindow* window, const ImDrawList* draw_list, 
 
     for (const ImDrawCmd* pcmd = draw_list->CmdBuffer.Data; pcmd < draw_list->CmdBuffer.Data + cmd_count; pcmd++)
     {
-        if (pcmd->UserCallback)
-        {
-            BulletText("Callback %p, user_data %p", pcmd->UserCallback, pcmd->UserCallbackData);
-            continue;
-        }
-
         char buf[300];
         ImFormatString(buf, IM_ARRAYSIZE(buf), "DrawCmd:%5d tris, Tex 0x%p, ClipRect (%4.0f,%4.0f)-(%4.0f,%4.0f)",
             pcmd->ElemCount / 3, (void*)(intptr_t)pcmd->GetTexID(),
