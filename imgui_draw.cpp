@@ -238,24 +238,6 @@ void ImDrawList::_PopUnusedDrawCmd()
     }
 }
 
-static bool ImDrawCmd_AreSequentialIdxOffset(const ImDrawCmd* cmd0, const ImDrawCmd* cmd1) {
-    return cmd0->IdxOffset + cmd0->ElemCount == cmd1->IdxOffset;
-}
-
-// Try to merge two last draw commands
-void ImDrawList::_TryMergeDrawCmds()
-{
-    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.back();
-    ImDrawCmd* prev_cmd = curr_cmd - 1;
-    if (curr_cmd->Header == prev_cmd->Header
-        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd))
-    {
-        prev_cmd->ElemCount += curr_cmd->ElemCount;
-        CmdBuffer.pop_back();
-    }
-}
-
 void ImDrawList::_OnHeaderChanged()
 {
     _PopUnusedDrawCmd();
@@ -1418,74 +1400,47 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
     SetCurrentChannel(draw_list, 0);
     draw_list->_PopUnusedDrawCmd();
 
-    // Calculate our final buffer sizes. Also fix the incorrect IdxOffset values in each command.
-    int new_cmd_buffer_count = 0;
-    int new_idx_buffer_count = 0;
-    ImDrawCmd* last_cmd = (_Count > 0 && draw_list->CmdBuffer.Size > 0) ? &draw_list->CmdBuffer.back() : NULL;
-    int idx_offset = last_cmd ? last_cmd->IdxOffset + last_cmd->ElemCount : 0;
+    auto idx_offset = draw_list->IdxBuffer.size();
+
     for (int i = 1; i < _Count; i++)
     {
         ImDrawChannel& ch = _Channels[i];
 
-        // Equivalent of PopUnusedDrawCmd()
-        if (ch._CmdBuffer.size() > 0 && ch._CmdBuffer.back().ElemCount == 0) {
-            ch._CmdBuffer.pop_back();
-        }
-
-        if (ch._CmdBuffer.size() > 0 && last_cmd != NULL)
+        for (const auto& cmd : ch._CmdBuffer)
         {
-            // Do not include ImDrawCmd_AreSequentialIdxOffset() in the compare as we rebuild IdxOffset values ourselves.
-            // Manipulating IdxOffset (e.g. by reordering draw commands like done by RenderDimmedBackgroundBehindWindow()) is not supported within a splitter.
-            ImDrawCmd* next_cmd = &ch._CmdBuffer[0];
-            if (last_cmd->Header == next_cmd->Header)
+            // skip empty commands
+            if (cmd.ElemCount == 0) continue;
+
+            if (!draw_list->CmdBuffer.empty() && draw_list->CmdBuffer.back().Header == cmd.Header)
             {
-                // Merge previous channel last draw command with current channel first draw command if matching.
-                last_cmd->ElemCount += next_cmd->ElemCount;
-                idx_offset += next_cmd->ElemCount;
-                ch._CmdBuffer.erase(ch._CmdBuffer.begin()); // FIXME-OPT: Improve for multiple merges.
+                // merge with the last commad
+                draw_list->CmdBuffer.back().ElemCount += cmd.ElemCount;
             }
-        }
-        if (ch._CmdBuffer.size() > 0) {
-            last_cmd = &ch._CmdBuffer.back();
-        }
-        new_cmd_buffer_count += ch._CmdBuffer.Size;
-        new_idx_buffer_count += ch._IdxBuffer.Size;
-        for (auto& cmd : ch._CmdBuffer) {
-            cmd.IdxOffset = idx_offset;
+            else
+            {
+                // add command, while fixing indices
+                draw_list->CmdBuffer.push_back({
+                    cmd.Header,
+                    cmd.IdxOffset + idx_offset,
+                    cmd.ElemCount,
+                });
+            }
+
             idx_offset += cmd.ElemCount;
         }
     }
-    draw_list->CmdBuffer.resize(draw_list->CmdBuffer.size() + new_cmd_buffer_count);
-    draw_list->IdxBuffer.resize(draw_list->IdxBuffer.size() + new_idx_buffer_count);
 
-    // Write commands and indices in order (they are fairly small structures, we don't copy vertices only indices)
-    ImDrawCmd* cmd_write = draw_list->CmdBuffer.data() + draw_list->CmdBuffer.size() - new_cmd_buffer_count;
-    ImDrawIdx* idx_write = draw_list->IdxBuffer.data() + draw_list->IdxBuffer.size() - new_idx_buffer_count;
+    // Write indices
     for (int i = 1; i < _Count; i++)
     {
         ImDrawChannel& ch = _Channels[i];
-        if (int sz = ch._CmdBuffer.size()) {
-            memcpy(cmd_write, ch._CmdBuffer.data(), sz * sizeof(ImDrawCmd));
-            cmd_write += sz;
+        for (const auto idx : ch._IdxBuffer) {
+            draw_list->IdxBuffer.push_back(idx);
         }
-        if (int sz = ch._IdxBuffer.size()) {
-            memcpy(idx_write, ch._IdxBuffer.data(), sz * sizeof(ImDrawIdx));
-            idx_write += sz;
-        }
-    }
-
-    // Ensure there's always a draw command trailing the command-buffer
-    if (draw_list->CmdBuffer.empty()) {
-        draw_list->AddDrawCmd();
     }
 
     // If current command is used with different settings we need to add a new command
-    ImDrawCmd& curr_cmd = draw_list->CmdBuffer.back();
-    if (curr_cmd.ElemCount == 0) {
-        curr_cmd.Header = draw_list->_CmdHeader;
-    } else if (curr_cmd.Header != draw_list->_CmdHeader) {
-        draw_list->AddDrawCmd();
-    }
+    draw_list->_OnHeaderChanged();
 
     _Count = 1;
 }
@@ -1506,14 +1461,7 @@ void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
     draw_list->IdxBuffer.swap(_Channels[idx]._IdxBuffer);
 
     // If current command is used with different settings we need to add a new command
-    ImDrawCmd* curr_cmd = (draw_list->CmdBuffer.size() == 0) ? NULL : &draw_list->CmdBuffer.back();
-    if (curr_cmd == NULL) {
-        draw_list->AddDrawCmd();
-    } else if (curr_cmd->ElemCount == 0) {
-        curr_cmd->Header = draw_list->_CmdHeader;
-    } else if (curr_cmd->Header != draw_list->_CmdHeader) {
-        draw_list->AddDrawCmd();
-    }
+    draw_list->_OnHeaderChanged();
 }
 
 //-----------------------------------------------------------------------------

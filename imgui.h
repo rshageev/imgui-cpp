@@ -2316,7 +2316,6 @@ struct ImDrawList
     void _ResetForNewFrame();
     void _ClearFreeMemory();
     void _PopUnusedDrawCmd();
-    void _TryMergeDrawCmds();
     void _OnHeaderChanged();
     int _CalcCircleAutoSegmentCount(float radius) const;
     void _PathArcToFastEx(const ImVec2& center, float radius, int a_min_sample, int a_max_sample, int a_step);
