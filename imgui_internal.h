@@ -2043,7 +2043,7 @@ struct ImGuiTable
     ImRect HostBackupInnerClipRect;                     // Backup of InnerWindow->ClipRect during PushTableBackground()/PopTableBackground()
     ImGuiWindow* OuterWindow = nullptr;                 // Parent window for the table
     ImGuiWindow* InnerWindow = nullptr;                 // Window holding the table data (== OuterWindow or a child window)
-    ImDrawListSplitter* DrawSplitter = nullptr;         // Shortcut to TempData->DrawSplitter while in table. Isolate draw commands per columns to avoid switching clip rect constantly
+    ImDrawListSplitter DrawSplitter;
     ImGuiTableInstanceData InstanceDataFirst;
     ImVector<ImGuiTableInstanceData> InstanceDataExtra; // FIXME-OPT: Using a small-vector pattern would be good.
     ImGuiTableColumnSortSpecs SortSpecsSingle;
@@ -2101,7 +2101,6 @@ struct ImGuiTableTempData
     float LastTimeActive = -1.0f;         // Last timestamp this structure was used
 
     ImVec2 UserOuterSize;                 // outer_size.x passed to BeginTable()
-    ImDrawListSplitter DrawSplitter;
 
     ImRect HostBackupWorkRect;            // Backup of InnerWindow->WorkRect at the end of BeginTable()
     ImRect HostBackupParentWorkRect;      // Backup of InnerWindow->ParentWorkRect at the end of BeginTable()

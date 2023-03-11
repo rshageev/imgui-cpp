@@ -2122,13 +2122,9 @@ struct ImDrawChannel
 struct ImDrawListSplitter
 {
     int _Current = 0;    // Current channel number (0)
-    int _Count = 0;      // Number of active channels (1+)
     std::vector<ImDrawChannel> _Channels;   // Draw channels (not resized down so _Count might be < Channels.Size)
 
-    ImDrawListSplitter() = default;
-    ~ImDrawListSplitter() { ClearFreeMemory(); }
-    void Clear() { _Current = 0; _Count = 1; } // Do not clear Channels[] so our allocations are reused next frame
-    void ClearFreeMemory();
+    void Clear() { _Current = 0; _Channels.clear(); }
     void Split(ImDrawList* draw_list, int count);
     void Merge(ImDrawList* draw_list);
     void SetCurrentChannel(ImDrawList* draw_list, int channel_idx);

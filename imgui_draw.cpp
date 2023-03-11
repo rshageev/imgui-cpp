@@ -1338,27 +1338,17 @@ void ImDrawList::AddImageRounded(ImTextureID user_texture_id, const ImVec2& p_mi
 //-----------------------------------------------------------------------------
 // [SECTION] ImDrawListSplitter
 //-----------------------------------------------------------------------------
-// FIXME: This may be a little confusing, trying to be a little too low-level/optimal instead of just doing vector swap..
-//-----------------------------------------------------------------------------
-
-void ImDrawListSplitter::ClearFreeMemory()
-{
-    _Current = 0;
-    _Count = 1;
-    _Channels.clear();
-}
 
 void ImDrawListSplitter::Split(ImDrawList* draw_list, int channels_count)
 {
     _Channels = std::vector<ImDrawChannel>(channels_count);
-    _Count = channels_count;
     _Current = 0;
 }
 
 void ImDrawListSplitter::Merge(ImDrawList* draw_list)
 {
     // Note that we never use or rely on _Channels.Size because it is merely a buffer that we never shrink back to 0 to keep all sub-buffers ready for use.
-    if (_Count <= 1)
+    if (_Channels.size() <= 1)
         return;
 
     SetCurrentChannel(draw_list, 0);
@@ -1366,10 +1356,8 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
 
     auto idx_offset = draw_list->IdxBuffer.size();
 
-    for (int i = 1; i < _Count; i++)
+    for (auto& ch : _Channels | stdv::drop(1))
     {
-        ImDrawChannel& ch = _Channels[i];
-
         for (const auto& cmd : ch._CmdBuffer)
         {
             // skip empty commands
@@ -1395,34 +1383,29 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
     }
 
     // Write indices
-    for (int i = 1; i < _Count; i++)
+    for (auto& ch : _Channels | stdv::drop(1))
     {
-        ImDrawChannel& ch = _Channels[i];
-        for (const auto idx : ch._IdxBuffer) {
-            draw_list->IdxBuffer.push_back(idx);
-        }
+        draw_list->IdxBuffer.insert(draw_list->IdxBuffer.end(),
+            ch._IdxBuffer.begin(),
+            ch._IdxBuffer.end());
     }
 
     // If current command is used with different settings we need to add a new command
     draw_list->_OnHeaderChanged();
 
-    _Count = 1;
+    _Channels.resize(1);
 }
 
 void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
 {
-    IM_ASSERT(idx >= 0 && idx < _Count);
+    IM_ASSERT(idx >= 0 && idx < _Channels.size());
     if (_Current == idx)
         return;
 
-    // Overwrite ImVector (12/16 bytes), four times. This is merely a silly optimization instead of doing .swap()
-    _Channels[_Current]._CmdBuffer.swap(draw_list->CmdBuffer);
-    _Channels[_Current]._IdxBuffer.swap(draw_list->IdxBuffer);
+    _Channels[_Current]._CmdBuffer = std::exchange(draw_list->CmdBuffer, _Channels[idx]._CmdBuffer);
+    _Channels[_Current]._IdxBuffer = std::exchange(draw_list->IdxBuffer, _Channels[idx]._IdxBuffer);
 
     _Current = idx;
-
-    draw_list->CmdBuffer.swap(_Channels[idx]._CmdBuffer);
-    draw_list->IdxBuffer.swap(_Channels[idx]._IdxBuffer);
 
     // If current command is used with different settings we need to add a new command
     draw_list->_OnHeaderChanged();
