@@ -216,24 +216,13 @@ void ImDrawList::_ClearFreeMemory()
     _Path.clear();
 }
 
-ImDrawList* ImDrawList::CloneOutput() const
-{
-    ImDrawList* dst = IM_NEW(ImDrawList(_Data));
-    dst->CmdBuffer = CmdBuffer;
-    dst->IdxBuffer = IdxBuffer;
-    dst->VtxBuffer = VtxBuffer;
-    dst->Flags = Flags;
-    return dst;
-}
-
 void ImDrawList::AddDrawCmd()
 {
-    ImDrawCmd draw_cmd;
-    draw_cmd.Header = _CmdHeader;    // Same as calling ImDrawCmd_HeaderCopy()
-    draw_cmd.IdxOffset = IdxBuffer.Size;
-
-    IM_ASSERT(draw_cmd.Header.ClipRect.x <= draw_cmd.Header.ClipRect.z && draw_cmd.Header.ClipRect.y <= draw_cmd.Header.ClipRect.w);
-    CmdBuffer.push_back(draw_cmd);
+    CmdBuffer.push_back({
+        .Header = _CmdHeader,
+        .IdxOffset = static_cast<unsigned int>(IdxBuffer.size()),
+        .ElemCount = 0,
+    });
 }
 
 // Pop trailing draw command (used before merging or presenting to user)
@@ -1528,14 +1517,15 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
     }
 
     // Ensure there's always a draw command trailing the command-buffer
-    if (draw_list->CmdBuffer.Size == 0)
+    if (draw_list->CmdBuffer.empty()) {
         draw_list->AddDrawCmd();
+    }
 
     // If current command is used with different settings we need to add a new command
-    ImDrawCmd* curr_cmd = &draw_list->CmdBuffer.Data[draw_list->CmdBuffer.Size - 1];
-    if (curr_cmd->ElemCount == 0) {
-        curr_cmd->Header = draw_list->_CmdHeader;
-    } else if (curr_cmd->Header != draw_list->_CmdHeader) {
+    ImDrawCmd& curr_cmd = draw_list->CmdBuffer.back();
+    if (curr_cmd.ElemCount == 0) {
+        curr_cmd.Header = draw_list->_CmdHeader;
+    } else if (curr_cmd.Header != draw_list->_CmdHeader) {
         draw_list->AddDrawCmd();
     }
 
@@ -1549,13 +1539,13 @@ void ImDrawListSplitter::SetCurrentChannel(ImDrawList* draw_list, int idx)
         return;
 
     // Overwrite ImVector (12/16 bytes), four times. This is merely a silly optimization instead of doing .swap()
-    _Channels.Data[_Current]._CmdBuffer.swap(draw_list->CmdBuffer);
-    _Channels.Data[_Current]._IdxBuffer.swap(draw_list->IdxBuffer);
+    _Channels[_Current]._CmdBuffer.swap(draw_list->CmdBuffer);
+    _Channels[_Current]._IdxBuffer.swap(draw_list->IdxBuffer);
 
     _Current = idx;
 
-    draw_list->CmdBuffer.swap(_Channels.Data[idx]._CmdBuffer);
-    draw_list->IdxBuffer.swap(_Channels.Data[idx]._IdxBuffer);
+    draw_list->CmdBuffer.swap(_Channels[idx]._CmdBuffer);
+    draw_list->IdxBuffer.swap(_Channels[idx]._IdxBuffer);
 
     // If current command is used with different settings we need to add a new command
     ImDrawCmd* curr_cmd = (draw_list->CmdBuffer.size() == 0) ? NULL : &draw_list->CmdBuffer.back();

@@ -204,7 +204,6 @@ struct ImGui_ImplOpenGL3_Data
     GLsizeiptr      VertexBufferSize;
     GLsizeiptr      IndexBufferSize;
     bool            HasClipOrigin;
-    bool            UseBufferSubData;
 
     ImGui_ImplOpenGL3_Data() { memset((void*)this, 0, sizeof(*this)); }
 };
@@ -215,30 +214,6 @@ static ImGui_ImplOpenGL3_Data* ImGui_ImplOpenGL3_GetBackendData()
 {
     return ImGui::GetCurrentContext() ? (ImGui_ImplOpenGL3_Data*)ImGui::GetIO().BackendRendererUserData : nullptr;
 }
-
-// OpenGL vertex attribute state (for ES 1.0 and ES 2.0 only)
-#ifndef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
-struct ImGui_ImplOpenGL3_VtxAttribState
-{
-    GLint   Enabled, Size, Type, Normalized, Stride;
-    GLvoid* Ptr;
-
-    void GetState(GLint index)
-    {
-        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &Enabled);
-        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_SIZE, &Size);
-        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_TYPE, &Type);
-        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_NORMALIZED, &Normalized);
-        glGetVertexAttribiv(index, GL_VERTEX_ATTRIB_ARRAY_STRIDE, &Stride);
-        glGetVertexAttribPointerv(index, GL_VERTEX_ATTRIB_ARRAY_POINTER, &Ptr);
-    }
-    void SetState(GLint index)
-    {
-        glVertexAttribPointer(index, Size, Type, (GLboolean)Normalized, Stride, Ptr);
-        if (Enabled) glEnableVertexAttribArray(index); else glDisableVertexAttribArray(index);
-    }
-};
-#endif
 
 // Functions
 bool    ImGui_ImplOpenGL3_Init(const char* glsl_version)
@@ -273,16 +248,6 @@ bool    ImGui_ImplOpenGL3_Init(const char* glsl_version)
         sscanf(gl_version, "%d.%d", &major, &minor);
     }
     bd->GlVersion = (GLuint)(major * 100 + minor * 10);
-
-    bd->UseBufferSubData = false;
-    /*
-    // Query vendor to enable glBufferSubData kludge
-#ifdef _WIN32
-    if (const char* vendor = (const char*)glGetString(GL_VENDOR))
-        if (strncmp(vendor, "Intel", 5) == 0)
-            bd->UseBufferSubData = true;
-#endif
-    */
 #else
     bd->GlVersion = 200; // GLES 2
 #endif
@@ -408,10 +373,7 @@ static void ImGui_ImplOpenGL3_SetupRenderState(ImDrawData* draw_data, int fb_wid
         glBindSampler(0, 0); // We use combined texture/sampler state. Applications using GL 3.3 may set that otherwise.
 #endif
 
-    (void)vertex_array_object;
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     glBindVertexArray(vertex_array_object);
-#endif
 
     // Bind vertex/index buffers and setup attributes for ImDrawVert
     GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, bd->VboHandle));
@@ -446,16 +408,7 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     GLuint last_sampler; if (bd->GlVersion >= 330) { glGetIntegerv(GL_SAMPLER_BINDING, (GLint*)&last_sampler); } else { last_sampler = 0; }
 #endif
     GLuint last_array_buffer; glGetIntegerv(GL_ARRAY_BUFFER_BINDING, (GLint*)&last_array_buffer);
-#ifndef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
-    // This is part of VAO on OpenGL 3.0+ and OpenGL ES 3.0+.
-    GLint last_element_array_buffer; glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &last_element_array_buffer);
-    ImGui_ImplOpenGL3_VtxAttribState last_vtx_attrib_state_pos; last_vtx_attrib_state_pos.GetState(bd->AttribLocationVtxPos);
-    ImGui_ImplOpenGL3_VtxAttribState last_vtx_attrib_state_uv; last_vtx_attrib_state_uv.GetState(bd->AttribLocationVtxUV);
-    ImGui_ImplOpenGL3_VtxAttribState last_vtx_attrib_state_color; last_vtx_attrib_state_color.GetState(bd->AttribLocationVtxColor);
-#endif
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     GLuint last_vertex_array_object; glGetIntegerv(GL_VERTEX_ARRAY_BINDING, (GLint*)&last_vertex_array_object);
-#endif
 #ifdef IMGUI_IMPL_HAS_POLYGON_MODE
     GLint last_polygon_mode[2]; glGetIntegerv(GL_POLYGON_MODE, last_polygon_mode);
 #endif
@@ -480,9 +433,7 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     // Recreate the VAO every time (this is to easily allow multiple GL contexts to be rendered to. VAO are not shared among GL contexts)
     // The renderer would actually work without any VAO bound, but then our VertexAttrib calls would overwrite the default one currently bound.
     GLuint vertex_array_object = 0;
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     GL_CALL(glGenVertexArrays(1, &vertex_array_object));
-#endif
     ImGui_ImplOpenGL3_SetupRenderState(draw_data, fb_width, fb_height, vertex_array_object);
 
     // Will project scissor/clipping rectangles into framebuffer space
@@ -493,37 +444,11 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     for (const ImDrawList* cmd_list : draw_data->CmdLists)
     {
         // Upload vertex/index buffers
-        // - OpenGL drivers are in a very sorry state nowadays....
-        //   During 2021 we attempted to switch from glBufferData() to orphaning+glBufferSubData() following reports
-        //   of leaks on Intel GPU when using multi-viewports on Windows.
-        // - After this we kept hearing of various display corruptions issues. We started disabling on non-Intel GPU, but issues still got reported on Intel.
-        // - We are now back to using exclusively glBufferData(). So bd->UseBufferSubData IS ALWAYS FALSE in this code.
-        //   We are keeping the old code path for a while in case people finding new issues may want to test the bd->UseBufferSubData path.
-        // - See https://github.com/ocornut/imgui/issues/4468 and please report any corruption issues.
         auto vertices = cmd_list->Vertices();
         auto indices = cmd_list->Indices();
-        const GLsizeiptr vtx_buffer_size = vertices.size_bytes();
-        const GLsizeiptr idx_buffer_size = indices.size_bytes();
-        if (bd->UseBufferSubData)
-        {
-            if (bd->VertexBufferSize < vtx_buffer_size)
-            {
-                bd->VertexBufferSize = vtx_buffer_size;
-                GL_CALL(glBufferData(GL_ARRAY_BUFFER, bd->VertexBufferSize, nullptr, GL_STREAM_DRAW));
-            }
-            if (bd->IndexBufferSize < idx_buffer_size)
-            {
-                bd->IndexBufferSize = idx_buffer_size;
-                GL_CALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, bd->IndexBufferSize, nullptr, GL_STREAM_DRAW));
-            }
-            GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, vtx_buffer_size, (const GLvoid*)vertices.data()));
-            GL_CALL(glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, idx_buffer_size, (const GLvoid*)indices.data()));
-        }
-        else
-        {
-            GL_CALL(glBufferData(GL_ARRAY_BUFFER, vtx_buffer_size, (const GLvoid*)vertices.data(), GL_STREAM_DRAW));
-            GL_CALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, idx_buffer_size, (const GLvoid*)indices.data(), GL_STREAM_DRAW));
-        }
+
+        GL_CALL(glBufferData(GL_ARRAY_BUFFER, vertices.size_bytes(), (const GLvoid*)vertices.data(), GL_STREAM_DRAW));
+        GL_CALL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size_bytes(), (const GLvoid*)indices.data(), GL_STREAM_DRAW));
 
         for (const auto& cmd : cmd_list->CmdBuffer)
         {
@@ -544,9 +469,7 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
     }
 
     // Destroy the temporary VAO
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     GL_CALL(glDeleteVertexArrays(1, &vertex_array_object));
-#endif
 
     // Restore modified GL state
     glUseProgram(last_program);
@@ -556,16 +479,8 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data)
         glBindSampler(0, last_sampler);
 #endif
     glActiveTexture(last_active_texture);
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     glBindVertexArray(last_vertex_array_object);
-#endif
     glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
-#ifndef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, last_element_array_buffer);
-    last_vtx_attrib_state_pos.SetState(bd->AttribLocationVtxPos);
-    last_vtx_attrib_state_uv.SetState(bd->AttribLocationVtxUV);
-    last_vtx_attrib_state_color.SetState(bd->AttribLocationVtxColor);
-#endif
     glBlendEquationSeparate(last_blend_equation_rgb, last_blend_equation_alpha);
     glBlendFuncSeparate(last_blend_src_rgb, last_blend_dst_rgb, last_blend_src_alpha, last_blend_dst_alpha);
     if (last_enable_blend) glEnable(GL_BLEND); else glDisable(GL_BLEND);
@@ -675,10 +590,8 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
     GLint last_texture, last_array_buffer;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &last_texture);
     glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &last_array_buffer);
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     GLint last_vertex_array;
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &last_vertex_array);
-#endif
 
     // Parse GLSL version string
     int glsl_version = 130;
@@ -848,9 +761,7 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
     // Restore modified GL state
     glBindTexture(GL_TEXTURE_2D, last_texture);
     glBindBuffer(GL_ARRAY_BUFFER, last_array_buffer);
-#ifdef IMGUI_IMPL_OPENGL_USE_VERTEX_ARRAY
     glBindVertexArray(last_vertex_array);
-#endif
 
     return true;
 }

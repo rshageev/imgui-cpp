@@ -2075,8 +2075,12 @@ private:
 
 struct ImDrawCmdHeader
 {
-    ImVec4 ClipRect;            // Clipping rectangle (x1, y1, x2, y2). Subtract ImDrawData->DisplayPos to get clipping rectangle in "viewport" coordinates
-    ImTextureID TextureId = 0;  // User-provided texture ID. Set by user in ImfontAtlas::SetTexID() for fonts or passed to Image*() functions. Ignore if never using images or multiple fonts atlas.
+    // Clipping rectangle (x1, y1, x2, y2). Subtract ImDrawData->DisplayPos to get clipping rectangle in "viewport" coordinates
+    ImVec4 ClipRect;            
+
+    // User-provided texture ID. Set by user in ImfontAtlas::SetTexID() for fonts or passed to Image*() functions.
+    // Ignore if never using images or multiple fonts atlas.
+    ImTextureID TextureId = 0;
 
     bool operator==(const ImDrawCmdHeader& rhs) const = default;
     bool operator!=(const ImDrawCmdHeader& rhs) const = default;
@@ -2085,28 +2089,24 @@ struct ImDrawCmdHeader
 struct ImDrawCmd
 {
     ImDrawCmdHeader Header;
-    unsigned int IdxOffset = 0;            // Start offset in index buffer.
-    unsigned int ElemCount = 0;            // Number of indices (multiple of 3) to be rendered as triangles. Vertices are stored in the callee ImDrawList's vtx_buffer[] array, indices in idx_buffer[].
 
-    // Since 1.83: returns ImTextureID associated with this draw call. Warning: DO NOT assume this is always same as 'TextureId' (we will change this function for an upcoming feature)
+    // Start offset in index buffer.
+    unsigned int IdxOffset = 0;
+
+    // Number of indices (multiple of 3) to be rendered as triangles.
+    // Vertices are stored in the callee ImDrawList's vtx_buffer[] array, indices in idx_buffer[].
+    unsigned int ElemCount = 0;            
+
     ImTextureID GetTexID() const { return Header.TextureId; }
 };
 
 // Vertex layout
-#ifndef IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT
 struct ImDrawVert
 {
     ImVec2 pos;
     ImVec2 uv;
     ImU32 col;
 };
-#else
-// You can override the vertex format layout by defining IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT in imconfig.h
-// The code expect ImVec2 pos (8 bytes), ImVec2 uv (8 bytes), ImU32 col (4 bytes), but you can re-order them or add other fields as needed to simplify integration in your engine.
-// The type has to be described within the macro (you can either declare the struct or use a typedef). This is because ImVec2/ImU32 are likely not declared at the time you'd want to set your type up.
-// NOTE: IMGUI DOESN'T CLEAR THE STRUCTURE AND DOESN'T CALL A CONSTRUCTOR SO ANY CUSTOM FIELD WILL BE UNINITIALIZED. IF YOU ADD EXTRA FIELDS (SUCH AS A 'Z' COORDINATES) YOU WILL NEED TO CLEAR THEM DURING RENDER OR TO IGNORE THEM.
-IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT;
-#endif
 
 // [Internal] For use by ImDrawListSplitter
 struct ImDrawChannel
@@ -2278,8 +2278,8 @@ struct ImDrawList
     void PathRect(const ImVec2& rect_min, const ImVec2& rect_max, float rounding = 0.0f, ImDrawFlags flags = 0);
 
     // Advanced
-    void AddDrawCmd();                                               // This is useful if you need to forcefully create a new draw call (to allow for dependent rendering / blending). Otherwise primitives are merged into the same draw-call as much as possible
-    ImDrawList* CloneOutput() const;                                 // Create a clone of the CmdBuffer/IdxBuffer/VtxBuffer.
+    // Adds new command (new draw call) with current clip rect and texture parameters and pointing to the back of index buffer
+    void AddDrawCmd();
 
     // Advanced: Primitives allocations
     // - We render triangles (three vertices)
