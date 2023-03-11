@@ -256,56 +256,14 @@ void ImDrawList::_TryMergeDrawCmds()
     }
 }
 
-// Our scheme may appears a bit unusual, basically we want the most-common calls AddLine AddRect etc. to not have to perform any check so we always have a command ready in the stack.
-// The cost of figuring out if a new command has to be added or if we can merge is paid in those Update** functions only.
-void ImDrawList::_OnChangedClipRect()
+void ImDrawList::_OnHeaderChanged()
 {
-    // If current command is used with different settings we need to add a new command
-    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.back();
-    if (curr_cmd->ElemCount != 0 && curr_cmd->Header.ClipRect != _CmdHeader.ClipRect)
-    {
+    _PopUnusedDrawCmd();
+
+    if (CmdBuffer.empty() || CmdBuffer.back().Header != _CmdHeader) {
         AddDrawCmd();
         return;
     }
-
-    // Try to merge with previous command if it matches, else use current command
-    ImDrawCmd* prev_cmd = curr_cmd - 1;
-    if (curr_cmd->ElemCount == 0
-        && CmdBuffer.size() > 1
-        && _CmdHeader == prev_cmd->Header
-        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd))
-    {
-        CmdBuffer.pop_back();
-        return;
-    }
-
-    curr_cmd->Header.ClipRect = _CmdHeader.ClipRect;
-}
-
-void ImDrawList::_OnChangedTextureID()
-{
-    // If current command is used with different settings we need to add a new command
-    IM_ASSERT_PARANOID(CmdBuffer.size() > 0);
-    ImDrawCmd* curr_cmd = &CmdBuffer.back();
-    if (curr_cmd->ElemCount != 0 && curr_cmd->Header.TextureId != _CmdHeader.TextureId)
-    {
-        AddDrawCmd();
-        return;
-    }
-
-    // Try to merge with previous command if it matches, else use current command
-    ImDrawCmd* prev_cmd = curr_cmd - 1;
-    if (curr_cmd->ElemCount == 0
-        && CmdBuffer.size() > 1
-        && _CmdHeader == prev_cmd->Header
-        && ImDrawCmd_AreSequentialIdxOffset(prev_cmd, curr_cmd))
-    {
-        CmdBuffer.pop_back();
-        return;
-    }
-
-    curr_cmd->Header.TextureId = _CmdHeader.TextureId;
 }
 
 int ImDrawList::_CalcCircleAutoSegmentCount(float radius) const
@@ -335,7 +293,7 @@ void ImDrawList::PushClipRect(const ImVec2& cr_min, const ImVec2& cr_max, bool i
 
     _ClipRectStack.push_back(cr);
     _CmdHeader.ClipRect = cr;
-    _OnChangedClipRect();
+    _OnHeaderChanged();
 }
 
 void ImDrawList::PushClipRectFullScreen()
@@ -347,21 +305,21 @@ void ImDrawList::PopClipRect()
 {
     _ClipRectStack.pop_back();
     _CmdHeader.ClipRect = _ClipRectStack.empty() ? _Data->ClipRectFullscreen : _ClipRectStack.back();
-    _OnChangedClipRect();
+    _OnHeaderChanged();
 }
 
 void ImDrawList::PushTextureID(ImTextureID texture_id)
 {
     _TextureIdStack.push_back(texture_id);
     _CmdHeader.TextureId = texture_id;
-    _OnChangedTextureID();
+    _OnHeaderChanged();
 }
 
 void ImDrawList::PopTextureID()
 {
     _TextureIdStack.pop_back();
     _CmdHeader.TextureId = _TextureIdStack.empty() ? (ImTextureID)NULL : _TextureIdStack.back();
-    _OnChangedTextureID();
+    _OnHeaderChanged();
 }
 
 void ImDrawList::PrimRect(const ImVec2& a, const ImVec2& c, ImCol col)

@@ -2317,8 +2317,7 @@ struct ImDrawList
     void _ClearFreeMemory();
     void _PopUnusedDrawCmd();
     void _TryMergeDrawCmds();
-    void _OnChangedClipRect();
-    void _OnChangedTextureID();
+    void _OnHeaderChanged();
     int _CalcCircleAutoSegmentCount(float radius) const;
     void _PathArcToFastEx(const ImVec2& center, float radius, int a_min_sample, int a_max_sample, int a_step);
     void _PathArcToN(const ImVec2& center, float radius, float a_min, float a_max, int num_segments);
