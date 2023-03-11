@@ -1324,10 +1324,10 @@ void ImDrawList::AddImageRounded(ImTextureID user_texture_id, const ImVec2& p_mi
     if (push_texture_id)
         PushTextureID(user_texture_id);
 
-    int vert_start_idx = VtxBuffer.Size;
+    int vert_start_idx = VtxBuffer.size();
     PathRect(p_min, p_max, rounding, flags);
     PathFillConvex(col);
-    int vert_end_idx = VtxBuffer.Size;
+    int vert_end_idx = VtxBuffer.size();
     ImGui::ShadeVertsLinearUV(this, vert_start_idx, vert_end_idx, p_min, p_max, uv_min, uv_max, true);
 
     if (push_texture_id)
@@ -1343,15 +1343,6 @@ void ImDrawList::AddImageRounded(ImTextureID user_texture_id, const ImVec2& p_mi
 
 void ImDrawListSplitter::ClearFreeMemory()
 {
-    for (int i = 0; i < _Channels.Size; i++)
-    {
-        if (i == _Current) {
-            // Current channel is a copy of CmdBuffer/IdxBuffer, don't destruct again
-            memset(&_Channels[i], 0, sizeof(_Channels[i]));
-        }
-        _Channels[i]._CmdBuffer.clear();
-        _Channels[i]._IdxBuffer.clear();
-    }
     _Current = 0;
     _Count = 1;
     _Channels.clear();
@@ -1359,32 +1350,9 @@ void ImDrawListSplitter::ClearFreeMemory()
 
 void ImDrawListSplitter::Split(ImDrawList* draw_list, int channels_count)
 {
-    IM_UNUSED(draw_list);
-    IM_ASSERT(_Current == 0 && _Count <= 1 && "Nested channel splitting is not supported. Please use separate instances of ImDrawListSplitter.");
-    int old_channels_count = _Channels.Size;
-    if (old_channels_count < channels_count)
-    {
-        _Channels.reserve(channels_count); // Avoid over reserving since this is likely to stay stable
-        _Channels.resize(channels_count);
-    }
+    _Channels = std::vector<ImDrawChannel>(channels_count);
     _Count = channels_count;
-
-    // Channels[] (24/32 bytes each) hold storage that we'll swap with draw_list->_CmdBuffer/_IdxBuffer
-    // The content of Channels[0] at this point doesn't matter. We clear it to make state tidy in a debugger but we don't strictly need to.
-    // When we switch to the next channel, we'll copy draw_list->_CmdBuffer/_IdxBuffer into Channels[0] and then Channels[1] into draw_list->CmdBuffer/_IdxBuffer
-    memset(&_Channels[0], 0, sizeof(ImDrawChannel));
-    for (int i = 1; i < channels_count; i++)
-    {
-        if (i >= old_channels_count)
-        {
-            IM_PLACEMENT_NEW(&_Channels[i]) ImDrawChannel();
-        }
-        else
-        {
-            _Channels[i]._CmdBuffer.resize(0);
-            _Channels[i]._IdxBuffer.resize(0);
-        }
-    }
+    _Current = 0;
 }
 
 void ImDrawListSplitter::Merge(ImDrawList* draw_list)
@@ -1417,7 +1385,7 @@ void ImDrawListSplitter::Merge(ImDrawList* draw_list)
                 // add command, while fixing indices
                 draw_list->CmdBuffer.push_back({
                     cmd.Header,
-                    cmd.IdxOffset + idx_offset,
+                    cmd.IdxOffset + static_cast<unsigned int>(idx_offset),
                     cmd.ElemCount,
                 });
             }

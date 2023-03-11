@@ -265,7 +265,7 @@ bool    ImGui::BeginTable(const char* str_id, int columns_count, ImGuiTableFlags
     return BeginTableEx(str_id, id, columns_count, flags, outer_size, inner_width);
 }
 
-bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImGuiTableFlags flags, const ImVec2& outer_size, float inner_width)
+bool ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImGuiTableFlags flags, const ImVec2& outer_size, float inner_width)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* outer_window = GetCurrentWindow();
@@ -294,10 +294,9 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
 
     // Acquire temporary buffers
     const int table_idx = g.Tables.GetIndex(table);
-    if (++g.TablesTempDataStacked > g.TablesTempData.Size)
-        g.TablesTempData.resize(g.TablesTempDataStacked, ImGuiTableTempData());
-    ImGuiTableTempData* temp_data = table->TempData = &g.TablesTempData[g.TablesTempDataStacked - 1];
-    temp_data->TableIndex = table_idx;
+    auto& temp_data = g.TablesTempData.emplace_back();
+    temp_data.TableIndex = table_idx;
+    table->TempData = &temp_data;
     table->DrawSplitter = &table->TempData->DrawSplitter;
     table->DrawSplitter->Clear();
 
@@ -314,7 +313,7 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     table->ColumnsCount = columns_count;
     table->IsLayoutLocked = false;
     table->InnerWidth = inner_width;
-    temp_data->UserOuterSize = outer_size;
+    temp_data.UserOuterSize = outer_size;
 
     // Instance data (for instance 0, TableID == TableInstanceID)
     ImGuiID instance_id;
@@ -390,14 +389,14 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     table->HostIndentX = inner_window->DC.Indent.x;
     table->HostClipRect = inner_window->ClipRect;
     table->HostSkipItems = inner_window->SkipItems;
-    temp_data->HostBackupWorkRect = inner_window->WorkRect;
-    temp_data->HostBackupParentWorkRect = inner_window->ParentWorkRect;
-    temp_data->HostBackupColumnsOffset = outer_window->DC.ColumnsOffset;
-    temp_data->HostBackupPrevLineSize = inner_window->DC.PrevLineSize;
-    temp_data->HostBackupCurrLineSize = inner_window->DC.CurrLineSize;
-    temp_data->HostBackupCursorMaxPos = inner_window->DC.CursorMaxPos;
-    temp_data->HostBackupItemWidth = outer_window->DC.ItemWidth;
-    temp_data->HostBackupItemWidthStackSize = outer_window->DC.ItemWidthStack.Size;
+    temp_data.HostBackupWorkRect = inner_window->WorkRect;
+    temp_data.HostBackupParentWorkRect = inner_window->ParentWorkRect;
+    temp_data.HostBackupColumnsOffset = outer_window->DC.ColumnsOffset;
+    temp_data.HostBackupPrevLineSize = inner_window->DC.PrevLineSize;
+    temp_data.HostBackupCurrLineSize = inner_window->DC.CurrLineSize;
+    temp_data.HostBackupCursorMaxPos = inner_window->DC.CursorMaxPos;
+    temp_data.HostBackupItemWidth = outer_window->DC.ItemWidth;
+    temp_data.HostBackupItemWidthStackSize = outer_window->DC.ItemWidthStack.Size;
     inner_window->DC.PrevLineSize = inner_window->DC.CurrLineSize = ImVec2(0.0f, 0.0f);
 
     // Padding and Spacing
@@ -452,7 +451,7 @@ bool    ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImG
     if (table_idx >= g.TablesLastTimeActive.Size)
         g.TablesLastTimeActive.resize(table_idx + 1, -1.0f);
     g.TablesLastTimeActive[table_idx] = (float)g.Time;
-    temp_data->LastTimeActive = (float)g.Time;
+    temp_data.LastTimeActive = (float)g.Time;
 
     // Setup memory buffer (clear data if columns count changed)
     std::vector<ImGuiTableColumn> old_columns_to_preserve;
@@ -1352,9 +1351,10 @@ void    ImGui::EndTable()
 
     // Clear or restore current table, if any
     IM_ASSERT(g.CurrentWindow == outer_window && g.CurrentTable == table);
-    IM_ASSERT(g.TablesTempDataStacked > 0);
-    temp_data = (--g.TablesTempDataStacked > 0) ? &g.TablesTempData[g.TablesTempDataStacked - 1] : NULL;
-    g.CurrentTable = temp_data ? g.Tables.GetByIndex(temp_data->TableIndex) : NULL;
+
+    g.TablesTempData.pop_back();
+    temp_data = !g.TablesTempData.empty() ? &g.TablesTempData.back() : nullptr;
+    g.CurrentTable = temp_data ? g.Tables.GetByIndex(temp_data->TableIndex) : nullptr;
     if (g.CurrentTable)
     {
         g.CurrentTable->TempData = temp_data;
@@ -2372,10 +2372,7 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
         // since they won't move - see channels allocation in TableSetupDrawChannels().
         const int LEADING_DRAW_CHANNELS = 2;
 
-        ImVector<ImDrawChannel> temp_merge_buffer;
-        temp_merge_buffer.resize(splitter->_Count - LEADING_DRAW_CHANNELS);
-
-        ImDrawChannel* dst_tmp = temp_merge_buffer.Data;
+        std::vector<ImDrawChannel> temp_merge_buffer;
 
         for (int ch = LEADING_DRAW_CHANNELS; ch < splitter->_Count; ++ch) {
             remaining_mask[ch] = true;
@@ -2424,12 +2421,11 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
                         merge_group->ChannelsMask[n] = false;
                         merge_channels_count--;
 
-                        ImDrawChannel* channel = &splitter->_Channels[n];
-                        channel->_CmdBuffer[0].Header.ClipRect = merge_clip_rect.ToVec4();
+                        ImDrawChannel& channel = splitter->_Channels[n];
+                        channel._CmdBuffer[0].Header.ClipRect = merge_clip_rect.ToVec4();
 
-                        // copy (move?) channel from splitter to the back of our temp storage
-                        memcpy(dst_tmp++, channel, sizeof(ImDrawChannel));
                         IM_ASSERT(n >= LEADING_DRAW_CHANNELS);
+                        temp_merge_buffer.push_back(std::move(channel));
                     }
                 }
             }
@@ -2437,9 +2433,8 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
             // Make sure Bg2DrawChannelUnfrozen appears in the middle of our groups
             // (whereas Bg0/Bg1 and Bg2 frozen are fixed to 0 and 1)
             if (merge_group_n == 1 && has_freeze_v) {
-                // copy (move?) channel from splitter to the back of our temp storage
-                memcpy(dst_tmp++, &splitter->_Channels[table->Bg2DrawChannelUnfrozen], sizeof(ImDrawChannel));
                 IM_ASSERT(table->Bg2DrawChannelUnfrozen >= LEADING_DRAW_CHANNELS);
+                temp_merge_buffer.push_back(std::move(splitter->_Channels[table->Bg2DrawChannelUnfrozen]));
             }
         }
 
@@ -2447,18 +2442,13 @@ void ImGui::TableMergeDrawChannels(ImGuiTable* table)
         for (int n = 0; n < splitter->_Count && remaining_count != 0; n++)
         {
             if (remaining_mask[n]) {
-                // copy (move?) channel from splitter to the back of our temp storage
-                ImDrawChannel* channel = &splitter->_Channels[n];
-                memcpy(dst_tmp++, channel, sizeof(ImDrawChannel));
-                remaining_count--;
                 IM_ASSERT(n >= LEADING_DRAW_CHANNELS);
+                temp_merge_buffer.push_back(std::move(splitter->_Channels[n]));
+                remaining_count--;        
             }
         }
 
-        // copy (move?) channels from temp storage back to splitter
-        memcpy(splitter->_Channels.Data + LEADING_DRAW_CHANNELS,
-            temp_merge_buffer.Data,
-            (splitter->_Count - LEADING_DRAW_CHANNELS) * sizeof(ImDrawChannel));
+        std::move(temp_merge_buffer.begin(), temp_merge_buffer.end(), splitter->_Channels.begin() + LEADING_DRAW_CHANNELS);
     }
 }
 

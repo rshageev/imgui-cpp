@@ -2112,8 +2112,8 @@ struct ImDrawVert
 // [Internal] For use by ImDrawListSplitter
 struct ImDrawChannel
 {
-    ImVector<ImDrawCmd> _CmdBuffer;
-    ImVector<ImDrawIdx> _IdxBuffer;
+    std::vector<ImDrawCmd> _CmdBuffer;
+    std::vector<ImDrawIdx> _IdxBuffer;
 };
 
 
@@ -2123,7 +2123,7 @@ struct ImDrawListSplitter
 {
     int _Current = 0;    // Current channel number (0)
     int _Count = 0;      // Number of active channels (1+)
-    ImVector<ImDrawChannel> _Channels;   // Draw channels (not resized down so _Count might be < Channels.Size)
+    std::vector<ImDrawChannel> _Channels;   // Draw channels (not resized down so _Count might be < Channels.Size)
 
     ImDrawListSplitter() = default;
     ~ImDrawListSplitter() { ClearFreeMemory(); }
@@ -2176,9 +2176,9 @@ enum ImDrawListFlags_
 struct ImDrawList
 {
     // This is what you have to render
-    ImVector<ImDrawCmd> CmdBuffer;          // Draw commands. Typically 1 command = 1 GPU draw call, unless the command is a callback.
-    ImVector<ImDrawIdx> IdxBuffer;          // Index buffer. Each command consume ImDrawCmd::ElemCount of those
-    ImVector<ImDrawVert> VtxBuffer;         // Vertex buffer.
+    std::vector<ImDrawCmd> CmdBuffer;          // Draw commands. Typically 1 command = 1 GPU draw call, unless the command is a callback.
+    std::vector<ImDrawIdx> IdxBuffer;          // Index buffer. Each command consume ImDrawCmd::ElemCount of those
+    std::vector<ImDrawVert> VtxBuffer;         // Vertex buffer.
     ImDrawListFlags Flags = ImDrawListFlags_None; // Flags, you may poke into these to adjust anti-aliasing settings per-primitive.
 
     // [Internal, used while building lists]
@@ -2195,10 +2195,10 @@ struct ImDrawList
 
     // New C++ API
     std::span<const ImDrawVert> Vertices() const {
-        return { VtxBuffer.Data, static_cast<size_t>(VtxBuffer.size())};
+        return VtxBuffer;
     }
     std::span<const ImDrawIdx> Indices() const {
-        return { IdxBuffer.Data, static_cast<size_t>(IdxBuffer.size()) };
+        return IdxBuffer;
     }
 
     ~ImDrawList() { _ClearFreeMemory(); }
