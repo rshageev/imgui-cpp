@@ -130,7 +130,7 @@ void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
     {
         // Common case
         const float wrap_width = wrap_enabled ? CalcWrapWidthForPos(window->DC.CursorPos, wrap_pos_x) : 0.0f;
-        const ImVec2 text_size = CalcTextSize(text.data(), text.data() + text.size(), false, wrap_width);
+        const ImVec2 text_size = CalcTextSize(text, false, wrap_width);
 
         ImRect bb(text_pos, text_pos + text_size);
         ItemSize(text_size, 0.0f);
@@ -142,6 +142,7 @@ void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
     }
     else
     {
+        // Returns first line of passed text, removes this line from text itself
         auto getLine = [](std::string_view& text) {
             const auto pos = text.find('\n');
             std::string_view line;
@@ -175,7 +176,7 @@ void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
             while (!line.empty() && lines_skipped < lines_skippable)
             {
                 if ((flags & ImGuiTextFlags_NoWidthForLargeClippedText) == 0) {
-                    text_size.x = ImMax(text_size.x, CalcTextSize(line.data(), line.data() + line.size()).x);
+                    text_size.x = ImMax(text_size.x, CalcTextSize(line).x);
                 }
                 line = getLine(text);
                 lines_skipped++;
@@ -192,7 +193,7 @@ void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
                 if (IsClippedEx(line_rect, 0))
                     break;
 
-                text_size.x = ImMax(text_size.x, CalcTextSize(line.data(), line.data() + line.size()).x);
+                text_size.x = ImMax(text_size.x, CalcTextSize(line).x);
                 RenderText(pos, line, false);
                 line = getLine(text);
                 line_rect.Min.y += line_height;
@@ -205,7 +206,7 @@ void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
             while (!line.empty())
             {
                 if ((flags & ImGuiTextFlags_NoWidthForLargeClippedText) == 0) {
-                    text_size.x = ImMax(text_size.x, CalcTextSize(line.data(), line.data() + line.size()).x);
+                    text_size.x = ImMax(text_size.x, CalcTextSize(line.data()).x);
                 }
                 line = getLine(text);
                 lines_skipped++;
@@ -2356,11 +2357,10 @@ bool ImGui::DragScalarN(const char* label, ImGuiDataType data_type, void* p_data
     }
     PopID();
 
-    const char* label_end = FindRenderedTextEnd(label);
-    if (label != label_end)
-    {
+    auto label_visible = RemoveIDSuffix(label);
+    if (!label_visible.empty()) {
         SameLine(0, g.Style.ItemInnerSpacing.x);
-        TextEx(label, label_end);
+        TextEx(label_visible);
     }
 
     EndGroup();
@@ -2413,7 +2413,7 @@ bool ImGui::DragFloatRange2(const char* label, float* v_current_min, float* v_cu
     PopItemWidth();
     SameLine(0, g.Style.ItemInnerSpacing.x);
 
-    TextEx(label, FindRenderedTextEnd(label));
+    TextEx(RemoveIDSuffix(label));
     EndGroup();
     PopID();
 
@@ -2467,7 +2467,7 @@ bool ImGui::DragIntRange2(const char* label, int* v_current_min, int* v_current_
     PopItemWidth();
     SameLine(0, g.Style.ItemInnerSpacing.x);
 
-    TextEx(label, FindRenderedTextEnd(label));
+    TextEx(RemoveIDSuffix(label));
     EndGroup();
     PopID();
 
@@ -2942,11 +2942,10 @@ bool ImGui::SliderScalarN(const char* label, ImGuiDataType data_type, void* v, i
     }
     PopID();
 
-    const char* label_end = FindRenderedTextEnd(label);
-    if (label != label_end)
-    {
+    auto label_visible = RemoveIDSuffix(label);
+    if (!label_visible.empty()) {
         SameLine(0, g.Style.ItemInnerSpacing.x);
-        TextEx(label, label_end);
+        TextEx(label_visible);
     }
 
     EndGroup();
@@ -3342,11 +3341,10 @@ bool ImGui::InputScalar(const char* label, ImGuiDataType data_type, void* p_data
         if (flags & ImGuiInputTextFlags_ReadOnly)
             EndDisabled();
 
-        const char* label_end = FindRenderedTextEnd(label);
-        if (label != label_end)
-        {
+        auto label_visible = RemoveIDSuffix(label);
+        if (!label_visible.empty()) {
             SameLine(0, style.ItemInnerSpacing.x);
-            TextEx(label, label_end);
+            TextEx(label_visible);
         }
         style.FramePadding = backup_frame_padding;
 
@@ -3388,11 +3386,10 @@ bool ImGui::InputScalarN(const char* label, ImGuiDataType data_type, void* p_dat
     }
     PopID();
 
-    const char* label_end = FindRenderedTextEnd(label);
-    if (label != label_end)
-    {
+    auto label_visible = RemoveIDSuffix(label);
+    if (!label_visible.empty()) {
         SameLine(0.0f, g.Style.ItemInnerSpacing.x);
-        TextEx(label, label_end);
+        TextEx(label_visible);
     }
 
     EndGroup();

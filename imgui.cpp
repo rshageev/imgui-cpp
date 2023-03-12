@@ -3289,21 +3289,23 @@ void ImGui::Render()
 
 // Calculate text size. Text can be multi-line. Optionally ignore text after a ## marker.
 // CalcTextSize("") should return ImVec2(0.0f, g.FontSize)
-ImVec2 ImGui::CalcTextSize(const char* text, const char* text_end, bool hide_text_after_double_hash, float wrap_width)
+ImVec2 ImGui::CalcTextSize(const char* text_begin, const char* text_end, bool hide_text_after_double_hash, float wrap_width)
 {
+    return CalcTextSize(PtrPairToStringView(text_begin, text_end), hide_text_after_double_hash, wrap_width);
+}
+
+ImVec2 ImGui::CalcTextSize(std::string_view text, bool hide_text_after_double_hash, float wrap_width)
+{
+    if (hide_text_after_double_hash) {
+        text = RemoveIDSuffix(text);
+    }
+
     ImGuiContext& g = *GImGui;
-
-    const char* text_display_end;
-    if (hide_text_after_double_hash)
-        text_display_end = FindRenderedTextEnd(text, text_end);      // Hide anything after a '##' string
-    else
-        text_display_end = text_end;
-
     ImFont* font = g.Font;
     const float font_size = g.FontSize;
-    if (text == text_display_end)
+    if (text.empty())
         return ImVec2(0.0f, font_size);
-    ImVec2 text_size = font->CalcTextSizeA(font_size, FLT_MAX, wrap_width, text, text_display_end, NULL);
+    ImVec2 text_size = font->CalcTextSizeA(font_size, FLT_MAX, wrap_width, text.data(), text.data() + text.size(), nullptr);
 
     // Round
     // FIXME: This has been here since Dec 2015 (7b0bf230) but down the line we want this out.

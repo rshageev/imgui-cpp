@@ -3110,6 +3110,7 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
     // Fast-forward to first visible line
     const char* s = text_begin;
     if (y + line_height < clip_rect.y)
+    {
         while (y + line_height < clip_rect.y && s < text_end)
         {
             const char* line_end = (const char*)memchr(s, '\n', text_end - s);
@@ -3127,6 +3128,7 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
             }
             y += line_height;
         }
+    }
 
     // Note that very large horizontal line will still be affected by the issue
     // (e.g. a one megabyte string buffer without a newline will likely crash atm)
