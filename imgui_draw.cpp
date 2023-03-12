@@ -1771,9 +1771,7 @@ int ImFontAtlas::AddCustomRectRegular(int width, int height)
 
 int ImFontAtlas::AddCustomRectFontGlyph(ImFont* font, ImWchar id, int width, int height, float advance_x, const ImVec2& offset)
 {
-#ifdef IMGUI_USE_WCHAR32
     IM_ASSERT(id <= IM_UNICODE_CODEPOINT_MAX);
-#endif
     IM_ASSERT(font != NULL);
     IM_ASSERT(width > 0 && width <= 0xFFFF);
     IM_ASSERT(height > 0 && height <= 0xFFFF);
@@ -2632,12 +2630,12 @@ void ImFontGlyphRangesBuilder::AddText(const char* text, const char* text_end)
 {
     while (text_end ? (text < text_end) : *text)
     {
-        unsigned int c = 0;
+        char32_t c = 0;
         int c_len = ImTextCharFromUtf8(&c, text, text_end);
         text += c_len;
         if (c_len == 0)
             break;
-        AddChar((ImWchar)c);
+        AddChar(c);
     }
 }
 
@@ -2932,12 +2930,8 @@ const char* ImFont::CalcWordWrapPositionA(float scale, const char* text, const c
     IM_ASSERT(text_end != NULL);
     while (s < text_end)
     {
-        unsigned int c = (unsigned int)*s;
-        const char* next_s;
-        if (c < 0x80)
-            next_s = s + 1;
-        else
-            next_s = s + ImTextCharFromUtf8(&c, s, text_end);
+        char32_t c = (char32_t)*s;
+        const char* next_s = s + ImTextCharFromUtf8(&c, s, text_end);
 
         if (c < 32)
         {
@@ -3041,11 +3035,8 @@ ImVec2 ImFont::CalcTextSizeA(float size, float max_width, float wrap_width, cons
 
         // Decode and advance source
         const char* prev_s = s;
-        unsigned int c = (unsigned int)*s;
-        if (c < 0x80)
-            s += 1;
-        else
-            s += ImTextCharFromUtf8(&c, s, text_end);
+        char32_t c = 0;
+        s += ImTextCharFromUtf8(&c, s, text_end);
 
         if (c < 32)
         {
@@ -3173,11 +3164,8 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
         }
 
         // Decode and advance source
-        unsigned int c = (unsigned int)*s;
-        if (c < 0x80)
-            s += 1;
-        else
-            s += ImTextCharFromUtf8(&c, s, text_end);
+        char32_t c = 0;
+        s += ImTextCharFromUtf8(&c, s, text_end);
 
         if (c < 32)
         {

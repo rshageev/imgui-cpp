@@ -250,7 +250,7 @@ const char*   ImStrSkipBlank(const char* str);
 
 inline char ImToUpper(char c) { return (c >= 'a' && c <= 'z') ? c &= ~32 : c; }
 inline bool ImCharIsBlankA(char c) { return c == ' ' || c == '\t'; }
-inline bool ImCharIsBlankW(unsigned int c){ return c == ' ' || c == '\t' || c == 0x3000; }
+inline bool ImCharIsBlankW(char32_t c){ return c == ' ' || c == '\t' || c == 0x3000; }
 
 // Helpers: Formatting
 int           ImFormatString(char* buf, size_t buf_size, const char* fmt, ...) IM_FMTARGS(3);
@@ -264,18 +264,21 @@ const char*   ImParseFormatSanitizeForScanning(const char* fmt_in, char* fmt_out
 int           ImParseFormatPrecision(const char* format, int default_value);
 
 // Helpers: UTF-8 <> wchar conversions
-const char* ImTextCharToUtf8(char out_buf[5], unsigned int c);                                                      // return out_buf
-int ImTextStrToUtf8(char* out_buf, int out_buf_size, const ImWchar* in_text, const ImWchar* in_text_end);   // return output UTF-8 bytes count
-int ImTextCharFromUtf8(unsigned int* out_char, std::string_view in_text);
-int ImTextCharFromUtf8(unsigned int* out_char, const char* in_text, const char* in_text_end);               // read one character. return input UTF-8 bytes count
+std::string ImTextCharToUtf8(char32_t c);
+std::string ImTextStrToUtf8(std::u32string_view in_text);
+std::string ImTextStrToUtf8(const ImWchar* in_text, const ImWchar* in_text_end);   // return output UTF-8 bytes count
+int ImTextCharFromUtf8(char32_t* out_char, std::string_view in_text);
+int ImTextCharFromUtf8(char32_t* out_char, const char* in_text, const char* in_text_end);               // read one character. return input UTF-8 bytes count
 int ImTextStrFromUtf8(ImWchar* out_buf, int out_buf_size, const char* in_text, const char* in_text_end, const char** in_remaining = NULL);   // return input UTF-8 bytes count
 int ImTextCountCharsFromUtf8(const char* in_text, const char* in_text_end);             // return number of UTF-8 code-points (NOT bytes count)
 int ImTextCountCharsFromUtf8(std::string_view in_text);
 int ImTextCountUtf8BytesFromChar(const char* in_text, const char* in_text_end);         // return number of bytes to express one char in UTF-8
+int ImTextCountUtf8BytesFromStr(std::u32string_view in_text);
 int ImTextCountUtf8BytesFromStr(const ImWchar* in_text, const ImWchar* in_text_end);    // return number of bytes to express string in UTF-8
 
-inline std::string_view PtrPairToStringView(const char* in_text, const char* in_text_end) {
-    return in_text_end ? std::string_view(in_text, in_text_end - in_text) : std::string_view(in_text);
+template<typename Ch>
+inline std::basic_string_view<Ch> PtrPairToStringView(const Ch* in_text, const Ch* in_text_end) {
+    return in_text_end ? std::basic_string_view<Ch>(in_text, in_text_end - in_text) : std::basic_string_view<Ch>(in_text);
 }
 
 

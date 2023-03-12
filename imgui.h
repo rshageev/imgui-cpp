@@ -1751,7 +1751,7 @@ struct ImGuiIO
     void AddMouseWheelEvent(float wheel_x, float wheel_y);       // Queue a mouse wheel update. wheel_y<0: scroll down, wheel_y>0: scroll up, wheel_x<0: scroll right, wheel_x>0: scroll left.
     void AddFocusEvent(bool focused);                            // Queue a gain/loss of focus for the application (generally based on OS/platform focus of your window)
     void AddInputCharacter(unsigned int c);                      // Queue a new character input
-    void AddInputCharacterUTF16(ImWchar16 c);                    // Queue a new character input from a UTF-16 character, it can be a surrogate
+    void AddInputCharacterUTF16(char16_t c);                    // Queue a new character input from a UTF-16 character, it can be a surrogate
     void AddInputCharactersUTF8(const char* str);                // Queue a new characters input from a UTF-8 string
 
     void SetKeyEventNativeData(ImGuiKey key, int native_keycode, int native_scancode, int native_legacy_index = -1); // [Optional] Specify index for legacy <1.87 IsKeyXXX() functions with native indices + specify native keycode, scancode.
@@ -1816,7 +1816,7 @@ struct ImGuiIO
     bool AppAcceptingEvents = true;              // Only modify via SetAppAcceptingEvents()
     ImS8 BackendUsingLegacyKeyArrays = -1;       // -1: unknown, 0: using AddKeyEvent(), 1: using legacy io.KeysDown[]
     bool BackendUsingLegacyNavInputArray = true; // 0: using AddKeyAnalogEvent(), 1: writing to legacy io.NavInputs[] directly
-    ImWchar16 InputQueueSurrogate = 0;           // For AddInputCharacterUTF16()
+    char16_t InputQueueSurrogate = 0;           // For AddInputCharacterUTF16()
     std::vector<ImWchar> InputQueueCharacters;      // Queue of _characters_ input (obtained by platform backend). Fill using AddInputCharacter() helper.
 
     ImGuiIO();
@@ -1921,11 +1921,7 @@ struct ImGuiTableSortSpecs
 
 // Helper: Unicode defines
 #define IM_UNICODE_CODEPOINT_INVALID 0xFFFD     // Invalid Unicode code point (standard value).
-#ifdef IMGUI_USE_WCHAR32
 #define IM_UNICODE_CODEPOINT_MAX     0x10FFFF   // Maximum Unicode code point supported by this build.
-#else
-#define IM_UNICODE_CODEPOINT_MAX     0xFFFF     // Maximum Unicode code point supported by this build.
-#endif
 
 // Helper: Parse and apply text filters. In format "aaaaa[,bbbb][,ccccc]"
 struct ImGuiTextFilter

@@ -3536,12 +3536,25 @@ static ImVec2 InputTextCalcTextSizeW(ImGuiContext* ctx, const ImWchar* text_begi
 namespace ImStb
 {
 
-static int     STB_TEXTEDIT_STRINGLEN(const ImGuiInputTextState* obj)                             { return obj->CurLenW; }
-static ImWchar STB_TEXTEDIT_GETCHAR(const ImGuiInputTextState* obj, int idx)                      { return obj->TextW[idx]; }
-static float   STB_TEXTEDIT_GETWIDTH(ImGuiInputTextState* obj, int line_start_idx, int char_idx)  { ImWchar c = obj->TextW[line_start_idx + char_idx]; if (c == '\n') return STB_TEXTEDIT_GETWIDTH_NEWLINE; ImGuiContext& g = *obj->Ctx; return g.Font->GetCharAdvance(c) * (g.FontSize / g.Font->FontSize); }
-static int     STB_TEXTEDIT_KEYTOTEXT(int key)                                                    { return key >= 0x200000 ? 0 : key; }
+static int STB_TEXTEDIT_STRINGLEN(const ImGuiInputTextState* obj) {
+    return obj->CurLenW;
+}
+static ImWchar STB_TEXTEDIT_GETCHAR(const ImGuiInputTextState* obj, int idx) {
+    return obj->TextW[idx];
+}
+static float STB_TEXTEDIT_GETWIDTH(ImGuiInputTextState* obj, int line_start_idx, int char_idx) {
+    ImWchar c = obj->TextW[line_start_idx + char_idx];
+    if (c == '\n')
+        return STB_TEXTEDIT_GETWIDTH_NEWLINE;
+    ImGuiContext& g = *obj->Ctx;
+    return g.Font->GetCharAdvance(c) * (g.FontSize / g.Font->FontSize);
+}
+static int  STB_TEXTEDIT_KEYTOTEXT(int key) {
+    return key >= 0x200000 ? 0 : key;
+}
 static ImWchar STB_TEXTEDIT_NEWLINE = '\n';
-static void    STB_TEXTEDIT_LAYOUTROW(StbTexteditRow* r, ImGuiInputTextState* obj, int line_start_idx)
+
+static void STB_TEXTEDIT_LAYOUTROW(StbTexteditRow* r, ImGuiInputTextState* obj, int line_start_idx)
 {
     const ImWchar* text = obj->TextW.Data;
     const ImWchar* text_remaining = NULL;
@@ -3555,13 +3568,46 @@ static void    STB_TEXTEDIT_LAYOUTROW(StbTexteditRow* r, ImGuiInputTextState* ob
 }
 
 // When ImGuiInputTextFlags_Password is set, we don't want actions such as CTRL+Arrow to leak the fact that underlying data are blanks or separators.
-static bool is_separator(unsigned int c)                                        { return ImCharIsBlankW(c) || c==',' || c==';' || c=='(' || c==')' || c=='{' || c=='}' || c=='[' || c==']' || c=='|' || c=='\n' || c=='\r'; }
-static int  is_word_boundary_from_right(ImGuiInputTextState* obj, int idx)      { if (obj->Flags & ImGuiInputTextFlags_Password) return 0; return idx > 0 ? (is_separator(obj->TextW[idx - 1]) && !is_separator(obj->TextW[idx]) ) : 1; }
-static int  is_word_boundary_from_left(ImGuiInputTextState* obj, int idx)       { if (obj->Flags & ImGuiInputTextFlags_Password) return 0; return idx > 0 ? (!is_separator(obj->TextW[idx - 1]) && is_separator(obj->TextW[idx])) : 1; }
-static int  STB_TEXTEDIT_MOVEWORDLEFT_IMPL(ImGuiInputTextState* obj, int idx)   { idx--; while (idx >= 0 && !is_word_boundary_from_right(obj, idx)) idx--; return idx < 0 ? 0 : idx; }
-static int  STB_TEXTEDIT_MOVEWORDRIGHT_MAC(ImGuiInputTextState* obj, int idx)   { idx++; int len = obj->CurLenW; while (idx < len && !is_word_boundary_from_left(obj, idx)) idx++; return idx > len ? len : idx; }
-static int  STB_TEXTEDIT_MOVEWORDRIGHT_WIN(ImGuiInputTextState* obj, int idx)   { idx++; int len = obj->CurLenW; while (idx < len && !is_word_boundary_from_right(obj, idx)) idx++; return idx > len ? len : idx; }
-static int  STB_TEXTEDIT_MOVEWORDRIGHT_IMPL(ImGuiInputTextState* obj, int idx)  { ImGuiContext& g = *obj->Ctx; if (g.IO.ConfigMacOSXBehaviors) return STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx); else return STB_TEXTEDIT_MOVEWORDRIGHT_WIN(obj, idx); }
+static bool is_separator(unsigned int c) {
+    return ImCharIsBlankW(c) || c==',' || c==';' || c=='(' || c==')' || c=='{' || c=='}' || c=='[' || c==']' || c=='|' || c=='\n' || c=='\r';
+}
+static int is_word_boundary_from_right(ImGuiInputTextState* obj, int idx) {
+    if (obj->Flags & ImGuiInputTextFlags_Password)
+        return 0;
+    return idx > 0 ? (is_separator(obj->TextW[idx - 1]) && !is_separator(obj->TextW[idx]) ) : 1;
+}
+static int is_word_boundary_from_left(ImGuiInputTextState* obj, int idx) {
+    if (obj->Flags & ImGuiInputTextFlags_Password)
+        return 0;
+    return idx > 0 ? (!is_separator(obj->TextW[idx - 1]) && is_separator(obj->TextW[idx])) : 1;
+}
+static int STB_TEXTEDIT_MOVEWORDLEFT_IMPL(ImGuiInputTextState* obj, int idx) {
+    idx--;
+    while (idx >= 0 && !is_word_boundary_from_right(obj, idx))
+        idx--;
+    return idx < 0 ? 0 : idx;
+}
+static int STB_TEXTEDIT_MOVEWORDRIGHT_MAC(ImGuiInputTextState* obj, int idx) {
+    idx++;
+    int len = obj->CurLenW;
+    while (idx < len && !is_word_boundary_from_left(obj, idx))
+        idx++;
+    return idx > len ? len : idx;
+}
+static int STB_TEXTEDIT_MOVEWORDRIGHT_WIN(ImGuiInputTextState* obj, int idx) {
+    idx++;
+    int len = obj->CurLenW;
+    while (idx < len && !is_word_boundary_from_right(obj, idx))
+        idx++;
+    return idx > len ? len : idx;
+}
+static int STB_TEXTEDIT_MOVEWORDRIGHT_IMPL(ImGuiInputTextState* obj, int idx) {
+    ImGuiContext& g = *obj->Ctx;
+    if (g.IO.ConfigMacOSXBehaviors)
+        return STB_TEXTEDIT_MOVEWORDRIGHT_MAC(obj, idx);
+    else
+        return STB_TEXTEDIT_MOVEWORDRIGHT_WIN(obj, idx);
+}
 #define STB_TEXTEDIT_MOVEWORDLEFT   STB_TEXTEDIT_MOVEWORDLEFT_IMPL  // They need to be #define for stb_textedit.h
 #define STB_TEXTEDIT_MOVEWORDRIGHT  STB_TEXTEDIT_MOVEWORDRIGHT_IMPL
 
@@ -4310,11 +4356,9 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
             {
                 const int ib = state->HasSelection() ? ImMin(state->Stb.select_start, state->Stb.select_end) : 0;
                 const int ie = state->HasSelection() ? ImMax(state->Stb.select_start, state->Stb.select_end) : state->CurLenW;
-                const int clipboard_data_len = ImTextCountUtf8BytesFromStr(state->TextW.Data + ib, state->TextW.Data + ie) + 1;
-                char* clipboard_data = (char*)IM_ALLOC(clipboard_data_len * sizeof(char));
-                ImTextStrToUtf8(clipboard_data, clipboard_data_len, state->TextW.Data + ib, state->TextW.Data + ie);
-                SetClipboardText(clipboard_data);
-                MemFree(clipboard_data);
+
+                auto clipboard_data = ImTextStrToUtf8(state->TextW.Data + ib, state->TextW.Data + ie);
+                SetClipboardText(clipboard_data.c_str());
             }
             if (is_cut)
             {
@@ -4334,11 +4378,12 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
                 int clipboard_filtered_len = 0;
                 for (const char* s = clipboard; *s != 0; )
                 {
-                    unsigned int c;
+                    char32_t c;
                     s += ImTextCharFromUtf8(&c, s, NULL);
-                    if (!InputTextFilterCharacter(&c, flags, callback, callback_user_data, ImGuiInputSource_Clipboard))
+                    unsigned int c1 = c;
+                    if (!InputTextFilterCharacter(&c1, flags, callback, callback_user_data, ImGuiInputSource_Clipboard))
                         continue;
-                    clipboard_filtered[clipboard_filtered_len++] = (ImWchar)c;
+                    clipboard_filtered[clipboard_filtered_len++] = (char32_t)c1;
                 }
                 clipboard_filtered[clipboard_filtered_len] = 0;
                 if (clipboard_filtered_len > 0) // If everything was filtered, ignore the pasting operation
@@ -4394,8 +4439,8 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
         if (!is_readonly)
         {
             state->TextAIsValid = true;
-            state->TextA.resize(state->TextW.Size * 4 + 1);
-            ImTextStrToUtf8(state->TextA.data(), state->TextA.size(), state->TextW.Data, NULL);
+            //state->TextA.resize(state->TextW.Size * 4 + 1);
+            state->TextA = ImTextStrToUtf8(state->TextW.Data, NULL);
         }
 
         // When using 'ImGuiInputTextFlags_EnterReturnsTrue' as a special case we reapply the live buffer back to the input buffer before clearing ActiveId, even though strictly speaking it wasn't modified on this frame.
@@ -4799,9 +4844,10 @@ void ImGui::DebugNodeInputTextState(ImGuiInputTextState* state)
             const char undo_rec_type = (n < undo_state->undo_point) ? 'u' : (n >= undo_state->redo_point) ? 'r' : ' ';
             if (undo_rec_type == ' ')
                 BeginDisabled();
-            char buf[64] = "";
-            if (undo_rec_type != ' ' && undo_rec->char_storage != -1)
-                ImTextStrToUtf8(buf, IM_ARRAYSIZE(buf), undo_state->undo_char + undo_rec->char_storage, undo_state->undo_char + undo_rec->char_storage + undo_rec->insert_length);
+            std::string buf;
+            if (undo_rec_type != ' ' && undo_rec->char_storage != -1) {
+                buf = ImTextStrToUtf8(undo_state->undo_char + undo_rec->char_storage, undo_state->undo_char + undo_rec->char_storage + undo_rec->insert_length);
+            }
             Text("%c [%02d] where %03d, insert %03d, delete %03d, char_storage %03d \"%s\"",
                 undo_rec_type, n, undo_rec->where, undo_rec->insert_length, undo_rec->delete_length, undo_rec->char_storage, buf);
             if (undo_rec_type == ' ')

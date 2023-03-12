@@ -255,7 +255,7 @@ void ImGuiIO::AddInputCharacter(unsigned int c)
 
 // UTF16 strings use surrogate pairs to encode codepoints >= 0x10000, so
 // we should save the high surrogate.
-void ImGuiIO::AddInputCharacterUTF16(ImWchar16 c)
+void ImGuiIO::AddInputCharacterUTF16(char16_t c)
 {
     if ((c == 0 && InputQueueSurrogate == 0) || !AppAcceptingEvents)
         return;
@@ -295,7 +295,7 @@ void ImGuiIO::AddInputCharactersUTF8(const char* utf8_chars)
         return;
     while (*utf8_chars != 0)
     {
-        unsigned int c = 0;
+        char32_t c = 0;
         utf8_chars += ImTextCharFromUtf8(&c, utf8_chars, NULL);
         AddInputCharacter(c);
     }
@@ -863,12 +863,12 @@ void*   ImFileLoadToMemory(const char* filename, const char* mode, size_t* out_f
 // Convert UTF-8 to 32-bit character, process single character input.
 // A nearly-branchless UTF-8 decoder, based on work of Christopher Wellons (https://github.com/skeeto/branchless-utf8).
 // We handle UTF-8 decoding error by skipping forward.
-int ImTextCharFromUtf8(unsigned int* out_char, const char* in_text_begin, const char* in_text_end)
+int ImTextCharFromUtf8(char32_t* out_char, const char* in_text_begin, const char* in_text_end)
 {
     return ImTextCharFromUtf8(out_char, PtrPairToStringView(in_text_begin, in_text_end));
 }
 
-int ImTextCharFromUtf8(unsigned int* out_char, std::string_view in_text)
+int ImTextCharFromUtf8(char32_t* out_char, std::string_view in_text)
 {
     IM_ASSERT(!in_text.empty());
 
@@ -931,11 +931,11 @@ int ImTextStrFromUtf8(ImWchar* buf, int buf_size, const char* in_text_begin, con
     ImWchar* buf_end = buf + buf_size;
     while (buf_out < buf_end - 1 && !in_text.empty())
     {
-        unsigned int c;
+        char32_t c;
         const auto bytes_read = ImTextCharFromUtf8(&c, in_text);
         in_text.remove_prefix(bytes_read);
         rem_ptr += bytes_read;
-        *buf_out++ = (ImWchar)c;
+        *buf_out++ = c;
     }
     *buf_out = 0;
     if (in_text_remaining)
@@ -953,7 +953,7 @@ int ImTextCountCharsFromUtf8(std::string_view text)
     int char_count = 0;
     while (!text.empty())
     {
-        unsigned int c;
+        char32_t c;
         const auto bytes_read = ImTextCharFromUtf8(&c, text);
         text.remove_prefix(bytes_read);
         char_count++;
@@ -962,56 +962,43 @@ int ImTextCountCharsFromUtf8(std::string_view text)
 }
 
 // Based on stb_to_utf8() from github.com/nothings/stb/
-static inline int ImTextCharToUtf8_inline(char* buf, int buf_size, unsigned int c)
+std::string ImTextCharToUtf8(char32_t c)
 {
+    std::string out;
     if (c < 0x80)
     {
-        buf[0] = (char)c;
-        return 1;
+        out.push_back((char)c);
     }
-    if (c < 0x800)
+    else if (c < 0x800)
     {
-        if (buf_size < 2) return 0;
-        buf[0] = (char)(0xc0 + (c >> 6));
-        buf[1] = (char)(0x80 + (c & 0x3f));
-        return 2;
+        out.push_back((char)(0xc0 + (c >> 6)));
+        out.push_back((char)(0x80 + (c & 0x3f)));
     }
-    if (c < 0x10000)
+    else if (c < 0x10000)
     {
-        if (buf_size < 3) return 0;
-        buf[0] = (char)(0xe0 + (c >> 12));
-        buf[1] = (char)(0x80 + ((c >> 6) & 0x3f));
-        buf[2] = (char)(0x80 + ((c ) & 0x3f));
-        return 3;
+        out.push_back((char)(0xe0 + (c >> 12)));
+        out.push_back((char)(0x80 + ((c >> 6) & 0x3f)));
+        out.push_back((char)(0x80 + ((c ) & 0x3f)));
     }
-    if (c <= 0x10FFFF)
+    else if (c <= 0x10FFFF)
     {
-        if (buf_size < 4) return 0;
-        buf[0] = (char)(0xf0 + (c >> 18));
-        buf[1] = (char)(0x80 + ((c >> 12) & 0x3f));
-        buf[2] = (char)(0x80 + ((c >> 6) & 0x3f));
-        buf[3] = (char)(0x80 + ((c ) & 0x3f));
-        return 4;
+        out.push_back((char)(0xf0 + (c >> 18)));
+        out.push_back((char)(0x80 + ((c >> 12) & 0x3f)));
+        out.push_back((char)(0x80 + ((c >> 6) & 0x3f)));
+        out.push_back((char)(0x80 + ((c ) & 0x3f)));
     }
     // Invalid code point, the max unicode is 0x10FFFF
-    return 0;
-}
-
-const char* ImTextCharToUtf8(char out_buf[5], unsigned int c)
-{
-    int count = ImTextCharToUtf8_inline(out_buf, 5, c);
-    out_buf[count] = 0;
-    return out_buf;
+    return out;
 }
 
 // Not optimal but we very rarely use this function.
 int ImTextCountUtf8BytesFromChar(const char* in_text, const char* in_text_end)
 {
-    unsigned int unused = 0;
+    char32_t unused = 0;
     return ImTextCharFromUtf8(&unused, in_text, in_text_end);
 }
 
-static inline int ImTextCountUtf8BytesFromChar(unsigned int c)
+static inline int ImTextCountUtf8BytesFromChar(char32_t c)
 {
     if (c < 0x80) return 1;
     if (c < 0x800) return 2;
@@ -1020,34 +1007,32 @@ static inline int ImTextCountUtf8BytesFromChar(unsigned int c)
     return 3;
 }
 
-int ImTextStrToUtf8(char* out_buf, int out_buf_size, const ImWchar* in_text, const ImWchar* in_text_end)
+std::string ImTextStrToUtf8(std::u32string_view in_text)
 {
-    char* buf_p = out_buf;
-    const char* buf_end = out_buf + out_buf_size;
-    while (buf_p < buf_end - 1 && (!in_text_end || in_text < in_text_end) && *in_text)
-    {
-        unsigned int c = (unsigned int)(*in_text++);
-        if (c < 0x80)
-            *buf_p++ = (char)c;
-        else
-            buf_p += ImTextCharToUtf8_inline(buf_p, (int)(buf_end - buf_p - 1), c);
+    std::string out;
+    for (const auto c32 : in_text) {
+        out.append(ImTextCharToUtf8(c32));
     }
-    *buf_p = 0;
-    return (int)(buf_p - out_buf);
+    return out;
 }
 
-int ImTextCountUtf8BytesFromStr(const ImWchar* in_text, const ImWchar* in_text_end)
+std::string ImTextStrToUtf8(const ImWchar* in_text_begin, const ImWchar* in_text_end)
+{
+    return ImTextStrToUtf8(PtrPairToStringView(in_text_begin, in_text_end));
+}
+
+int ImTextCountUtf8BytesFromStr(std::u32string_view in_text)
 {
     int bytes_count = 0;
-    while ((!in_text_end || in_text < in_text_end) && *in_text)
-    {
-        unsigned int c = (unsigned int)(*in_text++);
-        if (c < 0x80)
-            bytes_count++;
-        else
-            bytes_count += ImTextCountUtf8BytesFromChar(c);
+    for (const auto ch : in_text) {
+        bytes_count += ImTextCountUtf8BytesFromChar(ch);
     }
     return bytes_count;
+}
+
+int ImTextCountUtf8BytesFromStr(const ImWchar* in_text_begin, const ImWchar* in_text_end)
+{
+    return ImTextCountUtf8BytesFromStr(PtrPairToStringView(in_text_begin, in_text_end));
 }
 
 //-----------------------------------------------------------------------------
@@ -10828,7 +10813,7 @@ void ImGui::DebugTextEncoding(const char* str)
     TableHeadersRow();
     for (const char* p = str; *p != 0; )
     {
-        unsigned int c;
+        char32_t c;
         const int c_utf8_len = ImTextCharFromUtf8(&c, p, NULL);
         TableNextColumn();
         Text("%d", (int)(p - str));
@@ -11567,9 +11552,8 @@ void ImGui::DebugNodeFont(ImFont* font)
         "You can also render at multiple sizes and select which one to use at runtime.\n\n"
         "(Glimmer of hope: the atlas system will be rewritten in the future to make scaling more flexible.)");
     Text("Ascent: %f, Descent: %f, Height: %f", font->Ascent, font->Descent, font->Ascent - font->Descent);
-    char c_str[5];
-    Text("Fallback character: '%s' (U+%04X)", ImTextCharToUtf8(c_str, font->FallbackChar), font->FallbackChar);
-    Text("Ellipsis character: '%s' (U+%04X)", ImTextCharToUtf8(c_str, font->EllipsisChar), font->EllipsisChar);
+    Text("Fallback character: '%s' (U+%04X)", ImTextCharToUtf8(font->FallbackChar).c_str(), font->FallbackChar);
+    Text("Ellipsis character: '%s' (U+%04X)", ImTextCharToUtf8(font->EllipsisChar).c_str(), font->EllipsisChar);
     const int surface_sqrt = (int)std::sqrt((float)font->MetricsTotalSurface);
     Text("Texture Area: about %d px ~%dx%d px", font->MetricsTotalSurface, surface_sqrt, surface_sqrt);
     for (int config_i = 0; config_i < font->ConfigDataCount; config_i++)

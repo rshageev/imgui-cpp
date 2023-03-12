@@ -17,13 +17,7 @@ using ImU64 = std::uint64_t;  // 64-bit unsigned integer
 // Character types
 // (we generally use UTF-8 encoded string in the API. This is storage
 // specifically for a decoded character used for keyboard input and display)
-using ImWchar16 = std::uint16_t;   // A single decoded U16 character/code point. We encode them as multi bytes UTF-8 when used in strings.
-using ImWchar32 = std::uint32_t;     // A single decoded U32 character/code point. We encode them as multi bytes UTF-8 when used in strings.
-#ifdef IMGUI_USE_WCHAR32            // ImWchar [configurable type: override in imconfig.h with '#define IMGUI_USE_WCHAR32' to support Unicode planes 1-16]
-using ImWchar = ImWchar32;
-#else
-using ImWchar = ImWchar16;
-#endif
+using ImWchar = char32_t;
 
 // A cardinal direction
 using ImGuiDir = int;
