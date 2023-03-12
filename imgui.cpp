@@ -6069,34 +6069,37 @@ ImVec2 ImGui::GetKeyMagnitude2d(ImGuiKey key_left, ImGuiKey key_right, ImGuiKey 
 static void ImGui::UpdateKeyRoutingTable(ImGuiKeyRoutingTable* rt)
 {
     ImGuiContext& g = *GImGui;
-    rt->EntriesNext.resize(0);
+    rt->EntriesNext.clear();
     for (ImGuiKey key = ImGuiKey_NamedKey_BEGIN; key < ImGuiKey_NamedKey_END; key = (ImGuiKey)(key + 1))
     {
-        const int new_routing_start_idx = rt->EntriesNext.Size;
-        ImGuiKeyRoutingData* routing_entry;
-        for (int old_routing_idx = rt->Index[key - ImGuiKey_NamedKey_BEGIN]; old_routing_idx != -1; old_routing_idx = routing_entry->NextEntryIndex)
+        const int new_routing_start_idx = rt->EntriesNext.size();
+        for (int old_routing_idx = rt->Index[key - ImGuiKey_NamedKey_BEGIN]; old_routing_idx != -1; )
         {
-            routing_entry = &rt->Entries[old_routing_idx];
-            routing_entry->RoutingCurr = routing_entry->RoutingNext; // Update entry
-            routing_entry->RoutingNext = ImGuiKeyOwner_None;
-            routing_entry->RoutingNextScore = 255;
-            if (routing_entry->RoutingCurr == ImGuiKeyOwner_None)
-                continue;
-            rt->EntriesNext.push_back(*routing_entry); // Write alive ones into new buffer
-
-            // Apply routing to owner if there's no owner already (RoutingCurr == None at this point)
-            if (routing_entry->Mods == g.IO.KeyMods)
+            auto& routing_entry = rt->Entries[old_routing_idx];
+            routing_entry.RoutingCurr = routing_entry.RoutingNext; // Update entry
+            routing_entry.RoutingNext = ImGuiKeyOwner_None;
+            routing_entry.RoutingNextScore = 255;
+            if (routing_entry.RoutingCurr != ImGuiKeyOwner_None)
             {
-                ImGuiKeyOwnerData* owner_data = ImGui::GetKeyOwnerData(key);
-                if (owner_data->OwnerCurr == ImGuiKeyOwner_None)
-                    owner_data->OwnerCurr = routing_entry->RoutingCurr;
+                rt->EntriesNext.push_back(routing_entry); // Write alive ones into new buffer
+
+                // Apply routing to owner if there's no owner already (RoutingCurr == None at this point)
+                if (routing_entry.Mods == g.IO.KeyMods)
+                {
+                    ImGuiKeyOwnerData* owner_data = ImGui::GetKeyOwnerData(key);
+                    if (owner_data->OwnerCurr == ImGuiKeyOwner_None) {
+                        owner_data->OwnerCurr = routing_entry.RoutingCurr;
+                    }
+                }
             }
+            old_routing_idx = routing_entry.NextEntryIndex;
         }
 
         // Rewrite linked-list
-        rt->Index[key - ImGuiKey_NamedKey_BEGIN] = (ImGuiKeyRoutingIndex)(new_routing_start_idx < rt->EntriesNext.Size ? new_routing_start_idx : -1);
-        for (int n = new_routing_start_idx; n < rt->EntriesNext.Size; n++)
-            rt->EntriesNext[n].NextEntryIndex = (ImGuiKeyRoutingIndex)((n + 1 < rt->EntriesNext.Size) ? n + 1 : -1);
+        rt->Index[key - ImGuiKey_NamedKey_BEGIN] = (ImGuiKeyRoutingIndex)(new_routing_start_idx < rt->EntriesNext.size() ? new_routing_start_idx : -1);
+        for (int n = new_routing_start_idx; n < rt->EntriesNext.size(); n++) {
+            rt->EntriesNext[n].NextEntryIndex = (ImGuiKeyRoutingIndex)((n + 1 < rt->EntriesNext.size()) ? n + 1 : -1);
+        }
     }
     rt->Entries.swap(rt->EntriesNext); // Swap new and old indexes
 }
@@ -6137,7 +6140,7 @@ ImGuiKeyRoutingData* ImGui::GetShortcutRoutingData(ImGuiKeyChord key_chord)
     }
 
     // Add to linked-list
-    ImGuiKeyRoutingIndex routing_data_idx = (ImGuiKeyRoutingIndex)rt->Entries.Size;
+    ImGuiKeyRoutingIndex routing_data_idx = (ImGuiKeyRoutingIndex)rt->Entries.size();
     rt->Entries.push_back(ImGuiKeyRoutingData());
     routing_data = &rt->Entries[routing_data_idx];
     routing_data->Mods = (ImU16)mods;
@@ -6230,15 +6233,6 @@ bool ImGui::SetShortcutRouting(ImGuiKeyChord key_chord, ImGuiID owner_id, ImGuiI
     }
 
     // Return routing state for CURRENT frame
-    return routing_data->RoutingCurr == routing_id;
-}
-
-// Currently unused by core (but used by tests)
-// Note: this cannot be turned into GetShortcutRouting() because we do the owner_id->routing_id translation, name would be more misleading.
-bool ImGui::TestShortcutRouting(ImGuiKeyChord key_chord, ImGuiID owner_id)
-{
-    const ImGuiID routing_id = GetRoutingIdFromOwnerId(owner_id);
-    ImGuiKeyRoutingData* routing_data = GetShortcutRoutingData(key_chord); // FIXME: Could avoid creating entry.
     return routing_data->RoutingCurr == routing_id;
 }
 

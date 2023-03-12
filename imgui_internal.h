@@ -1056,12 +1056,18 @@ struct ImGuiKeyRoutingData
 // Stored in main context (1 instance)
 struct ImGuiKeyRoutingTable
 {
-    ImGuiKeyRoutingIndex            Index[ImGuiKey_NamedKey_COUNT]; // Index of first entry in Entries[]
-    ImVector<ImGuiKeyRoutingData>   Entries;
-    ImVector<ImGuiKeyRoutingData>   EntriesNext;                    // Double-buffer to avoid reallocation (could use a shared buffer)
+    ImGuiKeyRoutingIndex Index[ImGuiKey_NamedKey_COUNT]; // Index of first entry in Entries[]
+    std::vector<ImGuiKeyRoutingData> Entries;
+    std::vector<ImGuiKeyRoutingData> EntriesNext; // Double-buffer to avoid reallocation (could use a shared buffer)
 
-    ImGuiKeyRoutingTable()          { Clear(); }
-    void Clear()                    { for (int n = 0; n < IM_ARRAYSIZE(Index); n++) Index[n] = -1; Entries.clear(); EntriesNext.clear(); }
+    ImGuiKeyRoutingTable() {
+        Clear();
+    }
+    void Clear() {
+        stdr::fill(Index, -1);
+        Entries.clear();
+        EntriesNext.clear();
+    }
 };
 
 // This extends ImGuiKeyData but only for named keys (legacy keys don't support the new features)
@@ -2413,7 +2419,6 @@ namespace ImGui
     // - For routing: when owner_id is 0 we use the current Focus Scope ID as a default owner in order to identify our location.
     bool Shortcut(ImGuiKeyChord key_chord, ImGuiID owner_id = 0, ImGuiInputFlags flags = 0);
     bool SetShortcutRouting(ImGuiKeyChord key_chord, ImGuiID owner_id = 0, ImGuiInputFlags flags = 0);
-    bool TestShortcutRouting(ImGuiKeyChord key_chord, ImGuiID owner_id);
     ImGuiKeyRoutingData* GetShortcutRoutingData(ImGuiKeyChord key_chord);
 
     // [EXPERIMENTAL] Focus Scope
