@@ -801,8 +801,8 @@ struct ImGuiInputTextState
     int CurLenW = 0;
     int CurLenA = 0;                     // we need to maintain our buffer length in both UTF-8 and wchar format. UTF-8 length is valid even if TextA is not.
     ImVector<ImWchar> TextW;             // edit buffer, we need to persist but can't guarantee the persistence of the user-provided buffer. so we copy into own buffer.
-    ImVector<char> TextA;                // temporary UTF8 buffer for callbacks and other operations. this is not updated in every code-path! size=capacity.
-    ImVector<char> InitialTextA;         // backup of end-user buffer at the time of focus (in UTF-8, unaltered)
+    std::string TextA;                   // temporary UTF8 buffer for callbacks and other operations. this is not updated in every code-path! size=capacity.
+    std::string InitialTextA;            // backup of end-user buffer at the time of focus (in UTF-8, unaltered)
     bool TextAIsValid = false;           // temporary UTF8 buffer is not initially valid before we make the widget active (until then we pull the data from user argument)
     int BufCapacityA = 0;                // end-user buffer capacity
     float ScrollX = 0.0f;                // horizontal scrolling/offset
@@ -815,12 +815,12 @@ struct ImGuiInputTextState
 
     ImGuiInputTextState(ImGuiContext* ctx) : Ctx(ctx) {}
 
-    void ClearText() {
-        CurLenW = CurLenA = 0;
-        TextW[0] = 0;
-        TextA[0] = 0;
-        CursorClamp();
-    }
+    //void ClearText() {
+    //    CurLenW = CurLenA = 0;
+    //    TextW[0] = 0;
+    //    TextA.clear();
+    //    CursorClamp();
+    //}
     void ClearFreeMemory() {
         TextW.clear();
         TextA.clear();
