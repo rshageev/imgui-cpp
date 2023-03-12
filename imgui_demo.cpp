@@ -282,20 +282,20 @@ void ImGui::ShowDemoWindow(bool* p_open)
         ImGui::EndMenuBar();
     }
 
-    ImGui::Text("dear imgui says hello! (%s) (%d)", IMGUI_VERSION, IMGUI_VERSION_NUM);
+    ImGui::TextF("dear imgui says hello! ({}) ({})", IMGUI_VERSION, IMGUI_VERSION_NUM);
     ImGui::Spacing();
 
     IMGUI_DEMO_MARKER("Help");
     if (ImGui::CollapsingHeader("Help"))
     {
-        ImGui::Text("ABOUT THIS DEMO:");
+        ImGui::TextF("ABOUT THIS DEMO:");
         ImGui::BulletText("Sections below are demonstrating many aspects of the library.");
         ImGui::BulletText("The \"Examples\" menu above leads to more demo contents.");
         ImGui::BulletText("The \"Tools\" menu above gives access to: About Box, Style Editor,\n"
                           "and Metrics/Debugger (general purpose Dear ImGui debugging tool).");
         ImGui::Separator();
 
-        ImGui::Text("PROGRAMMER GUIDE:");
+        ImGui::TextF("PROGRAMMER GUIDE:");
         ImGui::BulletText("See the ShowDemoWindow() code in imgui_demo.cpp. <- you are here!");
         ImGui::BulletText("See comments in imgui.cpp.");
         ImGui::BulletText("See example applications in the examples/ folder.");
@@ -304,7 +304,7 @@ void ImGui::ShowDemoWindow(bool* p_open)
         ImGui::BulletText("Set 'io.ConfigFlags |= NavEnableGamepad' for gamepad controls.");
         ImGui::Separator();
 
-        ImGui::Text("USER GUIDE:");
+        ImGui::TextF("USER GUIDE:");
         ImGui::ShowUserGuide();
     }
 
@@ -329,7 +329,7 @@ void ImGui::ShowDemoWindow(bool* p_open)
                 if (fmodf((float)ImGui::GetTime(), 0.40f) < 0.20f)
                 {
                     ImGui::SameLine();
-                    ImGui::Text("<<PRESS SPACE TO DISABLE>>");
+                    ImGui::TextF("<<PRESS SPACE TO DISABLE>>");
                 }
                 if (ImGui::IsKeyPressed(ImGuiKey_Space))
                     io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
@@ -484,13 +484,13 @@ static void ShowDemoWindowWidgets()
         if (ImGui::ArrowButton("##right", ImGuiDir_Right)) { counter++; }
         ImGui::PopButtonRepeat();
         ImGui::SameLine();
-        ImGui::Text("%d", counter);
+        ImGui::TextF("{}", counter);
 
         {
             // Tooltips
             IMGUI_DEMO_MARKER("Widgets/Basic/Tooltips");
             //ImGui::AlignTextToFramePadding();
-            ImGui::Text("Tooltips:");
+            ImGui::TextF("Tooltips:");
 
             ImGui::SameLine();
             ImGui::SmallButton("Button");
@@ -502,10 +502,10 @@ static void ShowDemoWindowWidgets()
             if (ImGui::IsItemHovered())
             {
                 ImGui::BeginTooltip();
-                ImGui::Text("I am a fancy tooltip");
+                ImGui::TextF("I am a fancy tooltip");
                 static float arr[] = { 0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f };
                 ImGui::PlotLines("Curve", arr, IM_ARRAYSIZE(arr));
-                ImGui::Text("Sin(time) = %f", sinf((float)ImGui::GetTime()));
+                ImGui::TextF("Sin(time) = {}", std::sin((float)ImGui::GetTime()));
                 ImGui::EndTooltip();
             }
 
@@ -767,20 +767,16 @@ static void ShowDemoWindowWidgets()
         ImGui::Checkbox("Show 2nd header", &closable_group);
         if (ImGui::CollapsingHeader("Header", ImGuiTreeNodeFlags_None))
         {
-            ImGui::Text("IsItemHovered: %d", ImGui::IsItemHovered());
+            ImGui::TextF("IsItemHovered: {}", ImGui::IsItemHovered());
             for (int i = 0; i < 5; i++)
-                ImGui::Text("Some content %d", i);
+                ImGui::TextF("Some content {}", i);
         }
         if (ImGui::CollapsingHeader("Header with a close button", &closable_group))
         {
-            ImGui::Text("IsItemHovered: %d", ImGui::IsItemHovered());
+            ImGui::TextF("IsItemHovered: {}", ImGui::IsItemHovered());
             for (int i = 0; i < 5; i++)
-                ImGui::Text("More content %d", i);
+                ImGui::TextF("More content {}", i);
         }
-        /*
-        if (ImGui::CollapsingHeader("Header with a bullet", ImGuiTreeNodeFlags_Bullet))
-            ImGui::Text("IsItemHovered: %d", ImGui::IsItemHovered());
-        */
         ImGui::TreePop();
     }
 
@@ -922,8 +918,8 @@ static void ShowDemoWindowWidgets()
                 else if (region_x > my_tex_w - region_sz) { region_x = my_tex_w - region_sz; }
                 if (region_y < 0.0f) { region_y = 0.0f; }
                 else if (region_y > my_tex_h - region_sz) { region_y = my_tex_h - region_sz; }
-                ImGui::Text("Min: (%.2f, %.2f)", region_x, region_y);
-                ImGui::Text("Max: (%.2f, %.2f)", region_x + region_sz, region_y + region_sz);
+                ImGui::TextF("Min: ({:.2f}, {:.2f})", region_x, region_y);
+                ImGui::TextF("Max: ({:.2f}, {:.2f})", region_x + region_sz, region_y + region_sz);
                 ImVec2 uv0 = ImVec2((region_x) / my_tex_w, (region_y) / my_tex_h);
                 ImVec2 uv1 = ImVec2((region_x + region_sz) / my_tex_w, (region_y + region_sz) / my_tex_h);
                 ImGui::Image(my_tex_id, ImVec2(region_sz * zoom, region_sz * zoom), uv0, uv1, tint_col, border_col);
@@ -2889,14 +2885,14 @@ static void ShowDemoWindowLayout()
                     }
                     else
                     {
-                        ImGui::Text("Item %d", item);
+                        ImGui::TextF("Item {}", item);
                     }
                 }
             }
             float scroll_y = ImGui::GetScrollY();
             float scroll_max_y = ImGui::GetScrollMaxY();
             ImGui::EndChild();
-            ImGui::Text("%.0f/%.0f", scroll_y, scroll_max_y);
+            ImGui::TextF("{:.0f}/{:.0f}", scroll_y, scroll_max_y);
             ImGui::EndGroup();
         }
         ImGui::PopID();
@@ -2933,7 +2929,7 @@ static void ShowDemoWindowLayout()
                     }
                     else
                     {
-                        ImGui::Text("Item %d", item);
+                        ImGui::TextF("Item {}", item);
                     }
                 }
             }
@@ -6035,7 +6031,7 @@ static void ShowExampleMenuFile()
         ImGui::MenuItem("Enabled", "", &enabled);
         ImGui::BeginChild("child", ImVec2(0, 60), true);
         for (int i = 0; i < 10; i++)
-            ImGui::Text("Scrolling Text %d", i);
+            ImGui::TextF("Scrolling Text {}", i);
         ImGui::EndChild();
         static float f = 0.5f;
         static int n = 0;
@@ -6759,7 +6755,7 @@ static void ShowExampleAppLongText(bool* p_open)
         "Single call to TextUnformatted()\0"
         "Multiple calls to Text(), clipped\0"
         "Multiple calls to Text(), not clipped (slow)\0");
-    ImGui::Text("Buffer contents: %d lines, %d bytes", lines, log.size());
+    ImGui::TextF("Buffer contents: {} lines, {} bytes", lines, log.size());
     if (ImGui::Button("Clear")) { log.clear(); lines = 0; }
     ImGui::SameLine();
     if (ImGui::Button("Add 1000 lines"))
@@ -6782,9 +6778,11 @@ static void ShowExampleAppLongText(bool* p_open)
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
             ImGuiListClipper clipper;
             clipper.Begin(lines);
-            while (clipper.Step())
-                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
-                    ImGui::Text("%i The quick brown fox jumps over the lazy dog", i);
+            while (clipper.Step()) {
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+                    ImGui::TextF("{} The quick brown fox jumps over the lazy dog", i);
+                }
+            }
             ImGui::PopStyleVar();
             break;
         }
@@ -6792,7 +6790,7 @@ static void ShowExampleAppLongText(bool* p_open)
         // Multiple calls to Text(), not clipped (slow)
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
         for (int i = 0; i < lines; i++)
-            ImGui::Text("%i The quick brown fox jumps over the lazy dog", i);
+            ImGui::TextF("{} The quick brown fox jumps over the lazy dog", i);
         ImGui::PopStyleVar();
         break;
     }

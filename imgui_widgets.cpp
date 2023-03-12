@@ -220,6 +220,11 @@ void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
     }
 }
 
+void ImGui::TextUnformatted(std::string_view text)
+{
+    TextEx(text, ImGuiTextFlags_NoWidthForLargeClippedText);
+}
+
 void ImGui::TextUnformatted(const char* text, const char* text_end)
 {
     TextEx(text, text_end, ImGuiTextFlags_NoWidthForLargeClippedText);
@@ -235,12 +240,8 @@ void ImGui::Text(const char* fmt, ...)
 
 void ImGui::TextV(const char* fmt, va_list args)
 {
-    ImGuiWindow* window = GetCurrentWindow();
-    if (window->SkipItems)
-        return;
-
     const std::string text = ImFormatStringToStringV(fmt, args);
-    TextEx(text, ImGuiTextFlags_NoWidthForLargeClippedText);
+    TextUnformatted(text);
 }
 
 void ImGui::TextColored(const ImColorf& col, const char* fmt, ...)
@@ -6688,42 +6689,6 @@ void ImGui::PlotHistogram(const char* label, const float* values, int values_cou
 void ImGui::PlotHistogram(const char* label, float (*values_getter)(void* data, int idx), void* data, int values_count, int values_offset, const char* overlay_text, float scale_min, float scale_max, ImVec2 graph_size)
 {
     PlotEx(ImGuiPlotType_Histogram, label, values_getter, data, values_count, values_offset, overlay_text, scale_min, scale_max, graph_size);
-}
-
-//-------------------------------------------------------------------------
-// [SECTION] Widgets: Value helpers
-// Those is not very useful, legacy API.
-//-------------------------------------------------------------------------
-// - Value()
-//-------------------------------------------------------------------------
-
-void ImGui::Value(const char* prefix, bool b)
-{
-    Text("%s: %s", prefix, (b ? "true" : "false"));
-}
-
-void ImGui::Value(const char* prefix, int v)
-{
-    Text("%s: %d", prefix, v);
-}
-
-void ImGui::Value(const char* prefix, unsigned int v)
-{
-    Text("%s: %d", prefix, v);
-}
-
-void ImGui::Value(const char* prefix, float v, const char* float_format)
-{
-    if (float_format)
-    {
-        char fmt[64];
-        ImFormatString(fmt, IM_ARRAYSIZE(fmt), "%%s: %s", float_format);
-        Text(fmt, prefix, v);
-    }
-    else
-    {
-        Text("%s: %.3f", prefix, v);
-    }
 }
 
 //-------------------------------------------------------------------------

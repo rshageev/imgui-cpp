@@ -10859,10 +10859,10 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     }
 
     // Basic info
-    Text("Dear ImGui %s", GetVersion());
-    Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-    Text("%d vertices, %d indices (%d triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
-    Text("%d visible windows", io.MetricsRenderWindows);
+    TextF("Dear ImGui {}", GetVersion());
+    TextF("Application average {:.3f} ms/frame ({:.1f} FPS)", 1000.0f / io.Framerate, io.Framerate);
+    TextF("{} vertices, {} indices ({} triangles)", io.MetricsRenderVertices, io.MetricsRenderIndices, io.MetricsRenderIndices / 3);
+    TextF("{} visible windows", io.MetricsRenderWindows);
 
     Separator();
 
@@ -10957,7 +10957,9 @@ void ImGui::ShowMetricsWindow(bool* p_open)
             for (int rect_n = 0; rect_n < WRT_Count; rect_n++)
             {
                 ImRect r = Funcs::GetWindowRect(g.NavWindow, rect_n);
-                Text("(%6.1f,%6.1f) (%6.1f,%6.1f) Size (%6.1f,%6.1f) %s", r.Min.x, r.Min.y, r.Max.x, r.Max.y, r.GetWidth(), r.GetHeight(), wrt_rects_names[rect_n]);
+                Text("(%6.1f,%6.1f) (%6.1f,%6.1f) Size (%6.1f,%6.1f) %s",
+                    r.Min.x, r.Min.y, r.Max.x, r.Max.y,
+                    r.GetWidth(), r.GetHeight(), wrt_rects_names[rect_n]);
             }
             Unindent();
         }
@@ -11190,9 +11192,29 @@ void ImGui::ShowMetricsWindow(bool* p_open)
 
             struct funcs { static bool IsLegacyNativeDupe(ImGuiKey) { return false; } };
 
-            Text("Keys down:");         for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) { if (funcs::IsLegacyNativeDupe(key) || !IsKeyDown(key)) continue;     SameLine(); Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key); SameLine(); Text("(%.02f)", GetKeyData(key)->DownDuration); }
-            Text("Keys pressed:");      for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) { if (funcs::IsLegacyNativeDupe(key) || !IsKeyPressed(key)) continue;  SameLine(); Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key); }
-            Text("Keys released:");     for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) { if (funcs::IsLegacyNativeDupe(key) || !IsKeyReleased(key)) continue; SameLine(); Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key); }
+            Text("Keys down:");
+            for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) {
+                if (funcs::IsLegacyNativeDupe(key) || !IsKeyDown(key))
+                    continue;
+                SameLine();
+                Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key);
+                SameLine();
+                Text("(%.02f)", GetKeyData(key)->DownDuration);
+            }
+            Text("Keys pressed:");
+            for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) {
+                if (funcs::IsLegacyNativeDupe(key) || !IsKeyPressed(key))
+                    continue;
+                SameLine();
+                Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key);
+            }
+            Text("Keys released:");
+            for (ImGuiKey key = ImGuiKey_KeysData_OFFSET; key < ImGuiKey_COUNT; key = (ImGuiKey)(key + 1)) {
+                if (funcs::IsLegacyNativeDupe(key) || !IsKeyReleased(key))
+                    continue;
+                SameLine();
+                Text(IsNamedKey(key) ? "\"%s\"" : "\"%s\" %d", GetKeyName(key), key);
+            }
             Text("Keys mods: %s%s%s%s", io.KeyCtrl ? "CTRL " : "", io.KeyShift ? "SHIFT " : "", io.KeyAlt ? "ALT " : "", io.KeySuper ? "SUPER " : "");
             Text("Chars queue:");
             for (ImWchar c : io.InputQueueCharacters) {
@@ -11208,25 +11230,43 @@ void ImGui::ShowMetricsWindow(bool* p_open)
         {
             Indent();
             if (IsMousePosValid())
-                Text("Mouse pos: (%g, %g)", io.MousePos.x, io.MousePos.y);
+                TextF("Mouse pos: ({}, {})", io.MousePos.x, io.MousePos.y);
             else
-                Text("Mouse pos: <INVALID>");
-            Text("Mouse delta: (%g, %g)", io.MouseDelta.x, io.MouseDelta.y);
+                TextF("Mouse pos: <INVALID>");
+            TextF("Mouse delta: ({}, {})", io.MouseDelta.x, io.MouseDelta.y);
             int count = static_cast<int>(io.MouseDown.size());
-            Text("Mouse down:");     for (int i = 0; i < count; i++) if (IsMouseDown(i)) { SameLine(); Text("b%d (%.02f secs)", i, io.MouseDownDuration[i]); }
-            Text("Mouse clicked:");  for (int i = 0; i < count; i++) if (IsMouseClicked(i)) { SameLine(); Text("b%d (%d)", i, io.MouseClickedCount[i]); }
-            Text("Mouse released:"); for (int i = 0; i < count; i++) if (IsMouseReleased(i)) { SameLine(); Text("b%d", i); }
-            Text("Mouse wheel: %.1f", io.MouseWheel);
-            Text("Pen Pressure: %.1f", io.PenPressure); // Note: currently unused
+            TextF("Mouse down:");
+            for (int i = 0; i < count; i++) {
+                if (IsMouseDown(i)) {
+                    SameLine();
+                    TextF("b{} ({:.02f} secs)", i, io.MouseDownDuration[i]);
+                }
+            }
+            TextF("Mouse clicked:");
+            for (int i = 0; i < count; i++) {
+                if (IsMouseClicked(i)) {
+                    SameLine();
+                    TextF("b{} ({})", i, io.MouseClickedCount[i]);
+                }
+            }
+            TextF("Mouse released:");
+            for (int i = 0; i < count; i++) {
+                if (IsMouseReleased(i)) {
+                    SameLine();
+                    TextF("b{}", i);
+                }
+            }
+            TextF("Mouse wheel: {:.1f}", io.MouseWheel);
+            TextF("Pen Pressure: {:.1f}", io.PenPressure); // Note: currently unused
             Unindent();
         }
 
         Text("MOUSE WHEELING");
         {
             Indent();
-            Text("WheelingWindow: '%s'", g.WheelingWindow ? g.WheelingWindow->Name : "NULL");
-            Text("WheelingWindowReleaseTimer: %.2f", g.WheelingWindowReleaseTimer);
-            Text("WheelingAxisAvg[] = { %.3f, %.3f }, Main Axis: %s", g.WheelingAxisAvg.x, g.WheelingAxisAvg.y, (g.WheelingAxisAvg.x > g.WheelingAxisAvg.y) ? "X" : (g.WheelingAxisAvg.x < g.WheelingAxisAvg.y) ? "Y" : "<none>");
+            TextF("WheelingWindow: '{}'", g.WheelingWindow ? g.WheelingWindow->Name : "NULL");
+            TextF("WheelingWindowReleaseTimer: {:.2f}", g.WheelingWindowReleaseTimer);
+            TextF("WheelingAxisAvg[] = {{ {:.3f}, {:.3f} }}, Main Axis: {}", g.WheelingAxisAvg.x, g.WheelingAxisAvg.y, (g.WheelingAxisAvg.x > g.WheelingAxisAvg.y) ? "X" : (g.WheelingAxisAvg.x < g.WheelingAxisAvg.y) ? "Y" : "<none>");
             Unindent();
         }
 
@@ -11277,17 +11317,17 @@ void ImGui::ShowMetricsWindow(bool* p_open)
     {
         Text("WINDOWING");
         Indent();
-        Text("HoveredWindow: '%s'", g.HoveredWindow ? g.HoveredWindow->Name : "NULL");
-        Text("HoveredWindow->Root: '%s'", g.HoveredWindow ? g.HoveredWindow->RootWindow->Name : "NULL");
-        Text("HoveredWindowUnderMovingWindow: '%s'", g.HoveredWindowUnderMovingWindow ? g.HoveredWindowUnderMovingWindow->Name : "NULL");
-        Text("MovingWindow: '%s'", g.MovingWindow ? g.MovingWindow->Name : "NULL");
+        TextF("HoveredWindow: '{}'", g.HoveredWindow ? g.HoveredWindow->Name : "NULL");
+        TextF("HoveredWindow->Root: '{}'", g.HoveredWindow ? g.HoveredWindow->RootWindow->Name : "NULL");
+        TextF("HoveredWindowUnderMovingWindow: '{}'", g.HoveredWindowUnderMovingWindow ? g.HoveredWindowUnderMovingWindow->Name : "NULL");
+        TextF("MovingWindow: '{}'", g.MovingWindow ? g.MovingWindow->Name : "NULL");
         Unindent();
 
         Text("ITEMS");
         Indent();
         Text("ActiveId: 0x%08X/0x%08X (%.2f sec), AllowOverlap: %d, Source: %s", g.ActiveId, g.ActiveIdPreviousFrame, g.ActiveIdTimer, g.ActiveIdAllowOverlap, GetInputSourceName(g.ActiveIdSource));
         DebugLocateItemOnHover(g.ActiveId);
-        Text("ActiveIdWindow: '%s'", g.ActiveIdWindow ? g.ActiveIdWindow->Name : "NULL");
+        TextF("ActiveIdWindow: '{}'", g.ActiveIdWindow ? g.ActiveIdWindow->Name : "NULL");
         Text("ActiveIdUsing: AllKeyboardKeys: %d, NavDirMask: %X", g.ActiveIdUsingAllKeyboardKeys, g.ActiveIdUsingNavDirMask);
         Text("HoveredId: 0x%08X (%.2f sec), AllowOverlap: %d", g.HoveredIdPreviousFrame, g.HoveredIdTimer, g.HoveredIdAllowOverlap); // Not displaying g.HoveredId as it is update mid-frame
         Text("HoverDelayId: 0x%08X, Timer: %.2f, ClearTimer: %.2f", g.HoverDelayId, g.HoverDelayTimer, g.HoverDelayClearTimer);
@@ -11297,7 +11337,7 @@ void ImGui::ShowMetricsWindow(bool* p_open)
 
         Text("NAV,FOCUS");
         Indent();
-        Text("NavWindow: '%s'", g.NavWindow ? g.NavWindow->Name : "NULL");
+        TextF("NavWindow: '{}'", g.NavWindow ? g.NavWindow->Name : "NULL");
         Text("NavId: 0x%08X, NavLayer: %d", g.NavId, g.NavLayer);
         DebugLocateItemOnHover(g.NavId);
         Text("NavInputSource: %s", GetInputSourceName(g.NavInputSource));
@@ -11592,10 +11632,10 @@ void ImGui::DebugNodeFontGlyph(ImFont*, const ImFontGlyph* glyph)
 {
     Text("Codepoint: U+%04X", glyph->Codepoint);
     Separator();
-    Text("Visible: %d", glyph->Visible);
-    Text("AdvanceX: %.1f", glyph->AdvanceX);
-    Text("Pos: (%.2f,%.2f)->(%.2f,%.2f)", glyph->X0, glyph->Y0, glyph->X1, glyph->Y1);
-    Text("UV: (%.3f,%.3f)->(%.3f,%.3f)", glyph->U0, glyph->V0, glyph->U1, glyph->V1);
+    TextF("Visible: {}", glyph->Visible);
+    TextF("AdvanceX: {:.1f}", glyph->AdvanceX);
+    TextF("Pos: ({:.2f},{:.2f})->({:.2f},{:.2f})", glyph->X0, glyph->Y0, glyph->X1, glyph->Y1);
+    TextF("UV: ({:.3f},{:.3f})->({:.3f},{:.3f})", glyph->U0, glyph->V0, glyph->U1, glyph->V1);
 }
 
 // [DEBUG] Display contents of ImGuiStorage

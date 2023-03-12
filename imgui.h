@@ -34,6 +34,7 @@
 #include <string>
 #include <cmath>
 #include <ranges>
+#include <format>
 
 // Helper Macros
 #ifndef IM_ASSERT
@@ -376,9 +377,20 @@ namespace ImGui
     ImGuiID GetID(const void* ptr_id);
 
     // Widgets: Text
-    void TextUnformatted(const char* text, const char* text_end = NULL); // raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
+    // raw text without formatting. Roughly equivalent to Text("%s", text) but:
+    // A) doesn't require null terminated string if 'text_end' is specified,
+    // B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.
+    void TextUnformatted(std::string_view text);
+    void TextUnformatted(const char* text, const char* text_end);
+
     void Text(const char* fmt, ...)                                      IM_FMTARGS(1); // formatted text
     void TextV(const char* fmt, va_list args)                            IM_FMTLIST(1);
+
+    template<class... Args>
+    void TextF(std::format_string<Args...> fmt, Args&&... args) {
+        TextUnformatted(std::format(fmt, std::forward<Args>(args)...));
+    }
+
     void TextColored(const ImColorf& col, const char* fmt, ...)            IM_FMTARGS(2); // shortcut for PushStyleColor(ImGuiCol_Text, col); Text(fmt, ...); PopStyleColor();
     void TextColoredV(const ImColorf& col, const char* fmt, va_list args)  IM_FMTLIST(2);
     void TextDisabled(const char* fmt, ...)                              IM_FMTARGS(1); // shortcut for PushStyleColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]); Text(fmt, ...); PopStyleColor();
@@ -537,13 +549,6 @@ namespace ImGui
     void PlotLines(const char* label, float(*values_getter)(void* data, int idx), void* data, int values_count, int values_offset = 0, const char* overlay_text = NULL, float scale_min = FLT_MAX, float scale_max = FLT_MAX, ImVec2 graph_size = ImVec2(0, 0));
     void PlotHistogram(const char* label, const float* values, int values_count, int values_offset = 0, const char* overlay_text = NULL, float scale_min = FLT_MAX, float scale_max = FLT_MAX, ImVec2 graph_size = ImVec2(0, 0), int stride = sizeof(float));
     void PlotHistogram(const char* label, float(*values_getter)(void* data, int idx), void* data, int values_count, int values_offset = 0, const char* overlay_text = NULL, float scale_min = FLT_MAX, float scale_max = FLT_MAX, ImVec2 graph_size = ImVec2(0, 0));
-
-    // Widgets: Value() Helpers.
-    // - Those are merely shortcut to calling Text() with a format string. Output single value in "name: value" format (tip: freely declare more in your code to handle your types. you can add functions to the ImGui namespace)
-    void Value(const char* prefix, bool b);
-    void Value(const char* prefix, int v);
-    void Value(const char* prefix, unsigned int v);
-    void Value(const char* prefix, float v, const char* float_format = NULL);
 
     // Widgets: Menus
     // - Use BeginMenuBar() on a window ImGuiWindowFlags_MenuBar to append to its menu bar.
