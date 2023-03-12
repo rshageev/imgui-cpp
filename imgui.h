@@ -364,14 +364,16 @@ namespace ImGui
     // - You can also use the "Label##foobar" syntax within widget label to distinguish them from each others.
     // - In this header file we use the "label"/"name" terminology to denote a string that will be displayed + used as an ID,
     //   whereas "str_id" denote a string that is only used as an ID and not normally displayed.
-    void          PushID(const char* str_id);                                     // push string into the ID stack (will hash string).
-    void          PushID(const char* str_id_begin, const char* str_id_end);       // push string into the ID stack (will hash string).
-    void          PushID(const void* ptr_id);                                     // push pointer into the ID stack (will hash pointer).
-    void          PushID(int int_id);                                             // push integer into the ID stack (will hash integer).
-    void          PopID();                                                        // pop from the ID stack.
-    ImGuiID       GetID(const char* str_id);                                      // calculate unique ID (hash of whole ID stack + given parameter). e.g. if you want to query into ImGuiStorage yourself
-    ImGuiID       GetID(const char* str_id_begin, const char* str_id_end);
-    ImGuiID       GetID(const void* ptr_id);
+    void PushID(std::string_view str_id); // push string into the ID stack (will hash string).
+    inline void PushID(const char* str_id) { return PushID(std::string_view(str_id)); }
+    void PushID(const void* ptr_id);      // push pointer into the ID stack (will hash pointer).
+    void PushID(int int_id);              // push integer into the ID stack (will hash integer).
+    void PopID();                         // pop from the ID stack.
+
+    // calculate unique ID (hash of whole ID stack + given parameter). e.g. if you want to query into ImGuiStorage yourself
+    ImGuiID GetID(std::string_view str_id);
+    inline ImGuiID GetID(const char* str_id) { return GetID(std::string_view(str_id)); }
+    ImGuiID GetID(const void* ptr_id);
 
     // Widgets: Text
     void TextUnformatted(const char* text, const char* text_end = NULL); // raw text without formatting. Roughly equivalent to Text("%s", text) but: A) doesn't require null terminated string if 'text_end' is specified, B) it's faster, no memory copy is done, no buffer size limits, recommended for long chunks of text.

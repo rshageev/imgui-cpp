@@ -778,7 +778,7 @@ ImGuiID ImHashStr(std::string_view str, ImGuiID seed)
 {
     auto pos = str.find("###");
     if (pos != std::string_view::npos) {
-        str = str.substr(pos + 3);
+        str = str.substr(pos);
     }
     return ImHashData(str.data(), str.size(), seed);
 }
@@ -2097,10 +2097,8 @@ ImGuiWindow::~ImGuiWindow()
     IM_DELETE(Name);
 }
 
-ImGuiID ImGuiWindow::GetID(const char* str_begin, const char* str_end)
+ImGuiID ImGuiWindow::GetID(std::string_view str)
 {
-    std::string_view str = str_end ? std::string_view(str_begin, str_end) : std::string_view(str_begin);
-
     ImGuiID seed = IDStack.back();
     ImGuiID id = ImHashStr(str, seed);
     ImGuiContext& g = *GImGui;
@@ -5776,19 +5774,11 @@ ImGuiStorage* ImGui::GetStateStorage()
     return window->DC.StateStorage;
 }
 
-void ImGui::PushID(const char* str_id)
+void ImGui::PushID(std::string_view str_id)
 {
     ImGuiContext& g = *GImGui;
     ImGuiWindow* window = g.CurrentWindow;
     ImGuiID id = window->GetID(str_id);
-    window->IDStack.push_back(id);
-}
-
-void ImGui::PushID(const char* str_id_begin, const char* str_id_end)
-{
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-    ImGuiID id = window->GetID(str_id_begin, str_id_end);
     window->IDStack.push_back(id);
 }
 
@@ -5821,14 +5811,12 @@ void ImGui::PushOverrideID(ImGuiID id)
 // Helper to avoid a common series of PushOverrideID -> GetID() -> PopID() call
 // (note that when using this pattern, TestEngine's "Stack Tool" will tend to not display the intermediate stack level.
 //  for that to work we would need to do PushOverrideID() -> ItemAdd() -> PopID() which would alter widget code a little more)
-ImGuiID ImGui::GetIDWithSeed(const char* str_begin, const char* str_end, ImGuiID seed)
+ImGuiID ImGui::GetIDWithSeed(std::string_view str_id, ImGuiID seed)
 {
-    std::string_view str = str_end ? std::string_view(str_begin, str_end) : std::string_view(str_begin);
-
-    ImGuiID id = ImHashStr(str, seed);
+    ImGuiID id = ImHashStr(str_id, seed);
     ImGuiContext& g = *GImGui;
     if (g.DebugHookIdInfo == id) {
-        DebugHookIdInfo(id, ImGuiDataType_String, str.data(), str.data() + str.size());
+        DebugHookIdInfo(id, ImGuiDataType_String, str_id.data(), str_id.data() + str_id.size());
     }
     return id;
 }
@@ -5849,16 +5837,10 @@ void ImGui::PopID()
     window->IDStack.pop_back();
 }
 
-ImGuiID ImGui::GetID(const char* str_id)
+ImGuiID ImGui::GetID(std::string_view str_id)
 {
     ImGuiWindow* window = GImGui->CurrentWindow;
     return window->GetID(str_id);
-}
-
-ImGuiID ImGui::GetID(const char* str_id_begin, const char* str_id_end)
-{
-    ImGuiWindow* window = GImGui->CurrentWindow;
-    return window->GetID(str_id_begin, str_id_end);
 }
 
 ImGuiID ImGui::GetID(const void* ptr_id)

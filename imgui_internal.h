@@ -1820,7 +1820,8 @@ public:
     ImGuiWindow(ImGuiContext* context, const char* name);
     ~ImGuiWindow();
 
-    ImGuiID GetID(const char* str, const char* str_end = NULL);
+    ImGuiID GetID(std::string_view str);
+    ImGuiID GetID(const char* str) { return GetID(std::string_view(str)); } // need this to select string_view version instead of void*, when using raw strings
     ImGuiID GetID(const void* ptr);
     ImGuiID GetID(int n);
     ImGuiID GetIDFromRectangle(const ImRect& r_abs);
@@ -2280,7 +2281,7 @@ namespace ImGui
     void KeepAliveID(ImGuiID id);
     void MarkItemEdited(ImGuiID id);     // Mark data associated to given item as "edited", used by IsItemDeactivatedAfterEdit() function.
     void PushOverrideID(ImGuiID id);     // Push given value as-is at the top of the ID stack (whereas PushID combines old and new hashes)
-    ImGuiID GetIDWithSeed(const char* str_id_begin, const char* str_id_end, ImGuiID seed);
+    ImGuiID GetIDWithSeed(std::string_view str_id, ImGuiID seed);
     ImGuiID GetIDWithSeed(int n, ImGuiID seed);
 
     // Basic Helpers for widget code
