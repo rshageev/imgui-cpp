@@ -2530,8 +2530,8 @@ namespace ImGui
     // Render helpers
     // AVOID USING OUTSIDE OF IMGUI.CPP! NOT FOR PUBLIC CONSUMPTION. THOSE FUNCTIONS ARE A MESS. THEIR SIGNATURE AND BEHAVIOR WILL CHANGE, THEY NEED TO BE REFACTORED INTO SOMETHING DECENT.
     // NB: All position are in absolute pixels coordinates (we are never using window coordinates internally)
-    void RenderText(ImVec2 pos, const char* text, const char* text_end = NULL, bool hide_text_after_hash = true);
-    void RenderTextWrapped(ImVec2 pos, const char* text, const char* text_end, float wrap_width);
+    void RenderText(ImVec2 pos, std::string_view text, bool hide_text_after_hash = true);
+    void RenderTextWrapped(ImVec2 pos, std::string_view text, float wrap_width);
     void RenderTextClipped(const ImVec2& pos_min, const ImVec2& pos_max, const char* text, const char* text_end, const ImVec2* text_size_if_known, const ImVec2& align = ImVec2(0, 0), const ImRect* clip_rect = NULL);
     void RenderTextClippedEx(ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, const char* text, const char* text_end, const ImVec2* text_size_if_known, const ImVec2& align = ImVec2(0, 0), const ImRect* clip_rect = NULL);
     void RenderTextEllipsis(ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, float clip_max_x, float ellipsis_max_x, const char* text, const char* text_end, const ImVec2* text_size_if_known);
@@ -2540,6 +2540,7 @@ namespace ImGui
     void RenderColorRectWithAlphaCheckerboard(ImDrawList* draw_list, ImVec2 p_min, ImVec2 p_max, ImCol fill_col, float grid_step, ImVec2 grid_off, float rounding = 0.0f, ImDrawFlags flags = 0);
     void RenderNavHighlight(const ImRect& bb, ImGuiID id, ImGuiNavHighlightFlags flags = ImGuiNavHighlightFlags_TypeDefault); // Navigation highlight
     const char* FindRenderedTextEnd(const char* text, const char* text_end = NULL); // Find the optional ## from which we stop displaying text.
+    std::string_view RemoveIDSuffix(std::string_view text); // Removes ID part of the text (after ##), leaving only part that needs to be drawn
     void RenderMouseCursor(ImVec2 pos, float scale, ImGuiMouseCursor mouse_cursor, ImCol col_fill, ImCol col_border, ImCol col_shadow);
 
     // Render helpers (those functions don't access any ImGui state!)
@@ -2551,7 +2552,8 @@ namespace ImGui
     void RenderRectFilledWithHole(ImDrawList* draw_list, const ImRect& outer, const ImRect& inner, ImCol col, float rounding);
 
     // Widgets
-    void TextEx(const char* text, const char* text_end = NULL, ImGuiTextFlags flags = 0);
+    void TextEx(std::string_view text, ImGuiTextFlags flags = 0);
+    void TextEx(const char* text, const char* text_end, ImGuiTextFlags flags = 0);
     bool ButtonEx(const char* label, const ImVec2& size_arg = ImVec2(0, 0), ImGuiButtonFlags flags = 0);
     bool ArrowButtonEx(const char* str_id, ImGuiDir dir, ImVec2 size_arg, ImGuiButtonFlags flags = 0);
     bool ImageButtonEx(ImGuiID id, ImTextureID texture_id, const ImVec2& size, const ImVec2& uv0, const ImVec2& uv1, const ImColorf& bg_col, const ImColorf& tint_col, ImGuiButtonFlags flags = 0);

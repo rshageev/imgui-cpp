@@ -1657,43 +1657,32 @@ const char* ImGui::FindRenderedTextEnd(const char* text, const char* text_end)
     return text_display_end;
 }
 
+std::string_view ImGui::RemoveIDSuffix(std::string_view text)
+{
+    return text.substr(0, text.find("##"));
+}
+
 // Internal ImGui functions to render text
 // RenderText***() functions calls ImDrawList::AddText() calls ImBitmapFont::RenderText()
-void ImGui::RenderText(ImVec2 pos, const char* text, const char* text_end, bool hide_text_after_hash)
+void ImGui::RenderText(ImVec2 pos, std::string_view text, bool hide_text_after_hash)
 {
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-
-    // Hide anything after a '##' string
-    const char* text_display_end;
-    if (hide_text_after_hash)
-    {
-        text_display_end = FindRenderedTextEnd(text, text_end);
-    }
-    else
-    {
-        if (!text_end)
-            text_end = text + strlen(text); // FIXME-OPT
-        text_display_end = text_end;
+    if (hide_text_after_hash) {
+        text = RemoveIDSuffix(text);
     }
 
-    if (text != text_display_end)
-    {
-        window->DrawList->AddText(g.Font, g.FontSize, pos, GetColor(ImGuiCol_Text), text, text_display_end);
+    if (!text.empty()) {
+        ImGuiContext& g = *GImGui;
+        ImGuiWindow* window = g.CurrentWindow;
+        window->DrawList->AddText(g.Font, g.FontSize, pos, GetColor(ImGuiCol_Text), text.data(), text.data() + text.size());
     }
 }
 
-void ImGui::RenderTextWrapped(ImVec2 pos, const char* text, const char* text_end, float wrap_width)
+void ImGui::RenderTextWrapped(ImVec2 pos, std::string_view text, float wrap_width)
 {
-    ImGuiContext& g = *GImGui;
-    ImGuiWindow* window = g.CurrentWindow;
-
-    if (!text_end)
-        text_end = text + strlen(text); // FIXME-OPT
-
-    if (text != text_end)
-    {
-        window->DrawList->AddText(g.Font, g.FontSize, pos, GetColor(ImGuiCol_Text), text, text_end, wrap_width);
+    if (!text.empty()) {
+        ImGuiContext& g = *GImGui;
+        ImGuiWindow* window = g.CurrentWindow;
+        window->DrawList->AddText(g.Font, g.FontSize, pos, GetColor(ImGuiCol_Text), text.data(), text.data() + text.size(), wrap_width);
     }
 }
 

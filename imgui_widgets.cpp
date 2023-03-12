@@ -112,29 +112,25 @@ static ImVec2           InputTextCalcTextSizeW(ImGuiContext* ctx, const ImWchar*
 // - BulletTextV()
 //-------------------------------------------------------------------------
 
-void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
+void ImGui::TextEx(const char* text_begin, const char* text_end, ImGuiTextFlags flags)
+{
+    TextEx(std::string_view(text_begin, text_end), flags);
+}
+
+void ImGui::TextEx(std::string_view text, ImGuiTextFlags flags)
 {
     ImGuiWindow* window = GetCurrentWindow();
     if (window->SkipItems)
         return;
 
-    // Accept null ranges
-    if (text == text_end)
-        text = text_end = "";
-
-    // Calculate length
-    const char* text_begin = text;
-    if (text_end == NULL)
-        text_end = text + strlen(text); // FIXME-OPT
-
     const ImVec2 text_pos(window->DC.CursorPos.x, window->DC.CursorPos.y + window->DC.CurrLineTextBaseOffset);
     const float wrap_pos_x = window->DC.TextWrapPos;
     const bool wrap_enabled = (wrap_pos_x >= 0.0f);
-    if (text_end - text <= 2000 || wrap_enabled)
+    if (text.size() <= 2000 || wrap_enabled)
     {
         // Common case
         const float wrap_width = wrap_enabled ? CalcWrapWidthForPos(window->DC.CursorPos, wrap_pos_x) : 0.0f;
-        const ImVec2 text_size = CalcTextSize(text_begin, text_end, false, wrap_width);
+        const ImVec2 text_size = CalcTextSize(text.data(), text.data() + text.size(), false, wrap_width);
 
         ImRect bb(text_pos, text_pos + text_size);
         ItemSize(text_size, 0.0f);
@@ -142,18 +138,33 @@ void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
             return;
 
         // Render (we don't hide text after ## in this end-user function)
-        RenderTextWrapped(bb.Min, text_begin, text_end, wrap_width);
+        RenderTextWrapped(bb.Min, text, wrap_width);
     }
     else
     {
+        auto getLine = [](std::string_view& text) {
+            const auto pos = text.find('\n');
+            std::string_view line;
+            if (pos == std::string_view::npos) {
+                line = text;
+                text = {};
+            } else {
+                line = text.substr(0, pos);
+                text.remove_prefix(pos + 1);
+            }
+            return line;
+        };
+
         // Long text!
         // Perform manual coarse clipping to optimize for long multi-line text
-        // - From this point we will only compute the width of lines that are visible. Optimization only available when word-wrapping is disabled.
-        // - We also don't vertically center the text within the line full height, which is unlikely to matter because we are likely the biggest and only item on the line.
-        // - We use memchr(), pay attention that well optimized versions of those str/mem functions are much faster than a casually written loop.
-        const char* line = text;
+        // - From this point we will only compute the width of lines that are visible.
+        //   Optimization only available when word-wrapping is disabled.
+        // - We also don't vertically center the text within the line full height, which is
+        //   unlikely to matter because we are likely the biggest and only item on the line.
         const float line_height = GetTextLineHeight();
         ImVec2 text_size(0, 0);
+
+        auto line = getLine(text);
 
         // Lines to skip (can't skip when logging text)
         ImVec2 pos = text_pos;
@@ -161,34 +172,29 @@ void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
         if (lines_skippable > 0)
         {
             int lines_skipped = 0;
-            while (line < text_end && lines_skipped < lines_skippable)
+            while (!line.empty() && lines_skipped < lines_skippable)
             {
-                const char* line_end = (const char*)memchr(line, '\n', text_end - line);
-                if (!line_end)
-                    line_end = text_end;
-                if ((flags & ImGuiTextFlags_NoWidthForLargeClippedText) == 0)
-                    text_size.x = ImMax(text_size.x, CalcTextSize(line, line_end).x);
-                line = line_end + 1;
+                if ((flags & ImGuiTextFlags_NoWidthForLargeClippedText) == 0) {
+                    text_size.x = ImMax(text_size.x, CalcTextSize(line.data(), line.data() + line.size()).x);
+                }
+                line = getLine(text);
                 lines_skipped++;
             }
             pos.y += lines_skipped * line_height;
         }
 
         // Lines to render
-        if (line < text_end)
+        if (!line.empty())
         {
             ImRect line_rect(pos, pos + ImVec2(FLT_MAX, line_height));
-            while (line < text_end)
+            while (!line.empty())
             {
                 if (IsClippedEx(line_rect, 0))
                     break;
 
-                const char* line_end = (const char*)memchr(line, '\n', text_end - line);
-                if (!line_end)
-                    line_end = text_end;
-                text_size.x = ImMax(text_size.x, CalcTextSize(line, line_end).x);
-                RenderText(pos, line, line_end, false);
-                line = line_end + 1;
+                text_size.x = ImMax(text_size.x, CalcTextSize(line.data(), line.data() + line.size()).x);
+                RenderText(pos, line, false);
+                line = getLine(text);
                 line_rect.Min.y += line_height;
                 line_rect.Max.y += line_height;
                 pos.y += line_height;
@@ -196,14 +202,12 @@ void ImGui::TextEx(const char* text, const char* text_end, ImGuiTextFlags flags)
 
             // Count remaining lines
             int lines_skipped = 0;
-            while (line < text_end)
+            while (!line.empty())
             {
-                const char* line_end = (const char*)memchr(line, '\n', text_end - line);
-                if (!line_end)
-                    line_end = text_end;
-                if ((flags & ImGuiTextFlags_NoWidthForLargeClippedText) == 0)
-                    text_size.x = ImMax(text_size.x, CalcTextSize(line, line_end).x);
-                line = line_end + 1;
+                if ((flags & ImGuiTextFlags_NoWidthForLargeClippedText) == 0) {
+                    text_size.x = ImMax(text_size.x, CalcTextSize(line.data(), line.data() + line.size()).x);
+                }
+                line = getLine(text);
                 lines_skipped++;
             }
             pos.y += lines_skipped * line_height;
@@ -235,8 +239,8 @@ void ImGui::TextV(const char* fmt, va_list args)
     if (window->SkipItems)
         return;
 
-    std::string text = ImFormatStringToStringV(fmt, args);
-    TextEx(text.data(), text.data() + text.size(), ImGuiTextFlags_NoWidthForLargeClippedText);
+    const std::string text = ImFormatStringToStringV(fmt, args);
+    TextEx(text, ImGuiTextFlags_NoWidthForLargeClippedText);
 }
 
 void ImGui::TextColored(const ImColorf& col, const char* fmt, ...)
@@ -346,7 +350,7 @@ void ImGui::BulletTextV(const char* fmt, va_list args)
     ImGuiContext& g = *GImGui;
     const ImGuiStyle& style = g.Style;
 
-    std::string text = ImFormatStringToStringV(fmt, args);
+    const std::string text = ImFormatStringToStringV(fmt, args);
     const char* text_begin = text.data();
     const char* text_end = text.data() + text.size();
 
@@ -362,7 +366,7 @@ void ImGui::BulletTextV(const char* fmt, va_list args)
     // Render
     const ImCol text_col = GetColor(ImGuiCol_Text);
     RenderBullet(window->DrawList, bb.Min + ImVec2(style.FramePadding.x + g.FontSize * 0.5f, g.FontSize * 0.5f), text_col);
-    RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0f), text_begin, text_end, false);
+    RenderText(bb.Min + ImVec2(g.FontSize + style.FramePadding.x * 2, 0.0f), text, false);
 }
 
 //-------------------------------------------------------------------------
@@ -6132,7 +6136,7 @@ bool ImGui::TreeNodeBehavior(ImGuiID id, ImGuiTreeNodeFlags flags, const char* l
             RenderBullet(window->DrawList, ImVec2(text_pos.x - text_offset_x * 0.5f, text_pos.y + g.FontSize * 0.5f), text_col);
         else if (!is_leaf)
             RenderArrow(window->DrawList, ImVec2(text_pos.x - text_offset_x + padding.x, text_pos.y + g.FontSize * 0.15f), text_col, is_open ? ImGuiDir_Down : ImGuiDir_Right, 0.70f);
-        RenderText(text_pos, label, label_end, false);
+        RenderText(text_pos, std::string_view(label, label_end), false);
     }
 
     if (is_open && !(flags & ImGuiTreeNodeFlags_NoTreePushOnOpen))
@@ -7231,12 +7235,13 @@ bool ImGui::MenuItemEx(const char* label, const char* icon, const char* shortcut
         if (g.LastItemData.StatusFlags & ImGuiItemStatusFlags_Visible)
         {
             RenderText(pos + ImVec2(offsets->OffsetLabel, 0.0f), label);
-            if (icon_w > 0.0f)
+            if (icon_w > 0.0f) {
                 RenderText(pos + ImVec2(offsets->OffsetIcon, 0.0f), icon);
+            }
             if (shortcut_w > 0.0f)
             {
                 style.PushColor(ImGuiCol_Text, style.Colors[ImGuiCol_TextDisabled]);
-                RenderText(pos + ImVec2(offsets->OffsetShortcut + stretch_w, 0.0f), shortcut, NULL, false);
+                RenderText(pos + ImVec2(offsets->OffsetShortcut + stretch_w, 0.0f), shortcut, false);
                 style.PopColor();
             }
             if (selected) {
