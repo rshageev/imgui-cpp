@@ -2383,34 +2383,28 @@ struct ImFontGlyph
 // This is essentially a tightly packed of vector of 64k booleans = 8KB storage.
 struct ImFontGlyphRangesBuilder
 {
-    ImVector<ImU32> UsedChars; // Store 1-bit per Unicode code point (0=unused, 1=used)
+    std::vector<bool> UsedChars;
 
     ImFontGlyphRangesBuilder() {
         Clear();
     }
 
     void Clear() {
-        int size_in_bytes = (IM_UNICODE_CODEPOINT_MAX + 1) / 8;
-        UsedChars.resize(size_in_bytes / (int)sizeof(ImU32));
-        memset(UsedChars.Data, 0, (size_t)size_in_bytes);
+        UsedChars.assign(IM_UNICODE_CODEPOINT_MAX + 1, false);
     }
 
     // Get bit n in the array
     bool GetBit(size_t n) const {
-        int off = (int)(n >> 5);
-        ImU32 mask = 1u << (n & 31);
-        return (UsedChars[off] & mask) != 0;
+        return UsedChars[n];
     }
 
     // Set bit n in the array
     void SetBit(size_t n) {
-        int off = (int)(n >> 5);
-        ImU32 mask = 1u << (n & 31);
-        UsedChars[off] |= mask;
+        UsedChars[n] = true;
     }
 
     // Add character
-    void AddChar(ImWchar c) { SetBit(c); } 
+    void AddChar(char32_t c) { SetBit(c); } 
 
     // Add string (each character of the UTF-8 string are added)
     void AddText(const char* text, const char* text_end = NULL);
