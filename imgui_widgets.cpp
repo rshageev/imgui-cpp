@@ -3981,7 +3981,7 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
         state->TextA.resize(0);
         state->TextAIsValid = false;                // TextA is not valid yet (we will display buf until then)
         state->CurLenW = ImTextStrFromUtf8(state->TextW.Data, buf_size, buf, NULL, &buf_end);
-        state->CurLenA = (int)(buf_end - buf);      // We can't get the result from ImStrncpy() above because it is not UTF-8 aware. Here we'll cut off malformed UTF-8.
+        state->CurLenA = (int)(buf_end - buf);      // Here we'll cut off malformed UTF-8.
 
         if (recycle_state)
         {
@@ -4470,9 +4470,24 @@ bool ImGui::InputTextEx(const char* label, const char* hint, char* buf, int buf_
                     IM_ASSERT(callback_data.BufSize == state->BufCapacityA);
                     IM_ASSERT(callback_data.Flags == flags);
                     const bool buf_dirty = callback_data.BufDirty;
-                    if (callback_data.CursorPos != utf8_cursor_pos || buf_dirty)            { state->Stb.cursor = ImTextCountCharsFromUtf8(callback_data.Buf, callback_data.Buf + callback_data.CursorPos); state->CursorFollow = true; }
-                    if (callback_data.SelectionStart != utf8_selection_start || buf_dirty)  { state->Stb.select_start = (callback_data.SelectionStart == callback_data.CursorPos) ? state->Stb.cursor : ImTextCountCharsFromUtf8(callback_data.Buf, callback_data.Buf + callback_data.SelectionStart); }
-                    if (callback_data.SelectionEnd != utf8_selection_end || buf_dirty)      { state->Stb.select_end = (callback_data.SelectionEnd == callback_data.SelectionStart) ? state->Stb.select_start : ImTextCountCharsFromUtf8(callback_data.Buf, callback_data.Buf + callback_data.SelectionEnd); }
+                    if (callback_data.CursorPos != utf8_cursor_pos || buf_dirty) {
+                        state->Stb.cursor = ImTextCountCharsFromUtf8(callback_data.Buf, callback_data.Buf + callback_data.CursorPos);
+                        state->CursorFollow = true;
+                    }
+                    if (callback_data.SelectionStart != utf8_selection_start || buf_dirty) {
+                        if (callback_data.SelectionStart == callback_data.CursorPos) {
+                            state->Stb.select_start = state->Stb.cursor;
+                        } else {
+                            state->Stb.select_start = ImTextCountCharsFromUtf8(callback_data.Buf, callback_data.Buf + callback_data.SelectionStart);
+                        }   
+                    }
+                    if (callback_data.SelectionEnd != utf8_selection_end || buf_dirty) {
+                        if (callback_data.SelectionEnd == callback_data.SelectionStart) {
+                            state->Stb.select_end = state->Stb.select_start;
+                        } else {
+                            state->Stb.select_end = ImTextCountCharsFromUtf8(callback_data.Buf, callback_data.Buf + callback_data.SelectionEnd);
+                        }        
+                    }
                     if (buf_dirty)
                     {
                         IM_ASSERT((flags & ImGuiInputTextFlags_ReadOnly) == 0);

@@ -264,13 +264,20 @@ const char*   ImParseFormatSanitizeForScanning(const char* fmt_in, char* fmt_out
 int           ImParseFormatPrecision(const char* format, int default_value);
 
 // Helpers: UTF-8 <> wchar conversions
-const char*   ImTextCharToUtf8(char out_buf[5], unsigned int c);                                                      // return out_buf
-int           ImTextStrToUtf8(char* out_buf, int out_buf_size, const ImWchar* in_text, const ImWchar* in_text_end);   // return output UTF-8 bytes count
-int           ImTextCharFromUtf8(unsigned int* out_char, const char* in_text, const char* in_text_end);               // read one character. return input UTF-8 bytes count
-int           ImTextStrFromUtf8(ImWchar* out_buf, int out_buf_size, const char* in_text, const char* in_text_end, const char** in_remaining = NULL);   // return input UTF-8 bytes count
-int           ImTextCountCharsFromUtf8(const char* in_text, const char* in_text_end);                                 // return number of UTF-8 code-points (NOT bytes count)
-int           ImTextCountUtf8BytesFromChar(const char* in_text, const char* in_text_end);                             // return number of bytes to express one char in UTF-8
-int           ImTextCountUtf8BytesFromStr(const ImWchar* in_text, const ImWchar* in_text_end);                        // return number of bytes to express string in UTF-8
+const char* ImTextCharToUtf8(char out_buf[5], unsigned int c);                                                      // return out_buf
+int ImTextStrToUtf8(char* out_buf, int out_buf_size, const ImWchar* in_text, const ImWchar* in_text_end);   // return output UTF-8 bytes count
+int ImTextCharFromUtf8(unsigned int* out_char, std::string_view in_text);
+int ImTextCharFromUtf8(unsigned int* out_char, const char* in_text, const char* in_text_end);               // read one character. return input UTF-8 bytes count
+int ImTextStrFromUtf8(ImWchar* out_buf, int out_buf_size, const char* in_text, const char* in_text_end, const char** in_remaining = NULL);   // return input UTF-8 bytes count
+int ImTextCountCharsFromUtf8(const char* in_text, const char* in_text_end);             // return number of UTF-8 code-points (NOT bytes count)
+int ImTextCountCharsFromUtf8(std::string_view in_text);
+int ImTextCountUtf8BytesFromChar(const char* in_text, const char* in_text_end);         // return number of bytes to express one char in UTF-8
+int ImTextCountUtf8BytesFromStr(const ImWchar* in_text, const ImWchar* in_text_end);    // return number of bytes to express string in UTF-8
+
+inline std::string_view PtrPairToStringView(const char* in_text, const char* in_text_end) {
+    return in_text_end ? std::string_view(in_text, in_text_end - in_text) : std::string_view(in_text);
+}
+
 
 // Helpers: File System
 #ifdef IMGUI_DISABLE_FILE_FUNCTIONS

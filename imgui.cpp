@@ -863,31 +863,34 @@ void*   ImFileLoadToMemory(const char* filename, const char* mode, size_t* out_f
 // Convert UTF-8 to 32-bit character, process single character input.
 // A nearly-branchless UTF-8 decoder, based on work of Christopher Wellons (https://github.com/skeeto/branchless-utf8).
 // We handle UTF-8 decoding error by skipping forward.
-int ImTextCharFromUtf8(unsigned int* out_char, const char* in_text, const char* in_text_end)
+int ImTextCharFromUtf8(unsigned int* out_char, const char* in_text_begin, const char* in_text_end)
 {
-    static const char lengths[32] = {
+    return ImTextCharFromUtf8(out_char, PtrPairToStringView(in_text_begin, in_text_end));
+}
+
+int ImTextCharFromUtf8(unsigned int* out_char, std::string_view in_text)
+{
+    IM_ASSERT(!in_text.empty());
+
+    static constexpr char lengths[32] = {
         1, 1, 1, 1, 1, 1, 1, 1,
         1, 1, 1, 1, 1, 1, 1, 1,
         0, 0, 0, 0, 0, 0, 0, 0,
         2, 2, 2, 2, 3, 3, 4, 0
     };
-    static const int masks[]  = { 0x00, 0x7f, 0x1f, 0x0f, 0x07 };
-    static const uint32_t mins[] = { 0x400000, 0, 0x80, 0x800, 0x10000 };
-    static const int shiftc[] = { 0, 18, 12, 6, 0 };
-    static const int shifte[] = { 0, 6, 4, 2, 0 };
-    int len = lengths[*(const unsigned char*)in_text >> 3];
+    static constexpr int masks[]  = { 0x00, 0x7f, 0x1f, 0x0f, 0x07 };
+    static constexpr uint32_t mins[] = { 0x400000, 0, 0x80, 0x800, 0x10000 };
+    static constexpr int shiftc[] = { 0, 18, 12, 6, 0 };
+    static constexpr int shifte[] = { 0, 6, 4, 2, 0 };
+
+    int len = lengths[(unsigned char)in_text[0] >> 3];
     int wanted = len + (len ? 0 : 1);
 
-    if (in_text_end == NULL)
-        in_text_end = in_text + wanted; // Max length, nulls will be taken into account.
+    in_text = in_text.substr(0, wanted);
 
-    // Copy at most 'len' bytes, stop copying at 0 or past in_text_end. Branch predictor does a good job here,
-    // so it is fast even with excessive branching.
-    unsigned char s[4];
-    s[0] = in_text + 0 < in_text_end ? in_text[0] : 0;
-    s[1] = in_text + 1 < in_text_end ? in_text[1] : 0;
-    s[2] = in_text + 2 < in_text_end ? in_text[2] : 0;
-    s[3] = in_text + 3 < in_text_end ? in_text[3] : 0;
+    unsigned char s[4] = { 0, 0, 0, 0 };
+    std::copy(in_text.begin(), in_text.end(), std::begin(s));
+
 
     // Assume a four-byte character and load four bytes. Unused bits are shifted out.
     *out_char  = (uint32_t)(s[0] & masks[len]) << 18;
@@ -920,29 +923,39 @@ int ImTextCharFromUtf8(unsigned int* out_char, const char* in_text, const char* 
     return wanted;
 }
 
-int ImTextStrFromUtf8(ImWchar* buf, int buf_size, const char* in_text, const char* in_text_end, const char** in_text_remaining)
+int ImTextStrFromUtf8(ImWchar* buf, int buf_size, const char* in_text_begin, const char* in_text_end, const char** in_text_remaining)
 {
+    auto in_text = PtrPairToStringView(in_text_begin, in_text_end);
+    auto rem_ptr = in_text.data();
     ImWchar* buf_out = buf;
     ImWchar* buf_end = buf + buf_size;
-    while (buf_out < buf_end - 1 && (!in_text_end || in_text < in_text_end) && *in_text)
+    while (buf_out < buf_end - 1 && !in_text.empty())
     {
         unsigned int c;
-        in_text += ImTextCharFromUtf8(&c, in_text, in_text_end);
+        const auto bytes_read = ImTextCharFromUtf8(&c, in_text);
+        in_text.remove_prefix(bytes_read);
+        rem_ptr += bytes_read;
         *buf_out++ = (ImWchar)c;
     }
     *buf_out = 0;
     if (in_text_remaining)
-        *in_text_remaining = in_text;
+        *in_text_remaining = rem_ptr;
     return (int)(buf_out - buf);
 }
 
-int ImTextCountCharsFromUtf8(const char* in_text, const char* in_text_end)
+int ImTextCountCharsFromUtf8(const char* in_text_begin, const char* in_text_end)
+{
+    return ImTextCountCharsFromUtf8(PtrPairToStringView(in_text_begin, in_text_end));
+}
+
+int ImTextCountCharsFromUtf8(std::string_view text)
 {
     int char_count = 0;
-    while ((!in_text_end || in_text < in_text_end) && *in_text)
+    while (!text.empty())
     {
         unsigned int c;
-        in_text += ImTextCharFromUtf8(&c, in_text, in_text_end);
+        const auto bytes_read = ImTextCharFromUtf8(&c, text);
+        text.remove_prefix(bytes_read);
         char_count++;
     }
     return char_count;
