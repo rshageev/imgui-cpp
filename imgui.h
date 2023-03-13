@@ -1918,8 +1918,9 @@ struct ImGuiTableColumnSortSpecs
 // Make sure to set 'SpecsDirty = false' after sorting, else you may wastefully sort your data every frame!
 struct ImGuiTableSortSpecs
 {
-    const ImGuiTableColumnSortSpecs* Specs = nullptr; // Pointer to sort spec array.
-    int SpecsCount = 0;      // Sort spec count. Most often 1. May be > 1 when ImGuiTableFlags_SortMulti is enabled. May be == 0 when ImGuiTableFlags_SortTristate is enabled.
+    // Pointer to sort spec array.
+    // Sort spec count. Most often 1. May be > 1 when ImGuiTableFlags_SortMulti is enabled. May be == 0 when ImGuiTableFlags_SortTristate is enabled.
+    std::span<const ImGuiTableColumnSortSpecs> Specs;
     bool SpecsDirty = false; // Set to true when specs have changed since last time! Use this to sort again, then clear the flag.
 };
 

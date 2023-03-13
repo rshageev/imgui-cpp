@@ -320,8 +320,9 @@ bool ImGui::BeginTableEx(const char* name, ImGuiID id, int columns_count, ImGuiT
     if (instance_no > 0)
     {
         IM_ASSERT(table->ColumnsCount == columns_count && "BeginTable(): Cannot change columns count mid-frame while preserving same ID");
-        if (table->InstanceDataExtra.Size < instance_no)
-            table->InstanceDataExtra.push_back(ImGuiTableInstanceData());
+        if (table->InstanceDataExtra.size() < instance_no) {
+            table->InstanceDataExtra.emplace_back();
+        }
         instance_id = GetIDWithSeed(instance_no, GetIDWithSeed("##Instances", id)); // Push "##Instance" followed by (int)instance_no in ID stack.
     }
     else
@@ -634,11 +635,6 @@ static void TableSetupColumnFlags(ImGuiTable* table, ImGuiTableColumn* column, I
     if ((flags & ImGuiTableColumnFlags_IndentMask_) == 0)
         flags |= (table->Columns.data() == column) ? ImGuiTableColumnFlags_IndentEnable : ImGuiTableColumnFlags_IndentDisable;
 
-    // Alignment
-    //if ((flags & ImGuiTableColumnFlags_AlignMask_) == 0)
-    //    flags |= ImGuiTableColumnFlags_AlignCenter;
-    //IM_ASSERT(ImIsPowerOfTwo(flags & ImGuiTableColumnFlags_AlignMask_)); // Check that only 1 of each set is used.
-
     // Preserve status flags
     column->Flags = flags | (column->Flags & ImGuiTableColumnFlags_StatusMask_);
 
@@ -647,11 +643,30 @@ static void TableSetupColumnFlags(ImGuiTable* table, ImGuiTableColumn* column, I
     if (table->Flags & ImGuiTableFlags_Sortable)
     {
         int count = 0, mask = 0, list = 0;
-        if ((flags & ImGuiTableColumnFlags_PreferSortAscending)  != 0 && (flags & ImGuiTableColumnFlags_NoSortAscending)  == 0) { mask |= 1 << ImGuiSortDirection_Ascending;  list |= ImGuiSortDirection_Ascending  << (count << 1); count++; }
-        if ((flags & ImGuiTableColumnFlags_PreferSortDescending) != 0 && (flags & ImGuiTableColumnFlags_NoSortDescending) == 0) { mask |= 1 << ImGuiSortDirection_Descending; list |= ImGuiSortDirection_Descending << (count << 1); count++; }
-        if ((flags & ImGuiTableColumnFlags_PreferSortAscending)  == 0 && (flags & ImGuiTableColumnFlags_NoSortAscending)  == 0) { mask |= 1 << ImGuiSortDirection_Ascending;  list |= ImGuiSortDirection_Ascending  << (count << 1); count++; }
-        if ((flags & ImGuiTableColumnFlags_PreferSortDescending) == 0 && (flags & ImGuiTableColumnFlags_NoSortDescending) == 0) { mask |= 1 << ImGuiSortDirection_Descending; list |= ImGuiSortDirection_Descending << (count << 1); count++; }
-        if ((table->Flags & ImGuiTableFlags_SortTristate) || count == 0) { mask |= 1 << ImGuiSortDirection_None; count++; }
+        if ((flags & ImGuiTableColumnFlags_PreferSortAscending)  != 0 && (flags & ImGuiTableColumnFlags_NoSortAscending)  == 0) {
+            mask |= 1 << ImGuiSortDirection_Ascending;
+            list |= ImGuiSortDirection_Ascending << (count << 1);
+            count++;
+        }
+        if ((flags & ImGuiTableColumnFlags_PreferSortDescending) != 0 && (flags & ImGuiTableColumnFlags_NoSortDescending) == 0) {
+            mask |= 1 << ImGuiSortDirection_Descending;
+            list |= ImGuiSortDirection_Descending << (count << 1);
+            count++;
+        }
+        if ((flags & ImGuiTableColumnFlags_PreferSortAscending)  == 0 && (flags & ImGuiTableColumnFlags_NoSortAscending)  == 0) {
+            mask |= 1 << ImGuiSortDirection_Ascending;
+            list |= ImGuiSortDirection_Ascending << (count << 1);
+            count++;
+        }
+        if ((flags & ImGuiTableColumnFlags_PreferSortDescending) == 0 && (flags & ImGuiTableColumnFlags_NoSortDescending) == 0) {
+            mask |= 1 << ImGuiSortDirection_Descending;
+            list |= ImGuiSortDirection_Descending << (count << 1);
+            count++;
+        }
+        if ((table->Flags & ImGuiTableFlags_SortTristate) || count == 0) {
+            mask |= 1 << ImGuiSortDirection_None;
+            count++;
+        }
         column->SortDirectionsAvailList = (ImU8)list;
         column->SortDirectionsAvailMask = (ImU8)mask;
         column->SortDirectionsAvailCount = (ImU8)count;
@@ -2712,8 +2727,9 @@ void ImGui::TableSortSpecsBuild(ImGuiTable* table)
     }
 
     // Write output
-    ImGuiTableColumnSortSpecs* sort_specs = (table->SortSpecsCount == 0) ? NULL : (table->SortSpecsCount == 1) ? &table->SortSpecsSingle : table->SortSpecsMulti.Data;
+    ImGuiTableColumnSortSpecs* sort_specs = (table->SortSpecsCount == 0) ? NULL : (table->SortSpecsCount == 1) ? &table->SortSpecsSingle : table->SortSpecsMulti.data();
     if (dirty && sort_specs != NULL)
+    {
         for (int column_n = 0; column_n < table->ColumnsCount; column_n++)
         {
             ImGuiTableColumn* column = &table->Columns[column_n];
@@ -2726,9 +2742,9 @@ void ImGui::TableSortSpecsBuild(ImGuiTable* table)
             sort_spec->SortOrder = (ImGuiTableColumnIdx)column->SortOrder;
             sort_spec->SortDirection = column->SortDirection;
         }
+    }
 
-    table->SortSpecs.Specs = sort_specs;
-    table->SortSpecs.SpecsCount = table->SortSpecsCount;
+    table->SortSpecs.Specs = { sort_specs, (size_t)table->SortSpecsCount };
 }
 
 //-------------------------------------------------------------------------

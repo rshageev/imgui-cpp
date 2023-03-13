@@ -3487,10 +3487,8 @@ struct MyItem
 
     static bool CompareWithSortSpecs(const ImGuiTableSortSpecs* sort_specs, const MyItem& lhs, const MyItem& rhs)
     {
-        for (int n = 0; n < sort_specs->SpecsCount; n++)
+        for (const auto& sort_spec : sort_specs->Specs)
         {
-            const auto& sort_spec = sort_specs->Specs[n];
-
             std::weak_ordering order;
             switch (sort_spec.ColumnUserID)
             {

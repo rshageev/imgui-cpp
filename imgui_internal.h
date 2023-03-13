@@ -2008,9 +2008,9 @@ struct ImGuiTable
     ImGuiID ID = 0;
     ImGuiTableFlags Flags = ImGuiTableFlags_None;
     ImGuiTableTempData* TempData = nullptr;             // Transient data while table is active. Point within g.CurrentTableStack[]
-    std::vector<ImGuiTableColumn> Columns;                // Point within RawData[]
-    std::vector<ImGuiTableColumnIdx> DisplayOrderToIndex; // Point within RawData[]. Store display order of columns (when not reordered, the values are 0...Count-1)
-    std::vector<ImGuiTableCellData> RowCellData;          // Point within RawData[]. Store cells background requests for current row.
+    std::vector<ImGuiTableColumn> Columns;
+    std::vector<ImGuiTableColumnIdx> DisplayOrderToIndex; // Store display order of columns (when not reordered, the values are 0...Count-1)
+    std::vector<ImGuiTableCellData> RowCellData;          // Store cells background requests for current row.
     std::vector<bool> EnabledMaskByDisplayOrder;        // Column DisplayOrder -> IsEnabled map
     std::vector<bool> EnabledMaskByIndex;               // Column Index -> IsEnabled map (== not hidden by user/api) in a format adequate for iterating column without touching cold data
     std::vector<bool> VisibleMaskByIndex;               // Column Index -> IsVisibleX|IsVisibleY map (== not hidden by user/api && not hidden by scrolling/cliprect)
@@ -2062,9 +2062,9 @@ struct ImGuiTable
     ImGuiWindow* InnerWindow = nullptr;                 // Window holding the table data (== OuterWindow or a child window)
     ImDrawListSplitter DrawSplitter;
     ImGuiTableInstanceData InstanceDataFirst;
-    ImVector<ImGuiTableInstanceData> InstanceDataExtra; // FIXME-OPT: Using a small-vector pattern would be good.
+    std::vector<ImGuiTableInstanceData> InstanceDataExtra; // FIXME-OPT: Using a small-vector pattern would be good.
     ImGuiTableColumnSortSpecs SortSpecsSingle;
-    ImVector<ImGuiTableColumnSortSpecs> SortSpecsMulti; // FIXME-OPT: Using a small-vector pattern would be good.
+    std::vector<ImGuiTableColumnSortSpecs> SortSpecsMulti; // FIXME-OPT: Using a small-vector pattern would be good.
     ImGuiTableSortSpecs SortSpecs;                      // Public facing sorts specs, this is what we return in TableGetSortSpecs()
     ImGuiTableColumnIdx SortSpecsCount = 0;
     ImGuiTableColumnIdx ColumnsEnabledCount = 0;        // Number of enabled columns (<= ColumnsCount)
@@ -2480,8 +2480,14 @@ namespace ImGui
     void          TableDrawContextMenu(ImGuiTable* table);
     bool          TableBeginContextMenuPopup(ImGuiTable* table);
     void          TableMergeDrawChannels(ImGuiTable* table);
-    inline ImGuiTableInstanceData* TableGetInstanceData(ImGuiTable* table, int instance_no) { if (instance_no == 0) return &table->InstanceDataFirst; return &table->InstanceDataExtra[instance_no - 1]; }
-    inline ImGuiID TableGetInstanceID(ImGuiTable* table, int instance_no)   { return TableGetInstanceData(table, instance_no)->TableInstanceID; }
+    inline ImGuiTableInstanceData* TableGetInstanceData(ImGuiTable* table, int instance_no) {
+       if (instance_no == 0)
+           return &table->InstanceDataFirst;
+       return &table->InstanceDataExtra[instance_no - 1];
+    }
+    inline ImGuiID TableGetInstanceID(ImGuiTable* table, int instance_no) {
+        return TableGetInstanceData(table, instance_no)->TableInstanceID;
+    }
     void          TableSortSpecsSanitize(ImGuiTable* table);
     void          TableSortSpecsBuild(ImGuiTable* table);
     ImGuiSortDirection TableGetColumnNextSortDirection(ImGuiTableColumn* column);
