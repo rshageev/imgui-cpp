@@ -2574,13 +2574,13 @@ struct ImFontAtlas
 struct ImFont
 {
     // Members: Hot ~20/24 bytes (for CalcTextSize)
-    ImVector<float> IndexAdvanceX;   // out //            // Sparse. Glyphs->AdvanceX in a directly indexable way (cache-friendly for CalcTextSize functions which only this this info, and are often bottleneck in large UI).
+    std::vector<float> IndexAdvanceX;   // out // Sparse. Glyphs->AdvanceX in a directly indexable way (cache-friendly for CalcTextSize functions which only this this info, and are often bottleneck in large UI).
     float FallbackAdvanceX = 0.0f;   // out // = FallbackGlyph->AdvanceX
-    float FontSize = 0.0f;           // in  //            // Height of characters/line, set during loading (don't change after loading)
+    float FontSize = 0.0f;           // in  // Height of characters/line, set during loading (don't change after loading)
 
     // Members: Hot ~28/40 bytes (for CalcTextSize + render loop)
-    ImVector<ImWchar>           IndexLookup;        // out //            // Sparse. Index glyphs by Unicode code-point.
-    ImVector<ImFontGlyph>       Glyphs;             // out //            // All glyphs.
+    std::vector<ImWchar> IndexLookup;        // out //            // Sparse. Index glyphs by Unicode code-point.
+    std::vector<ImFontGlyph> Glyphs;             // out //            // All glyphs.
     const ImFontGlyph* FallbackGlyph = nullptr;      // out // = FindGlyph(FontFallbackChar)
 
     // Members: Cold ~32/40 bytes
@@ -2605,7 +2605,7 @@ struct ImFont
     const ImFontGlyph* FindGlyph(ImWchar c) const;
     const ImFontGlyph* FindGlyphNoFallback(ImWchar c) const;
     float GetCharAdvance(ImWchar c) const {
-        return ((int)c < IndexAdvanceX.Size) ? IndexAdvanceX[(int)c] : FallbackAdvanceX;
+        return (c < IndexAdvanceX.size()) ? IndexAdvanceX[c] : FallbackAdvanceX;
     }
     bool IsLoaded() const {
         return ContainerAtlas != NULL;

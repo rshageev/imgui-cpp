@@ -2674,7 +2674,7 @@ ImFont::~ImFont()
     ClearOutputData();
 }
 
-void    ImFont::ClearOutputData()
+void ImFont::ClearOutputData()
 {
     FontSize = 0.0f;
     FallbackAdvanceX = 0.0f;
@@ -2704,15 +2704,15 @@ void ImFont::BuildLookupTable()
     }
 
     // Build lookup table
-    IM_ASSERT(Glyphs.Size < 0xFFFF); // -1 is reserved
+    IM_ASSERT(Glyphs.size() < 0xFFFF); // -1 is reserved
     IndexAdvanceX.clear();
     IndexLookup.clear();
     DirtyLookupTables = false;
     Used4kPagesMap.fill(0);
     GrowIndex(max_codepoint + 1);
-    for (int i = 0; i < Glyphs.Size; i++)
+    for (int i = 0; i < Glyphs.size(); i++)
     {
-        int codepoint = (int)Glyphs[i].Codepoint;
+        auto codepoint = Glyphs[i].Codepoint;
         IndexAdvanceX[codepoint] = Glyphs[i].AdvanceX;
         IndexLookup[codepoint] = (ImWchar)i;
 
@@ -2726,13 +2726,13 @@ void ImFont::BuildLookupTable()
     if (FindGlyph((ImWchar)' '))
     {
         if (Glyphs.back().Codepoint != '\t')   // So we can call this function multiple times (FIXME: Flaky)
-            Glyphs.resize(Glyphs.Size + 1);
+            Glyphs.emplace_back();
         ImFontGlyph& tab_glyph = Glyphs.back();
         tab_glyph = *FindGlyph((ImWchar)' ');
         tab_glyph.Codepoint = '\t';
         tab_glyph.AdvanceX *= IM_TABSIZE;
-        IndexAdvanceX[(int)tab_glyph.Codepoint] = (float)tab_glyph.AdvanceX;
-        IndexLookup[(int)tab_glyph.Codepoint] = (ImWchar)(Glyphs.Size - 1);
+        IndexAdvanceX[tab_glyph.Codepoint] = (float)tab_glyph.AdvanceX;
+        IndexLookup[tab_glyph.Codepoint] = (ImWchar)(Glyphs.size() - 1);
     }
 
     // Mark special glyphs as not visible (note that AddGlyph already mark as non-visible glyphs with zero-size polygons)
@@ -2796,17 +2796,18 @@ bool ImFont::IsGlyphRangeUnused(unsigned int c_begin, unsigned int c_last)
 
 void ImFont::SetGlyphVisible(ImWchar c, bool visible)
 {
-    if (ImFontGlyph* glyph = (ImFontGlyph*)(void*)FindGlyph((ImWchar)c))
+    if (ImFontGlyph* glyph = const_cast<ImFontGlyph*>(FindGlyph(c))) {
         glyph->Visible = visible ? 1 : 0;
+    }
 }
 
 void ImFont::GrowIndex(int new_size)
 {
-    IM_ASSERT(IndexAdvanceX.Size == IndexLookup.Size);
-    if (new_size <= IndexLookup.Size)
-        return;
-    IndexAdvanceX.resize(new_size, -1.0f);
-    IndexLookup.resize(new_size, (ImWchar)-1);
+    IM_ASSERT(IndexAdvanceX.size() == IndexLookup.size());
+    if (new_size > IndexLookup.size()) {
+        IndexAdvanceX.resize(new_size, -1.0f);
+        IndexLookup.resize(new_size, (ImWchar)-1);
+    }
 }
 
 // x0/y0/x1/y1 are offset from the character upper-left layout position, in pixels. Therefore x0/y0 are often fairly close to zero.
@@ -2834,8 +2835,7 @@ void ImFont::AddGlyph(const ImFontConfig* cfg, ImWchar codepoint, float x0, floa
         advance_x += cfg->GlyphExtraSpacing.x;
     }
 
-    Glyphs.resize(Glyphs.Size + 1);
-    ImFontGlyph& glyph = Glyphs.back();
+    ImFontGlyph& glyph = Glyphs.emplace_back();
     glyph.Codepoint = (unsigned int)codepoint;
     glyph.Visible = (x0 != x1) && (y0 != y1);
     glyph.Colored = false;
@@ -2858,37 +2858,33 @@ void ImFont::AddGlyph(const ImFontConfig* cfg, ImWchar codepoint, float x0, floa
 
 void ImFont::AddRemapChar(ImWchar dst, ImWchar src, bool overwrite_dst)
 {
-    IM_ASSERT(IndexLookup.Size > 0);    // Currently this can only be called AFTER the font has been built, aka after calling ImFontAtlas::GetTexDataAs*() function.
-    unsigned int index_size = (unsigned int)IndexLookup.Size;
+    IM_ASSERT(IndexLookup.size() > 0);    // Currently this can only be called AFTER the font has been built, aka after calling ImFontAtlas::GetTexDataAs*() function.
+    unsigned int index_size = (unsigned int)IndexLookup.size();
 
-    if (dst < index_size && IndexLookup.Data[dst] == (ImWchar)-1 && !overwrite_dst) // 'dst' already exists
+    if (dst < index_size && IndexLookup[dst] == (ImWchar)-1 && !overwrite_dst) // 'dst' already exists
         return;
     if (src >= index_size && dst >= index_size) // both 'dst' and 'src' don't exist -> no-op
         return;
 
     GrowIndex(dst + 1);
-    IndexLookup[dst] = (src < index_size) ? IndexLookup.Data[src] : (ImWchar)-1;
-    IndexAdvanceX[dst] = (src < index_size) ? IndexAdvanceX.Data[src] : 1.0f;
+    IndexLookup[dst] = (src < index_size) ? IndexLookup[src] : (ImWchar)-1;
+    IndexAdvanceX[dst] = (src < index_size) ? IndexAdvanceX[src] : 1.0f;
 }
 
 const ImFontGlyph* ImFont::FindGlyph(ImWchar c) const
 {
-    if (c >= (size_t)IndexLookup.Size)
-        return FallbackGlyph;
-    const ImWchar i = IndexLookup.Data[c];
-    if (i == (ImWchar)-1)
-        return FallbackGlyph;
-    return &Glyphs.Data[i];
+    auto glyph = FindGlyphNoFallback(c);
+    return glyph ? glyph : FallbackGlyph;
 }
 
 const ImFontGlyph* ImFont::FindGlyphNoFallback(ImWchar c) const
 {
-    if (c >= (size_t)IndexLookup.Size)
-        return NULL;
-    const ImWchar i = IndexLookup.Data[c];
+    if (c >= IndexLookup.size())
+        return nullptr;
+    const ImWchar i = IndexLookup[c];
     if (i == (ImWchar)-1)
-        return NULL;
-    return &Glyphs.Data[i];
+        return nullptr;
+    return &Glyphs[i];
 }
 
 // Wrapping skips upcoming blanks
@@ -2951,7 +2947,7 @@ const char* ImFont::CalcWordWrapPositionA(float scale, const char* text, const c
             }
         }
 
-        const float char_width = ((int)c < IndexAdvanceX.Size ? IndexAdvanceX.Data[c] : FallbackAdvanceX);
+        const float char_width = (c < IndexAdvanceX.size() ? IndexAdvanceX[c] : FallbackAdvanceX);
         if (ImCharIsBlankW(c))
         {
             if (inside_word)
@@ -3053,7 +3049,7 @@ ImVec2 ImFont::CalcTextSizeA(float size, float max_width, float wrap_width, cons
                 continue;
         }
 
-        const float char_width = ((int)c < IndexAdvanceX.Size ? IndexAdvanceX.Data[c] : FallbackAdvanceX) * scale;
+        const float char_width = (c < IndexAdvanceX.size() ? IndexAdvanceX[c] : FallbackAdvanceX) * scale;
         if (line_width + char_width >= max_width)
         {
             s = prev_s;

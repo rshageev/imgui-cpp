@@ -11544,7 +11544,7 @@ void ImGui::DebugNodeDrawCmdShowMeshAndBoundingBox(ImDrawList* out_draw_list, co
 void ImGui::DebugNodeFont(ImFont* font)
 {
     bool opened = TreeNode(font, "Font: \"%s\"\n%.2f px, %d glyphs, %d file(s)",
-        font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.Size, font->ConfigDataCount);
+        font->ConfigData ? font->ConfigData[0].Name : "", font->FontSize, font->Glyphs.size(), font->ConfigDataCount);
     SameLine();
     if (SmallButton("Set as default"))
         GetIO().FontDefault = font;
@@ -11570,14 +11570,17 @@ void ImGui::DebugNodeFont(ImFont* font)
     Text("Ellipsis character: '%s' (U+%04X)", ImTextCharToUtf8(font->EllipsisChar).c_str(), font->EllipsisChar);
     const int surface_sqrt = (int)std::sqrt((float)font->MetricsTotalSurface);
     Text("Texture Area: about %d px ~%dx%d px", font->MetricsTotalSurface, surface_sqrt, surface_sqrt);
-    for (int config_i = 0; config_i < font->ConfigDataCount; config_i++)
-        if (font->ConfigData)
-            if (const ImFontConfig* cfg = &font->ConfigData[config_i])
+    for (int config_i = 0; config_i < font->ConfigDataCount; config_i++) {
+        if (font->ConfigData) {
+            if (const ImFontConfig* cfg = &font->ConfigData[config_i]) {
                 BulletText("Input %d: \'%s\', Oversample: (%d,%d), PixelSnapH: %d, Offset: (%.1f,%.1f)",
                     config_i, cfg->Name, cfg->OversampleH, cfg->OversampleV, cfg->PixelSnapH, cfg->GlyphOffset.x, cfg->GlyphOffset.y);
+            }
+        }
+    }
 
     // Display all glyphs of the fonts in separate pages of 256 characters
-    if (TreeNode("Glyphs", "Glyphs (%d)", font->Glyphs.Size))
+    if (TreeNode("Glyphs", "Glyphs (%d)", font->Glyphs.size()))
     {
         ImDrawList* draw_list = GetWindowDrawList();
         const ImCol glyph_col = GetColor(ImGuiCol_Text);
