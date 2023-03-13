@@ -1782,7 +1782,7 @@ struct ImGuiWindow
     ImVec2 SetWindowPosVal = {FLT_MAX, FLT_MAX};    // store window position when using a non-zero Pivot (position set needs to be processed when we know the window size)
     ImVec2 SetWindowPosPivot = {FLT_MAX, FLT_MAX};  // store window pivot for positioning. ImVec2(0, 0) when positioning from top-left corner; ImVec2(0.5f, 0.5f) for centering; ImVec2(1, 1) for bottom right.
 
-    ImVector<ImGuiID> IDStack;  // ID stack. ID are hashes seeded with the value at the top of the stack. (In theory this should be in the TempData structure)
+    std::vector<ImGuiID> IDStack;  // ID stack. ID are hashes seeded with the value at the top of the stack. (In theory this should be in the TempData structure)
     ImGuiWindowTempData DC;     // Temporary per-window data, reset at the beginning of the frame. This used to be called ImGuiDrawContext, hence the "DC" variable name.
 
     // The best way to understand what those rectangles are is to use the 'Metrics->Tools->Show Windows Rectangles' viewer.
